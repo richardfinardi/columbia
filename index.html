@@ -42,6 +42,17 @@
     .field-input.pending-change { background:#fffbeb; border-color:#f59e0b; box-shadow:0 0 0 2px rgba(245,158,11,.08); font-weight:700; }
     .cell-change { background:#fffbeb !important; color:#92400e; font-weight:800; }
     .analysis-check { width:18px; height:18px; accent-color:#059669; cursor:pointer; }
+    .sortable-head { display:flex; align-items:center; gap:5px; width:100%; font:inherit; text-transform:inherit; letter-spacing:inherit; color:inherit; cursor:pointer; user-select:none; }
+    .sortable-head.justify-end { justify-content:flex-end; }
+    .sortable-head.justify-center { justify-content:center; }
+    .sort-indicator { font-size:9px; opacity:.55; min-width:10px; }
+    .sort-indicator.active { opacity:1; color:#003e7e; font-weight:900; }
+    .column-filter { width:100%; min-width:95px; max-width:220px; background:white; border:1px solid #cbd5e1; border-radius:8px; padding:5px 22px 5px 7px; font-size:9px; font-weight:700; color:#475569; text-transform:none; letter-spacing:0; outline:none; }
+    .column-filter:focus { border-color:#003e7e; box-shadow:0 0 0 2px rgba(0,62,126,.08); }
+    .filter-head-row th { padding:6px 6px 8px; background:#f8fafc; border-top:1px solid #e2e8f0; }
+    .clear-filters-btn { display:inline-flex; align-items:center; gap:6px; padding:8px 11px; border-radius:12px; border:1px solid #fecaca; background:#fff1f2; color:#b91c1c; font-size:11px; font-weight:800; transition:.15s; }
+    .clear-filters-btn:hover { background:#ffe4e6; }
+
   </style>
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-800">
@@ -60,11 +71,11 @@
 
       <div class="flex flex-wrap items-center gap-2">
         <div class="flex bg-columbia-800/70 border border-columbia-600 rounded-xl p-1">
-          <button id="btnViewComercial" onclick="setView('comercial')" class="px-3 py-1.5 rounded-lg bg-white text-columbia-800 text-[11px] font-extrabold flex items-center gap-1.5 shadow-sm">
-            <i data-lucide="chart-no-axes-combined" class="w-3.5 h-3.5"></i> Análise comercial
-          </button>
-          <button id="btnViewCadastro" onclick="setView('cadastro')" class="px-3 py-1.5 rounded-lg text-white text-[11px] font-extrabold flex items-center gap-1.5">
+          <button id="btnViewCadastro" onclick="setView('cadastro')" class="px-3 py-1.5 rounded-lg bg-white text-columbia-800 text-[11px] font-extrabold flex items-center gap-1.5 shadow-sm">
             <i data-lucide="clipboard-check" class="w-3.5 h-3.5"></i> Análise cadastral
+          </button>
+          <button id="btnViewComercial" onclick="setView('comercial')" class="px-3 py-1.5 rounded-lg text-white text-[11px] font-extrabold flex items-center gap-1.5">
+            <i data-lucide="chart-no-axes-combined" class="w-3.5 h-3.5"></i> Análise comercial
           </button>
         </div>
 
@@ -135,7 +146,7 @@
     </section>
 
     <!-- VIEW COMERCIAL -->
-    <div id="viewComercial" class="space-y-4">
+    <div id="viewComercial" class="hidden space-y-4">
       <section class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3">
         <div class="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm"><span class="text-[9px] uppercase font-extrabold text-slate-500">Clientes</span><div id="kpiClientes" class="text-xl sm:text-2xl font-black text-columbia-700 mt-1">0</div></div>
         <div class="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm"><span class="text-[9px] uppercase font-extrabold text-slate-500">Orçamentos feitos</span><div id="kpiOrcamentos" class="text-xl sm:text-2xl font-black text-slate-800 mt-1">0</div></div>
@@ -168,12 +179,44 @@
           <div class="flex flex-wrap gap-2 w-full md:w-auto">
             <div class="flex items-center gap-2 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 flex-1 md:w-80"><i data-lucide="search" class="w-4 h-4 text-slate-400"></i><input id="searchInput" oninput="renderTabelaComercial()" type="search" placeholder="Cliente, razão social, CNPJ, cidade..." class="w-full bg-transparent text-xs outline-none"></div>
             <select id="filtroMovimento" onchange="renderTabelaComercial()" class="bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold"><option value="todos">Todos</option><option value="faturados">Com faturamento</option><option value="sem_faturamento">Sem faturamento</option><option value="sem_aprovacao">Sem aprovação</option></select>
+            <button onclick="limparFiltrosTabela('commercial')" class="clear-filters-btn" title="Limpar busca e todos os filtros da tabela"><i data-lucide="filter-x" class="w-4 h-4"></i> Limpar filtros</button>
           </div>
         </div>
         <div id="loadingBox" class="hidden py-16 text-center text-slate-500"><div class="inline-flex items-center gap-2 text-xs font-bold"><i data-lucide="loader-circle" class="w-5 h-5 animate-spin"></i> Carregando clientes...</div></div>
         <div id="tableWrap" class="overflow-auto custom-scroll max-h-[65vh]">
           <table class="min-w-[1550px] w-full text-[11px]">
-            <thead class="bg-slate-100 sticky top-0 z-10 text-slate-600 uppercase tracking-wide"><tr><th class="text-left px-3 py-2.5">Cliente</th><th class="text-left px-3 py-2.5">Cidade/UF</th><th class="text-right px-3 py-2.5">Orç. feitos</th><th class="text-right px-3 py-2.5">Aprovados</th><th class="text-right px-3 py-2.5">Conv. qtde</th><th class="text-right px-3 py-2.5">Valor orçado</th><th class="text-right px-3 py-2.5">Valor aprovado</th><th class="text-right px-3 py-2.5">Conv. valor</th><th class="text-right px-3 py-2.5">NFs</th><th class="text-right px-3 py-2.5">Faturado</th><th class="text-center px-3 py-2.5">Últ. aprovação</th><th class="text-center px-3 py-2.5">Últ. NF</th><th class="text-center px-3 py-2.5">Cadastro</th></tr></thead>
+            <thead class="bg-slate-100 sticky top-0 z-10 text-slate-600 uppercase tracking-wide">
+              <tr>
+                <th class="text-left px-3 py-2.5"><button class="sortable-head" onclick="ordenarTabela('commercial','cliente')">Cliente <span class="sort-indicator" data-sort-table="commercial" data-sort-key="cliente">↕</span></button></th>
+                <th class="text-left px-3 py-2.5"><button class="sortable-head" onclick="ordenarTabela('commercial','cidade_uf')">Cidade/UF <span class="sort-indicator" data-sort-table="commercial" data-sort-key="cidade_uf">↕</span></button></th>
+                <th class="text-right px-3 py-2.5"><button class="sortable-head justify-end" onclick="ordenarTabela('commercial','qtde_orcamentos_feitos')">Orç. feitos <span class="sort-indicator" data-sort-table="commercial" data-sort-key="qtde_orcamentos_feitos">↕</span></button></th>
+                <th class="text-right px-3 py-2.5"><button class="sortable-head justify-end" onclick="ordenarTabela('commercial','qtde_orcamentos_aprovados')">Aprovados <span class="sort-indicator" data-sort-table="commercial" data-sort-key="qtde_orcamentos_aprovados">↕</span></button></th>
+                <th class="text-right px-3 py-2.5"><button class="sortable-head justify-end" onclick="ordenarTabela('commercial','perc_aprovacao_qtde')">Conv. qtde <span class="sort-indicator" data-sort-table="commercial" data-sort-key="perc_aprovacao_qtde">↕</span></button></th>
+                <th class="text-right px-3 py-2.5"><button class="sortable-head justify-end" onclick="ordenarTabela('commercial','valor_orcado')">Valor orçado <span class="sort-indicator" data-sort-table="commercial" data-sort-key="valor_orcado">↕</span></button></th>
+                <th class="text-right px-3 py-2.5"><button class="sortable-head justify-end" onclick="ordenarTabela('commercial','valor_aprovado')">Valor aprovado <span class="sort-indicator" data-sort-table="commercial" data-sort-key="valor_aprovado">↕</span></button></th>
+                <th class="text-right px-3 py-2.5"><button class="sortable-head justify-end" onclick="ordenarTabela('commercial','perc_aprovacao_valor')">Conv. valor <span class="sort-indicator" data-sort-table="commercial" data-sort-key="perc_aprovacao_valor">↕</span></button></th>
+                <th class="text-right px-3 py-2.5"><button class="sortable-head justify-end" onclick="ordenarTabela('commercial','qtde_notas_emitidas')">NFs <span class="sort-indicator" data-sort-table="commercial" data-sort-key="qtde_notas_emitidas">↕</span></button></th>
+                <th class="text-right px-3 py-2.5"><button class="sortable-head justify-end" onclick="ordenarTabela('commercial','valor_faturado')">Faturado <span class="sort-indicator" data-sort-table="commercial" data-sort-key="valor_faturado">↕</span></button></th>
+                <th class="text-center px-3 py-2.5"><button class="sortable-head justify-center" onclick="ordenarTabela('commercial','ultima_aprovacao')">Últ. aprovação <span class="sort-indicator" data-sort-table="commercial" data-sort-key="ultima_aprovacao">↕</span></button></th>
+                <th class="text-center px-3 py-2.5"><button class="sortable-head justify-center" onclick="ordenarTabela('commercial','ultima_nf')">Últ. NF <span class="sort-indicator" data-sort-table="commercial" data-sort-key="ultima_nf">↕</span></button></th>
+                <th class="text-center px-3 py-2.5"><button class="sortable-head justify-center" onclick="ordenarTabela('commercial','cadastro')">Cadastro <span class="sort-indicator" data-sort-table="commercial" data-sort-key="cadastro">↕</span></button></th>
+              </tr>
+              <tr class="filter-head-row">
+                <th><select id="comFilter_cliente" class="column-filter" onchange="alterarFiltroColuna('commercial','cliente',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="comFilter_cidade_uf" class="column-filter" onchange="alterarFiltroColuna('commercial','cidade_uf',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="comFilter_qtde_orcamentos_feitos" class="column-filter" onchange="alterarFiltroColuna('commercial','qtde_orcamentos_feitos',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="comFilter_qtde_orcamentos_aprovados" class="column-filter" onchange="alterarFiltroColuna('commercial','qtde_orcamentos_aprovados',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="comFilter_perc_aprovacao_qtde" class="column-filter" onchange="alterarFiltroColuna('commercial','perc_aprovacao_qtde',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="comFilter_valor_orcado" class="column-filter" onchange="alterarFiltroColuna('commercial','valor_orcado',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="comFilter_valor_aprovado" class="column-filter" onchange="alterarFiltroColuna('commercial','valor_aprovado',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="comFilter_perc_aprovacao_valor" class="column-filter" onchange="alterarFiltroColuna('commercial','perc_aprovacao_valor',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="comFilter_qtde_notas_emitidas" class="column-filter" onchange="alterarFiltroColuna('commercial','qtde_notas_emitidas',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="comFilter_valor_faturado" class="column-filter" onchange="alterarFiltroColuna('commercial','valor_faturado',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="comFilter_ultima_aprovacao" class="column-filter" onchange="alterarFiltroColuna('commercial','ultima_aprovacao',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="comFilter_ultima_nf" class="column-filter" onchange="alterarFiltroColuna('commercial','ultima_nf',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="comFilter_cadastro" class="column-filter" onchange="alterarFiltroColuna('commercial','cadastro',this.value)"><option value="">Todos</option></select></th>
+              </tr>
+            </thead>
             <tbody id="clientesBody" class="divide-y divide-slate-100"></tbody>
           </table>
         </div>
@@ -181,7 +224,7 @@
     </div>
 
     <!-- VIEW CADASTRAL -->
-    <div id="viewCadastro" class="hidden space-y-4">
+    <div id="viewCadastro" class="space-y-4">
       <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <div class="flex items-center gap-2"><i data-lucide="clipboard-check" class="w-5 h-5 text-columbia-700"></i><h2 class="text-base font-black text-slate-800">Análise cadastral</h2></div>
@@ -203,6 +246,7 @@
           <div class="flex flex-wrap gap-2 w-full md:w-auto">
             <div class="flex items-center gap-2 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 flex-1 md:w-80"><i data-lucide="search" class="w-4 h-4 text-slate-400"></i><input id="cadSearchInput" oninput="renderCadastro()" type="search" placeholder="Cliente, CNPJ, cidade, endereço..." class="w-full bg-transparent text-xs outline-none"></div>
             <select id="cadFiltroStatus" onchange="renderCadastro()" class="bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold"><option value="todos">Todos</option><option value="pendentes">Não analisados</option><option value="analisados">Analisados</option><option value="alterados">Com alteração</option><option value="sem_alteracao">Sem alteração</option></select>
+            <button onclick="limparFiltrosTabela('cadastro')" class="clear-filters-btn" title="Limpar busca e todos os filtros da tabela"><i data-lucide="filter-x" class="w-4 h-4"></i> Limpar filtros</button>
           </div>
         </div>
 
@@ -210,19 +254,34 @@
           <table class="min-w-[1900px] w-full text-[11px]">
             <thead class="bg-slate-100 sticky top-0 z-10 text-slate-600 uppercase tracking-wide">
               <tr>
-                <th class="text-center px-3 py-2.5 w-24">Analisado</th>
-                <th class="text-left px-3 py-2.5">Cliente</th>
-                <th class="text-left px-3 py-2.5">CNPJ / RG-CGC</th>
-                <th class="text-left px-3 py-2.5">IE / CPF</th>
-                <th class="text-left px-3 py-2.5">Contribuinte ICMS</th>
-                <th class="text-left px-3 py-2.5">Consumidor final</th>
-                <th class="text-left px-3 py-2.5">Logradouro / Número</th>
-                <th class="text-left px-3 py-2.5">Bairro</th>
-                <th class="text-left px-3 py-2.5">Cidade / UF</th>
-                <th class="text-left px-3 py-2.5">CEP</th>
-                <th class="text-center px-3 py-2.5">Compra / NF</th>
-                <th class="text-center px-3 py-2.5">Situação</th>
+                <th class="text-center px-3 py-2.5 w-24"><button class="sortable-head justify-center" onclick="ordenarTabela('cadastro','analisado')">Analisado <span class="sort-indicator" data-sort-table="cadastro" data-sort-key="analisado">↕</span></button></th>
+                <th class="text-left px-3 py-2.5"><button class="sortable-head" onclick="ordenarTabela('cadastro','cliente')">Cliente <span class="sort-indicator" data-sort-table="cadastro" data-sort-key="cliente">↕</span></button></th>
+                <th class="text-left px-3 py-2.5"><button class="sortable-head" onclick="ordenarTabela('cadastro','cnpj')">CNPJ / RG-CGC <span class="sort-indicator" data-sort-table="cadastro" data-sort-key="cnpj">↕</span></button></th>
+                <th class="text-left px-3 py-2.5"><button class="sortable-head" onclick="ordenarTabela('cadastro','ie')">IE / CPF <span class="sort-indicator" data-sort-table="cadastro" data-sort-key="ie">↕</span></button></th>
+                <th class="text-left px-3 py-2.5"><button class="sortable-head" onclick="ordenarTabela('cadastro','ind_ie_dest')">Contribuinte ICMS <span class="sort-indicator" data-sort-table="cadastro" data-sort-key="ind_ie_dest">↕</span></button></th>
+                <th class="text-left px-3 py-2.5"><button class="sortable-head" onclick="ordenarTabela('cadastro','indfinal_b25a')">Consumidor final <span class="sort-indicator" data-sort-table="cadastro" data-sort-key="indfinal_b25a">↕</span></button></th>
+                <th class="text-left px-3 py-2.5"><button class="sortable-head" onclick="ordenarTabela('cadastro','endereco_numero')">Logradouro / Número <span class="sort-indicator" data-sort-table="cadastro" data-sort-key="endereco_numero">↕</span></button></th>
+                <th class="text-left px-3 py-2.5"><button class="sortable-head" onclick="ordenarTabela('cadastro','bairro')">Bairro <span class="sort-indicator" data-sort-table="cadastro" data-sort-key="bairro">↕</span></button></th>
+                <th class="text-left px-3 py-2.5"><button class="sortable-head" onclick="ordenarTabela('cadastro','cidade_uf')">Cidade / UF <span class="sort-indicator" data-sort-table="cadastro" data-sort-key="cidade_uf">↕</span></button></th>
+                <th class="text-left px-3 py-2.5"><button class="sortable-head" onclick="ordenarTabela('cadastro','cep')">CEP <span class="sort-indicator" data-sort-table="cadastro" data-sort-key="cep">↕</span></button></th>
+                <th class="text-center px-3 py-2.5"><button class="sortable-head justify-center" onclick="ordenarTabela('cadastro','movimento')">Compra / NF <span class="sort-indicator" data-sort-table="cadastro" data-sort-key="movimento">↕</span></button></th>
+                <th class="text-center px-3 py-2.5"><button class="sortable-head justify-center" onclick="ordenarTabela('cadastro','situacao')">Situação <span class="sort-indicator" data-sort-table="cadastro" data-sort-key="situacao">↕</span></button></th>
                 <th class="text-center px-3 py-2.5">Ação</th>
+              </tr>
+              <tr class="filter-head-row">
+                <th><select id="cadColFilter_analisado" class="column-filter" onchange="alterarFiltroColuna('cadastro','analisado',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="cadColFilter_cliente" class="column-filter" onchange="alterarFiltroColuna('cadastro','cliente',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="cadColFilter_cnpj" class="column-filter" onchange="alterarFiltroColuna('cadastro','cnpj',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="cadColFilter_ie" class="column-filter" onchange="alterarFiltroColuna('cadastro','ie',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="cadColFilter_ind_ie_dest" class="column-filter" onchange="alterarFiltroColuna('cadastro','ind_ie_dest',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="cadColFilter_indfinal_b25a" class="column-filter" onchange="alterarFiltroColuna('cadastro','indfinal_b25a',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="cadColFilter_endereco_numero" class="column-filter" onchange="alterarFiltroColuna('cadastro','endereco_numero',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="cadColFilter_bairro" class="column-filter" onchange="alterarFiltroColuna('cadastro','bairro',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="cadColFilter_cidade_uf" class="column-filter" onchange="alterarFiltroColuna('cadastro','cidade_uf',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="cadColFilter_cep" class="column-filter" onchange="alterarFiltroColuna('cadastro','cep',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="cadColFilter_movimento" class="column-filter" onchange="alterarFiltroColuna('cadastro','movimento',this.value)"><option value="">Todos</option></select></th>
+                <th><select id="cadColFilter_situacao" class="column-filter" onchange="alterarFiltroColuna('cadastro','situacao',this.value)"><option value="">Todos</option></select></th>
+                <th class="text-center text-[9px] text-slate-400 normal-case">—</th>
               </tr>
             </thead>
             <tbody id="cadastroBody" class="divide-y divide-slate-100"></tbody>
@@ -305,7 +364,11 @@
   let faturamentoChart = null;
   let clienteEditando = null;
   let valoresModalIniciais = null;
-  let viewAtual = 'comercial';
+  let viewAtual = 'cadastro';
+  let filtrosColunaComercial = {};
+  let filtrosColunaCadastro = {};
+  let ordenacaoComercial = { key: 'cliente', dir: 'asc' };
+  let ordenacaoCadastro = { key: 'cliente', dir: 'asc' };
 
   document.addEventListener('DOMContentLoaded', () => {
     const hoje = new Date();
@@ -315,6 +378,7 @@
     document.getElementById('dtFim').value = hoje.toISOString().slice(0, 10);
     document.getElementById('userDisplay').textContent = localStorage.getItem(USER_KEY) || 'Usuário';
     document.getElementById('editForm').addEventListener('submit', enviarAlteracao);
+    setView('cadastro');
     lucide.createIcons();
     consultarDados();
   });
@@ -432,15 +496,64 @@
     faturamentoChart=new Chart(document.getElementById('chartFaturamento'),{type:'bar',data:{labels:top.map(x=>abreviar(x.nome||x.razao_social||`Cliente ${x.cod_cliente}`,28)),datasets:[{label:'Faturamento',data:top.map(x=>num(x.valor_faturado)),backgroundColor:'#1d72b8',borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtBRL(c.raw)}}},scales:{x:{ticks:{callback:v=>compactBRL(v),font:{size:10}},grid:{color:'#e2e8f0'}},y:{ticks:{font:{size:10}},grid:{display:false}}}}});
   }
 
-  function getFilteredData() {
-    const busca=document.getElementById('searchInput').value.trim().toLowerCase(), movimento=document.getElementById('filtroMovimento').value;
-    return rawData.filter(item=>{ const texto=[item.nome,item.razao_social,item.cnpj,item.ie,item.cidade,item.uf,item.cod_cliente].map(v=>String(v??'').toLowerCase()).join(' '); if(busca&&!texto.includes(busca))return false; if(movimento==='faturados'&&num(item.valor_faturado)<=0)return false; if(movimento==='sem_faturamento'&&num(item.valor_faturado)>0)return false; if(movimento==='sem_aprovacao'&&num(item.qtde_orcamentos_aprovados)>0)return false; return true; });
+  const COMERCIAL_COLUNAS = {
+    cliente: { id:'comFilter_cliente', valor:i=>String(i.nome||i.razao_social||`Cliente ${i.cod_cliente}`), label:i=>String(i.nome||i.razao_social||`Cliente ${i.cod_cliente}`), sort:i=>String(i.nome||i.razao_social||'') },
+    cidade_uf: { id:'comFilter_cidade_uf', valor:i=>`${i.cidade||''} / ${i.uf||''}`.trim(), label:i=>`${i.cidade||'-'}${i.uf?` / ${i.uf}`:''}`, sort:i=>`${i.cidade||''} ${i.uf||''}` },
+    qtde_orcamentos_feitos: { id:'comFilter_qtde_orcamentos_feitos', valor:i=>String(num(i.qtde_orcamentos_feitos)), label:i=>fmtInt(num(i.qtde_orcamentos_feitos)), sort:i=>num(i.qtde_orcamentos_feitos) },
+    qtde_orcamentos_aprovados: { id:'comFilter_qtde_orcamentos_aprovados', valor:i=>String(num(i.qtde_orcamentos_aprovados)), label:i=>fmtInt(num(i.qtde_orcamentos_aprovados)), sort:i=>num(i.qtde_orcamentos_aprovados) },
+    perc_aprovacao_qtde: { id:'comFilter_perc_aprovacao_qtde', valor:i=>String(num(i.perc_aprovacao_qtde)), label:i=>fmtPct(num(i.perc_aprovacao_qtde)), sort:i=>num(i.perc_aprovacao_qtde) },
+    valor_orcado: { id:'comFilter_valor_orcado', valor:i=>String(num(i.valor_orcado)), label:i=>fmtBRL(num(i.valor_orcado)), sort:i=>num(i.valor_orcado) },
+    valor_aprovado: { id:'comFilter_valor_aprovado', valor:i=>String(num(i.valor_aprovado)), label:i=>fmtBRL(num(i.valor_aprovado)), sort:i=>num(i.valor_aprovado) },
+    perc_aprovacao_valor: { id:'comFilter_perc_aprovacao_valor', valor:i=>String(num(i.perc_aprovacao_valor)), label:i=>fmtPct(num(i.perc_aprovacao_valor)), sort:i=>num(i.perc_aprovacao_valor) },
+    qtde_notas_emitidas: { id:'comFilter_qtde_notas_emitidas', valor:i=>String(num(i.qtde_notas_emitidas)), label:i=>fmtInt(num(i.qtde_notas_emitidas)), sort:i=>num(i.qtde_notas_emitidas) },
+    valor_faturado: { id:'comFilter_valor_faturado', valor:i=>String(num(i.valor_faturado)), label:i=>fmtBRL(num(i.valor_faturado)), sort:i=>num(i.valor_faturado) },
+    ultima_aprovacao: { id:'comFilter_ultima_aprovacao', valor:i=>String(i.ultima_aprovacao||''), label:i=>formatDate(i.ultima_aprovacao), sort:i=>dataSort(i.ultima_aprovacao) },
+    ultima_nf: { id:'comFilter_ultima_nf', valor:i=>String(i.ultima_nf||''), label:i=>formatDate(i.ultima_nf), sort:i=>dataSort(i.ultima_nf) },
+    cadastro: { id:'comFilter_cadastro', valor:i=>getAlteracao(i)?'Alteração pendente':'Sem alteração', label:i=>getAlteracao(i)?'Alteração pendente':'Sem alteração', sort:i=>getAlteracao(i)?1:0 }
+  };
+
+  const CADASTRO_COLUNAS = {
+    analisado: { id:'cadColFilter_analisado', valor:i=>estaAnalisado(i)?'Sim':'Não', label:i=>estaAnalisado(i)?'Sim':'Não', sort:i=>estaAnalisado(i)?1:0 },
+    cliente: { id:'cadColFilter_cliente', valor:i=>String(valorEfetivo(i,'nome')||valorEfetivo(i,'razao_social')||`Cliente ${i.cod_cliente}`), label:i=>String(valorEfetivo(i,'nome')||valorEfetivo(i,'razao_social')||`Cliente ${i.cod_cliente}`), sort:i=>String(valorEfetivo(i,'nome')||valorEfetivo(i,'razao_social')||'') },
+    cnpj: { id:'cadColFilter_cnpj', valor:i=>String(valorEfetivo(i,'cnpj')||''), label:i=>String(valorEfetivo(i,'cnpj')||'Sem CNPJ'), sort:i=>String(valorEfetivo(i,'cnpj')||'') },
+    ie: { id:'cadColFilter_ie', valor:i=>String(valorEfetivo(i,'ie')||''), label:i=>String(valorEfetivo(i,'ie')||'Sem IE/CPF'), sort:i=>String(valorEfetivo(i,'ie')||'') },
+    ind_ie_dest: { id:'cadColFilter_ind_ie_dest', valor:i=>rotuloIe(valorEfetivo(i,'ind_ie_dest')), label:i=>rotuloIe(valorEfetivo(i,'ind_ie_dest')), sort:i=>rotuloIe(valorEfetivo(i,'ind_ie_dest')) },
+    indfinal_b25a: { id:'cadColFilter_indfinal_b25a', valor:i=>rotuloConsumidor(valorEfetivo(i,'indfinal_b25a')), label:i=>rotuloConsumidor(valorEfetivo(i,'indfinal_b25a')), sort:i=>Number(valorEfetivo(i,'indfinal_b25a')||0) },
+    endereco_numero: { id:'cadColFilter_endereco_numero', valor:i=>enderecoEfetivo(i), label:i=>enderecoEfetivo(i)||'Sem endereço', sort:i=>enderecoEfetivo(i) },
+    bairro: { id:'cadColFilter_bairro', valor:i=>String(valorEfetivo(i,'bairro')||''), label:i=>String(valorEfetivo(i,'bairro')||'Sem bairro'), sort:i=>String(valorEfetivo(i,'bairro')||'') },
+    cidade_uf: { id:'cadColFilter_cidade_uf', valor:i=>cidadeUfEfetiva(i), label:i=>cidadeUfEfetiva(i)||'Sem cidade/UF', sort:i=>cidadeUfEfetiva(i) },
+    cep: { id:'cadColFilter_cep', valor:i=>String(valorEfetivo(i,'cep')||''), label:i=>String(valorEfetivo(i,'cep')||'Sem CEP'), sort:i=>String(valorEfetivo(i,'cep')||'') },
+    movimento: { id:'cadColFilter_movimento', valor:i=>tipoMovimentoCadastro(i), label:i=>tipoMovimentoCadastro(i), sort:i=>num(i.qtde_orcamentos_aprovados)+num(i.qtde_notas_emitidas) },
+    situacao: { id:'cadColFilter_situacao', valor:i=>situacaoCadastro(i), label:i=>situacaoCadastro(i), sort:i=>situacaoCadastro(i) }
+  };
+
+  function enderecoEfetivo(item) {
+    const end=valorEfetivo(item,'endereco')||'', numero=valorEfetivo(item,'numero_imovel')||'';
+    return `${end}${numero?`, ${numero}`:''}`.trim();
   }
 
-  function renderTabelaComercial() {
-    const dados=getFilteredData(), tbody=document.getElementById('clientesBody'); document.getElementById('tableCount').textContent=`${fmtInt(dados.length)} registro${dados.length===1?'':'s'}`;
-    if(!dados.length){tbody.innerHTML='<tr><td colspan="13" class="py-12 text-center text-slate-400 font-bold">Nenhum cliente encontrado para os filtros selecionados.</td></tr>';return;}
-    tbody.innerHTML=dados.map(item=>{ const convQtd=num(item.perc_aprovacao_qtde),convVal=num(item.perc_aprovacao_valor), alt=getAlteracao(item), temAlt=!!alt; return `<tr class="hover:bg-slate-50 transition"><td class="px-3 py-2.5 max-w-[260px]"><div class="font-extrabold text-slate-800 truncate" title="${esc(item.nome)}">${esc(item.nome||'-')}</div><div class="text-[9px] text-slate-500 truncate">${esc(item.razao_social||'')}</div><div class="text-[9px] text-slate-400">Cód. ${esc(item.cod_cliente)} · ${esc(item.cnpj||'sem CNPJ')}</div></td><td class="px-3 py-2.5"><div class="font-bold">${esc(item.cidade||'-')}</div><div class="text-slate-500">${esc(item.uf||'')}</div></td><td class="px-3 py-2.5 text-right font-bold">${fmtInt(num(item.qtde_orcamentos_feitos))}</td><td class="px-3 py-2.5 text-right font-bold text-emerald-700">${fmtInt(num(item.qtde_orcamentos_aprovados))}</td><td class="px-3 py-2.5 text-right"><span class="${badgePct(convQtd)}">${fmtPct(convQtd)}</span></td><td class="px-3 py-2.5 text-right font-mono">${fmtBRL(num(item.valor_orcado))}</td><td class="px-3 py-2.5 text-right font-mono font-bold">${fmtBRL(num(item.valor_aprovado))}</td><td class="px-3 py-2.5 text-right"><span class="${badgePct(convVal)}">${fmtPct(convVal)}</span></td><td class="px-3 py-2.5 text-right font-bold">${fmtInt(num(item.qtde_notas_emitidas))}</td><td class="px-3 py-2.5 text-right font-mono font-extrabold text-columbia-700">${fmtBRL(num(item.valor_faturado))}</td><td class="px-3 py-2.5 text-center">${formatDate(item.ultima_aprovacao)}</td><td class="px-3 py-2.5 text-center">${formatDate(item.ultima_nf)}</td><td class="px-3 py-2.5 text-center"><button onclick="abrirEdicao(${Number(item.cod_empresa||1)},${Number(item.cod_cliente)})" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg ${temAlt?'bg-amber-50 border-amber-300 text-amber-800':'bg-columbia-50 border-columbia-100 text-columbia-700'} border hover:opacity-80 font-extrabold"><i data-lucide="${temAlt?'file-pen-line':'pencil'}" class="w-3.5 h-3.5"></i>${temAlt?'Alteração pendente':'Editar'}</button></td></tr>`; }).join(''); lucide.createIcons();
+  function cidadeUfEfetiva(item) {
+    const cidade=valorEfetivo(item,'cidade')||'', uf=valorEfetivo(item,'uf')||'';
+    return `${cidade}${uf?` / ${uf}`:''}`.trim();
+  }
+
+  function tipoMovimentoCadastro(item) {
+    const compra=num(item.qtde_orcamentos_aprovados)>0, nf=num(item.qtde_notas_emitidas)>0;
+    if(compra && nf) return 'Compra e NF';
+    if(compra) return 'Somente compra';
+    if(nf) return 'Somente NF';
+    return 'Sem movimento';
+  }
+
+  function situacaoCadastro(item) {
+    if(getAlteracao(item)) return 'Alteração pendente';
+    if(estaAnalisado(item)) return 'Analisado';
+    return 'Pendente';
+  }
+
+  function getFilteredDataBase() {
+    const busca=document.getElementById('searchInput').value.trim().toLowerCase(), movimento=document.getElementById('filtroMovimento').value;
+    return rawData.filter(item=>{ const texto=[item.nome,item.razao_social,item.cnpj,item.ie,item.cidade,item.uf,item.cod_cliente].map(v=>String(v??'').toLowerCase()).join(' '); if(busca&&!texto.includes(busca))return false; if(movimento==='faturados'&&num(item.valor_faturado)<=0)return false; if(movimento==='sem_faturamento'&&num(item.valor_faturado)>0)return false; if(movimento==='sem_aprovacao'&&num(item.qtde_orcamentos_aprovados)>0)return false; return true; });
   }
 
   function clientesCadastroPeriodo() { return rawData.filter(x=>num(x.qtde_orcamentos_aprovados)>0 || num(x.qtde_notas_emitidas)>0); }
@@ -459,16 +572,110 @@
   function rotuloConsumidor(v) { return Number(v||0)===1?'Sim':'Não'; }
   function celulaCad(item,campo,valor,extra='') { const changed=camposAlterados(getAlteracao(item)).has(campo); return `<td class="px-3 py-2.5 ${changed?'cell-change':''} ${extra}">${esc(valor??'')}</td>`; }
 
-  function renderCadastro() {
+  function getCadastroDataBase() {
     let dados=clientesCadastroPeriodo();
     const busca=(document.getElementById('cadSearchInput')?.value||'').trim().toLowerCase(), filtro=document.getElementById('cadFiltroStatus')?.value||'todos';
-    dados=dados.filter(item=>{ const alt=getAlteracao(item), analisado=estaAnalisado(item), efetivos=['nome','razao_social','cnpj','ie','endereco','numero_imovel','bairro','cidade','uf','cep'].map(c=>valorEfetivo(item,c)); const texto=[item.cod_cliente,...efetivos].join(' ').toLowerCase(); if(busca&&!texto.includes(busca))return false; if(filtro==='pendentes'&&analisado)return false; if(filtro==='analisados'&&!analisado)return false; if(filtro==='alterados'&&!alt)return false; if(filtro==='sem_alteracao'&&alt)return false; return true; });
+    return dados.filter(item=>{ const alt=getAlteracao(item), analisado=estaAnalisado(item), efetivos=['nome','razao_social','cnpj','ie','endereco','numero_imovel','bairro','cidade','uf','cep'].map(c=>valorEfetivo(item,c)); const texto=[item.cod_cliente,...efetivos].join(' ').toLowerCase(); if(busca&&!texto.includes(busca))return false; if(filtro==='pendentes'&&analisado)return false; if(filtro==='analisados'&&!analisado)return false; if(filtro==='alterados'&&!alt)return false; if(filtro==='sem_alteracao'&&alt)return false; return true; });
+  }
 
+  function configsTabela(tabela) { return tabela==='commercial'?COMERCIAL_COLUNAS:CADASTRO_COLUNAS; }
+  function filtrosTabela(tabela) { return tabela==='commercial'?filtrosColunaComercial:filtrosColunaCadastro; }
+  function baseTabela(tabela) { return tabela==='commercial'?getFilteredDataBase():getCadastroDataBase(); }
+  function valorFiltro(cfg,item) { const v=String(cfg.valor(item)??''); return v===''?'__VAZIO__':v; }
+
+  function aplicarFiltrosColuna(rows,tabela,ignorarKey=null) {
+    const cfgs=configsTabela(tabela), filtros=filtrosTabela(tabela);
+    return rows.filter(item=>Object.entries(filtros).every(([key,valor])=>{
+      if(!valor || key===ignorarKey || !cfgs[key]) return true;
+      return valorFiltro(cfgs[key],item)===String(valor);
+    }));
+  }
+
+  function atualizarOpcoesFiltros(tabela,baseRows) {
+    const cfgs=configsTabela(tabela), filtros=filtrosTabela(tabela);
+    Object.entries(cfgs).forEach(([key,cfg])=>{
+      const select=document.getElementById(cfg.id); if(!select)return;
+      const selecionado=String(filtros[key]||'');
+      const rowsContexto=aplicarFiltrosColuna(baseRows,tabela,key);
+      const mapa=new Map();
+      rowsContexto.forEach(item=>{
+        const valor=valorFiltro(cfg,item);
+        const label=String(cfg.label(item));
+        if(!mapa.has(valor)) mapa.set(valor,{label,count:0,sort:cfg.sort(item)});
+        mapa.get(valor).count++;
+      });
+      if(selecionado && !mapa.has(selecionado)) mapa.set(selecionado,{label:selecionado,count:0,sort:selecionado});
+      const opcoes=[...mapa.entries()].sort((a,b)=>compararValores(a[1].sort,b[1].sort));
+      select.innerHTML='<option value="">Todos</option>'+opcoes.map(([valor,info])=>`<option value="${escAttr(valor)}" ${valor===selecionado?'selected':''}>${esc(info.label)} (${info.count})</option>`).join('');
+    });
+  }
+
+  function alterarFiltroColuna(tabela,key,valor) {
+    const filtros=filtrosTabela(tabela);
+    if(valor==='') delete filtros[key]; else filtros[key]=valor;
+    if(tabela==='commercial') renderTabelaComercial(); else renderCadastro();
+  }
+
+  function limparFiltrosTabela(tabela) {
+    if(tabela==='commercial') {
+      filtrosColunaComercial={};
+      document.getElementById('searchInput').value='';
+      document.getElementById('filtroMovimento').value='todos';
+      renderTabelaComercial();
+    } else {
+      filtrosColunaCadastro={};
+      document.getElementById('cadSearchInput').value='';
+      document.getElementById('cadFiltroStatus').value='todos';
+      renderCadastro();
+    }
+  }
+
+  function ordenarTabela(tabela,key) {
+    const state=tabela==='commercial'?ordenacaoComercial:ordenacaoCadastro;
+    if(state.key===key) state.dir=state.dir==='asc'?'desc':'asc'; else { state.key=key; state.dir='asc'; }
+    if(tabela==='commercial') renderTabelaComercial(); else renderCadastro();
+  }
+
+  function ordenarRows(rows,tabela) {
+    const state=tabela==='commercial'?ordenacaoComercial:ordenacaoCadastro, cfg=configsTabela(tabela)[state.key];
+    if(!cfg)return rows;
+    return [...rows].sort((a,b)=>compararValores(cfg.sort(a),cfg.sort(b))*(state.dir==='desc'?-1:1));
+  }
+
+  function compararValores(a,b) {
+    const va=a??'', vb=b??'';
+    if(typeof va==='number' && typeof vb==='number') return va-vb;
+    return String(va).localeCompare(String(vb),'pt-BR',{numeric:true,sensitivity:'base'});
+  }
+
+  function atualizarIndicadoresOrdenacao(tabela) {
+    const state=tabela==='commercial'?ordenacaoComercial:ordenacaoCadastro;
+    document.querySelectorAll(`[data-sort-table="${tabela}"]`).forEach(el=>{
+      const ativo=el.dataset.sortKey===state.key;
+      el.textContent=ativo?(state.dir==='asc'?'▲':'▼'):'↕';
+      el.classList.toggle('active',ativo);
+    });
+  }
+
+  function renderTabelaComercial() {
+    const base=getFilteredDataBase();
+    atualizarOpcoesFiltros('commercial',base);
+    const dados=ordenarRows(aplicarFiltrosColuna(base,'commercial'),'commercial'), tbody=document.getElementById('clientesBody');
+    document.getElementById('tableCount').textContent=`${fmtInt(dados.length)} registro${dados.length===1?'':'s'}`;
+    atualizarIndicadoresOrdenacao('commercial');
+    if(!dados.length){tbody.innerHTML='<tr><td colspan="13" class="py-12 text-center text-slate-400 font-bold">Nenhum cliente encontrado para os filtros selecionados.</td></tr>';return;}
+    tbody.innerHTML=dados.map(item=>{ const convQtd=num(item.perc_aprovacao_qtde),convVal=num(item.perc_aprovacao_valor), alt=getAlteracao(item), temAlt=!!alt; return `<tr class="hover:bg-slate-50 transition"><td class="px-3 py-2.5 max-w-[260px]"><div class="font-extrabold text-slate-800 truncate" title="${esc(item.nome)}">${esc(item.nome||'-')}</div><div class="text-[9px] text-slate-500 truncate">${esc(item.razao_social||'')}</div><div class="text-[9px] text-slate-400">Cód. ${esc(item.cod_cliente)} · ${esc(item.cnpj||'sem CNPJ')}</div></td><td class="px-3 py-2.5"><div class="font-bold">${esc(item.cidade||'-')}</div><div class="text-slate-500">${esc(item.uf||'')}</div></td><td class="px-3 py-2.5 text-right font-bold">${fmtInt(num(item.qtde_orcamentos_feitos))}</td><td class="px-3 py-2.5 text-right font-bold text-emerald-700">${fmtInt(num(item.qtde_orcamentos_aprovados))}</td><td class="px-3 py-2.5 text-right"><span class="${badgePct(convQtd)}">${fmtPct(convQtd)}</span></td><td class="px-3 py-2.5 text-right font-mono">${fmtBRL(num(item.valor_orcado))}</td><td class="px-3 py-2.5 text-right font-mono font-bold">${fmtBRL(num(item.valor_aprovado))}</td><td class="px-3 py-2.5 text-right"><span class="${badgePct(convVal)}">${fmtPct(convVal)}</span></td><td class="px-3 py-2.5 text-right font-bold">${fmtInt(num(item.qtde_notas_emitidas))}</td><td class="px-3 py-2.5 text-right font-mono font-extrabold text-columbia-700">${fmtBRL(num(item.valor_faturado))}</td><td class="px-3 py-2.5 text-center">${formatDate(item.ultima_aprovacao)}</td><td class="px-3 py-2.5 text-center">${formatDate(item.ultima_nf)}</td><td class="px-3 py-2.5 text-center"><button onclick="abrirEdicao(${Number(item.cod_empresa||1)},${Number(item.cod_cliente)})" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg ${temAlt?'bg-amber-50 border-amber-300 text-amber-800':'bg-columbia-50 border-columbia-100 text-columbia-700'} border hover:opacity-80 font-extrabold"><i data-lucide="${temAlt?'file-pen-line':'pencil'}" class="w-3.5 h-3.5"></i>${temAlt?'Alteração pendente':'Editar'}</button></td></tr>`; }).join(''); lucide.createIcons();
+  }
+
+  function renderCadastro() {
+    const base=getCadastroDataBase();
+    atualizarOpcoesFiltros('cadastro',base);
+    const dados=ordenarRows(aplicarFiltrosColuna(base,'cadastro'),'cadastro');
     const todos=clientesCadastroPeriodo(), analisados=todos.filter(estaAnalisado).length, alterados=todos.filter(x=>!!getAlteracao(x)).length;
     document.getElementById('cadKpiTotal').textContent=fmtInt(todos.length); document.getElementById('cadKpiAnalisados').textContent=fmtInt(analisados); document.getElementById('cadKpiPendentes').textContent=fmtInt(todos.length-analisados); document.getElementById('cadKpiAlterados').textContent=fmtInt(alterados); document.getElementById('cadTableCount').textContent=`${fmtInt(dados.length)} registro${dados.length===1?'':'s'}`;
-
+    atualizarIndicadoresOrdenacao('cadastro');
     const tbody=document.getElementById('cadastroBody'); if(!dados.length){tbody.innerHTML='<tr><td colspan="13" class="py-12 text-center text-slate-400 font-bold">Nenhum cliente encontrado.</td></tr>';return;}
-    tbody.innerHTML=dados.map(item=>{ const alt=getAlteracao(item), campos=camposAlterados(alt), analisado=estaAnalisado(item), analise=getAnalise(item); const nome=valorEfetivo(item,'nome')||valorEfetivo(item,'razao_social')||'-'; const razao=valorEfetivo(item,'razao_social'); const endereco=`${valorEfetivo(item,'endereco')||''}${valorEfetivo(item,'numero_imovel')?`, ${valorEfetivo(item,'numero_imovel')}`:''}`; const cidadeUf=`${valorEfetivo(item,'cidade')||''}${valorEfetivo(item,'uf')?` / ${valorEfetivo(item,'uf')}`:''}`; const changeEndereco=campos.has('endereco')||campos.has('numero_imovel'), changeCidade=campos.has('cidade')||campos.has('uf'); return `<tr class="${analisado?'bg-emerald-50/20':''} hover:bg-slate-50 transition"><td class="px-3 py-2.5 text-center"><input class="analysis-check" type="checkbox" ${analisado?'checked':''} onchange="marcarAnalisado(${Number(item.cod_empresa||1)},${Number(item.cod_cliente)},this.checked,this)" title="${analisado?`Analisado ${formatDateTime(analise?.data_analise)}`:'Marcar como analisado'}"></td><td class="px-3 py-2.5 ${campos.has('nome')||campos.has('razao_social')?'cell-change':''}"><div class="font-extrabold">${esc(nome)}</div><div class="text-[9px] opacity-70">${esc(razao||'')} · Cód. ${esc(item.cod_cliente)}</div></td>${celulaCad(item,'cnpj',valorEfetivo(item,'cnpj')||'-')}${celulaCad(item,'ie',valorEfetivo(item,'ie')||'-')}${celulaCad(item,'ind_ie_dest',rotuloIe(valorEfetivo(item,'ind_ie_dest')))}${celulaCad(item,'indfinal_b25a',rotuloConsumidor(valorEfetivo(item,'indfinal_b25a')))}<td class="px-3 py-2.5 ${changeEndereco?'cell-change':''}">${esc(endereco||'-')}</td>${celulaCad(item,'bairro',valorEfetivo(item,'bairro')||'-')}<td class="px-3 py-2.5 ${changeCidade?'cell-change':''}">${esc(cidadeUf||'-')}</td>${celulaCad(item,'cep',valorEfetivo(item,'cep')||'-')}<td class="px-3 py-2.5 text-center"><div class="font-bold text-emerald-700">${fmtInt(num(item.qtde_orcamentos_aprovados))} aprov.</div><div class="text-slate-500">${fmtInt(num(item.qtde_notas_emitidas))} NF</div></td><td class="px-3 py-2.5 text-center">${alt?`<span class="inline-flex px-2 py-1 rounded-full bg-amber-100 text-amber-800 font-extrabold">Alteração pendente</span><div class="text-[9px] text-slate-400 mt-1">${esc(alt.campos_alterados||'')}</div>`:(analisado?'<span class="inline-flex px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 font-extrabold">Analisado</span>':'<span class="inline-flex px-2 py-1 rounded-full bg-red-50 text-red-700 font-extrabold">Pendente</span>')}</td><td class="px-3 py-2.5 text-center"><button onclick="abrirEdicao(${Number(item.cod_empresa||1)},${Number(item.cod_cliente)})" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg ${alt?'bg-amber-500 hover:bg-amber-600 text-white':'bg-columbia-700 hover:bg-columbia-800 text-white'} font-extrabold shadow-sm"><i data-lucide="pencil" class="w-3.5 h-3.5"></i>${alt?'Revisar alteração':'Analisar / editar'}</button></td></tr>`; }).join(''); lucide.createIcons();
+    tbody.innerHTML=dados.map(item=>{ const alt=getAlteracao(item), campos=camposAlterados(alt), analisado=estaAnalisado(item), analise=getAnalise(item); const nome=valorEfetivo(item,'nome')||valorEfetivo(item,'razao_social')||'-'; const razao=valorEfetivo(item,'razao_social'); const endereco=enderecoEfetivo(item); const cidadeUf=cidadeUfEfetiva(item); const changeEndereco=campos.has('endereco')||campos.has('numero_imovel'), changeCidade=campos.has('cidade')||campos.has('uf'); return `<tr class="${analisado?'bg-emerald-50/20':''} hover:bg-slate-50 transition"><td class="px-3 py-2.5 text-center"><input class="analysis-check" type="checkbox" ${analisado?'checked':''} onchange="marcarAnalisado(${Number(item.cod_empresa||1)},${Number(item.cod_cliente)},this.checked,this)" title="${analisado?`Analisado ${formatDateTime(analise?.data_analise)}`:'Marcar como analisado'}"></td><td class="px-3 py-2.5 ${campos.has('nome')||campos.has('razao_social')?'cell-change':''}"><div class="font-extrabold">${esc(nome)}</div><div class="text-[9px] opacity-70">${esc(razao||'')} · Cód. ${esc(item.cod_cliente)}</div></td>${celulaCad(item,'cnpj',valorEfetivo(item,'cnpj')||'-')}${celulaCad(item,'ie',valorEfetivo(item,'ie')||'-')}${celulaCad(item,'ind_ie_dest',rotuloIe(valorEfetivo(item,'ind_ie_dest')))}${celulaCad(item,'indfinal_b25a',rotuloConsumidor(valorEfetivo(item,'indfinal_b25a')))}<td class="px-3 py-2.5 ${changeEndereco?'cell-change':''}">${esc(endereco||'-')}</td>${celulaCad(item,'bairro',valorEfetivo(item,'bairro')||'-')}<td class="px-3 py-2.5 ${changeCidade?'cell-change':''}">${esc(cidadeUf||'-')}</td>${celulaCad(item,'cep',valorEfetivo(item,'cep')||'-')}<td class="px-3 py-2.5 text-center"><div class="font-bold text-emerald-700">${fmtInt(num(item.qtde_orcamentos_aprovados))} aprov.</div><div class="text-slate-500">${fmtInt(num(item.qtde_notas_emitidas))} NF</div></td><td class="px-3 py-2.5 text-center">${alt?`<span class="inline-flex px-2 py-1 rounded-full bg-amber-100 text-amber-800 font-extrabold">Alteração pendente</span><div class="text-[9px] text-slate-400 mt-1">${esc(alt.campos_alterados||'')}</div>`:(analisado?'<span class="inline-flex px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 font-extrabold">Analisado</span>':'<span class="inline-flex px-2 py-1 rounded-full bg-red-50 text-red-700 font-extrabold">Pendente</span>')}</td><td class="px-3 py-2.5 text-center"><button onclick="abrirEdicao(${Number(item.cod_empresa||1)},${Number(item.cod_cliente)})" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg ${alt?'bg-amber-500 hover:bg-amber-600 text-white':'bg-columbia-700 hover:bg-columbia-800 text-white'} font-extrabold shadow-sm"><i data-lucide="pencil" class="w-3.5 h-3.5"></i>${alt?'Revisar alteração':'Analisar / editar'}</button></td></tr>`; }).join(''); lucide.createIcons();
   }
 
   async function marcarAnalisado(codEmpresa,codCliente,analisado,checkbox) {
@@ -508,6 +715,8 @@
   function logout(){ localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); localStorage.removeItem('columbia_analista_cod_responsavel'); window.location.href='login.html'; }
   function showToast(texto,tipo='sucesso'){ const toast=document.getElementById('toast'); toast.textContent=texto; toast.className='fixed bottom-4 right-4 z-[60] max-w-sm rounded-2xl shadow-2xl border p-3.5 text-xs font-bold'; if(tipo==='erro')toast.classList.add('bg-red-50','border-red-200','text-red-800'); else toast.classList.add('bg-emerald-50','border-emerald-200','text-emerald-800'); toast.classList.remove('hidden'); clearTimeout(window.__toastTimer); window.__toastTimer=setTimeout(()=>toast.classList.add('hidden'),5500); }
 
+  function escAttr(v){return esc(v).replace(/`/g,'&#96;');}
+  function dataSort(v){if(!v)return 0;const t=new Date(v).getTime();return Number.isFinite(t)?t:0;}
   function num(v){if(v===null||v===undefined||v==='')return 0;const n=Number(v);return Number.isFinite(n)?n:0;}
   function fmtBRL(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(num(v));}
   function fmtInt(v){return new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0}).format(num(v));}
