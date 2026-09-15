@@ -36,8 +36,12 @@
     .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
     .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
     .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
-    th.sortable { cursor: pointer; user-select: none; }
-    th.sortable:hover { background: #e2e8f0; }
+    .field-label { display:block; font-size:10px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px; }
+    .field-input { width:100%; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:9px 11px; font-size:12px; color:#0f172a; outline:none; transition:.15s; }
+    .field-input:focus { border-color:#003e7e; box-shadow:0 0 0 2px rgba(0,62,126,.08); }
+    .field-input.pending-change { background:#fffbeb; border-color:#f59e0b; box-shadow:0 0 0 2px rgba(245,158,11,.08); font-weight:700; }
+    .cell-change { background:#fffbeb !important; color:#92400e; font-weight:800; }
+    .analysis-check { width:18px; height:18px; accent-color:#059669; cursor:pointer; }
   </style>
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-800">
@@ -54,8 +58,17 @@
         </div>
       </div>
 
-      <div class="flex items-center gap-2">
-        <div class="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-columbia-800 border border-columbia-600 rounded-xl text-xs font-bold">
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="flex bg-columbia-800/70 border border-columbia-600 rounded-xl p-1">
+          <button id="btnViewComercial" onclick="setView('comercial')" class="px-3 py-1.5 rounded-lg bg-white text-columbia-800 text-[11px] font-extrabold flex items-center gap-1.5 shadow-sm">
+            <i data-lucide="chart-no-axes-combined" class="w-3.5 h-3.5"></i> Análise comercial
+          </button>
+          <button id="btnViewCadastro" onclick="setView('cadastro')" class="px-3 py-1.5 rounded-lg text-white text-[11px] font-extrabold flex items-center gap-1.5">
+            <i data-lucide="clipboard-check" class="w-3.5 h-3.5"></i> Análise cadastral
+          </button>
+        </div>
+
+        <div class="hidden md:flex items-center gap-1.5 px-3 py-2 bg-columbia-800 border border-columbia-600 rounded-xl text-xs font-bold">
           <i data-lucide="user-check" class="w-4 h-4 text-emerald-400"></i>
           <span id="userDisplay">Usuário</span>
         </div>
@@ -72,7 +85,7 @@
   </header>
 
   <main class="max-w-[1800px] mx-auto p-3 sm:p-5 space-y-4">
-    <!-- FILTROS DE PERÍODO -->
+    <!-- PERÍODO COMPARTILHADO -->
     <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-3.5 sm:p-4">
       <div class="flex flex-wrap items-end gap-3">
         <div>
@@ -121,153 +134,126 @@
       </div>
     </section>
 
-    <!-- KPIs -->
-    <section class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3">
-      <div class="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm">
-        <span class="text-[9px] uppercase font-extrabold text-slate-500">Clientes</span>
-        <div id="kpiClientes" class="text-xl sm:text-2xl font-black text-columbia-700 mt-1">0</div>
-      </div>
-      <div class="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm">
-        <span class="text-[9px] uppercase font-extrabold text-slate-500">Orçamentos feitos</span>
-        <div id="kpiOrcamentos" class="text-xl sm:text-2xl font-black text-slate-800 mt-1">0</div>
-      </div>
-      <div class="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm">
-        <span class="text-[9px] uppercase font-extrabold text-slate-500">Aprovados</span>
-        <div id="kpiAprovados" class="text-xl sm:text-2xl font-black text-emerald-600 mt-1">0</div>
-      </div>
-      <div class="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm">
-        <span class="text-[9px] uppercase font-extrabold text-slate-500">Conversão qtde.</span>
-        <div id="kpiConversao" class="text-xl sm:text-2xl font-black text-indigo-600 mt-1">0%</div>
-      </div>
-      <div class="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm">
-        <span class="text-[9px] uppercase font-extrabold text-slate-500">Notas emitidas</span>
-        <div id="kpiNotas" class="text-xl sm:text-2xl font-black text-amber-600 mt-1">0</div>
-      </div>
-      <div class="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm">
-        <span class="text-[9px] uppercase font-extrabold text-slate-500">Faturamento</span>
-        <div id="kpiFaturamento" class="text-base sm:text-xl font-black text-emerald-700 mt-1">R$ 0</div>
-      </div>
-    </section>
+    <!-- VIEW COMERCIAL -->
+    <div id="viewComercial" class="space-y-4">
+      <section class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3">
+        <div class="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm"><span class="text-[9px] uppercase font-extrabold text-slate-500">Clientes</span><div id="kpiClientes" class="text-xl sm:text-2xl font-black text-columbia-700 mt-1">0</div></div>
+        <div class="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm"><span class="text-[9px] uppercase font-extrabold text-slate-500">Orçamentos feitos</span><div id="kpiOrcamentos" class="text-xl sm:text-2xl font-black text-slate-800 mt-1">0</div></div>
+        <div class="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm"><span class="text-[9px] uppercase font-extrabold text-slate-500">Aprovados</span><div id="kpiAprovados" class="text-xl sm:text-2xl font-black text-emerald-600 mt-1">0</div></div>
+        <div class="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm"><span class="text-[9px] uppercase font-extrabold text-slate-500">Conversão qtde.</span><div id="kpiConversao" class="text-xl sm:text-2xl font-black text-indigo-600 mt-1">0%</div></div>
+        <div class="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm"><span class="text-[9px] uppercase font-extrabold text-slate-500">Notas emitidas</span><div id="kpiNotas" class="text-xl sm:text-2xl font-black text-amber-600 mt-1">0</div></div>
+        <div class="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm"><span class="text-[9px] uppercase font-extrabold text-slate-500">Faturamento</span><div id="kpiFaturamento" class="text-base sm:text-xl font-black text-emerald-700 mt-1">R$ 0</div></div>
+      </section>
 
-    <!-- RESUMO FINANCEIRO + GRÁFICO -->
-    <section class="grid grid-cols-1 xl:grid-cols-3 gap-4">
-      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
-        <div class="flex items-center gap-2 mb-4">
-          <i data-lucide="wallet-cards" class="w-5 h-5 text-columbia-700"></i>
-          <h2 class="font-extrabold text-sm">Resumo financeiro</h2>
-        </div>
-        <div class="space-y-3 text-xs">
-          <div class="flex justify-between items-center border-b border-slate-100 pb-2"><span class="text-slate-500 font-bold">Valor orçado</span><strong id="resumoOrcado">R$ 0</strong></div>
-          <div class="flex justify-between items-center border-b border-slate-100 pb-2"><span class="text-slate-500 font-bold">Valor aprovado</span><strong id="resumoAprovado" class="text-emerald-700">R$ 0</strong></div>
-          <div class="flex justify-between items-center border-b border-slate-100 pb-2"><span class="text-slate-500 font-bold">Conversão em valor</span><strong id="resumoConversaoValor">0%</strong></div>
-          <div class="flex justify-between items-center border-b border-slate-100 pb-2"><span class="text-slate-500 font-bold">Valor faturado</span><strong id="resumoFaturado" class="text-columbia-700">R$ 0</strong></div>
-          <div class="flex justify-between items-center"><span class="text-slate-500 font-bold">Ticket médio por NF</span><strong id="resumoTicket">R$ 0</strong></div>
-        </div>
-      </div>
-
-      <div class="xl:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 min-h-[320px]">
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <div>
-            <h2 class="font-extrabold text-sm">Top clientes por faturamento</h2>
-            <p class="text-[10px] text-slate-500">Ranking dentro do período selecionado</p>
+      <section class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+          <div class="flex items-center gap-2 mb-4"><i data-lucide="wallet-cards" class="w-5 h-5 text-columbia-700"></i><h2 class="font-extrabold text-sm">Resumo financeiro</h2></div>
+          <div class="space-y-3 text-xs">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-2"><span class="text-slate-500 font-bold">Valor orçado</span><strong id="resumoOrcado">R$ 0</strong></div>
+            <div class="flex justify-between items-center border-b border-slate-100 pb-2"><span class="text-slate-500 font-bold">Valor aprovado</span><strong id="resumoAprovado" class="text-emerald-700">R$ 0</strong></div>
+            <div class="flex justify-between items-center border-b border-slate-100 pb-2"><span class="text-slate-500 font-bold">Conversão em valor</span><strong id="resumoConversaoValor">0%</strong></div>
+            <div class="flex justify-between items-center border-b border-slate-100 pb-2"><span class="text-slate-500 font-bold">Valor faturado</span><strong id="resumoFaturado" class="text-columbia-700">R$ 0</strong></div>
+            <div class="flex justify-between items-center"><span class="text-slate-500 font-bold">Ticket médio por NF</span><strong id="resumoTicket">R$ 0</strong></div>
           </div>
-          <span class="text-[10px] font-bold text-slate-500 bg-slate-100 rounded-lg px-2 py-1">Top 10</span>
         </div>
-        <div class="h-[250px]"><canvas id="chartFaturamento"></canvas></div>
-      </div>
-    </section>
+        <div class="xl:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 min-h-[320px]">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3"><div><h2 class="font-extrabold text-sm">Top clientes por faturamento</h2><p class="text-[10px] text-slate-500">Ranking dentro do período selecionado</p></div><span class="text-[10px] font-bold text-slate-500 bg-slate-100 rounded-lg px-2 py-1">Top 10</span></div>
+          <div class="h-[250px]"><canvas id="chartFaturamento"></canvas></div>
+        </div>
+      </section>
 
-    <!-- TABELA -->
-    <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      <div class="p-3.5 border-b border-slate-200 flex flex-wrap items-center gap-2 justify-between">
+      <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-3.5 border-b border-slate-200 flex flex-wrap items-center gap-2 justify-between">
+          <div><h2 class="font-extrabold text-sm">Clientes</h2><p id="tableCount" class="text-[10px] text-slate-500">0 registros</p></div>
+          <div class="flex flex-wrap gap-2 w-full md:w-auto">
+            <div class="flex items-center gap-2 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 flex-1 md:w-80"><i data-lucide="search" class="w-4 h-4 text-slate-400"></i><input id="searchInput" oninput="renderTabelaComercial()" type="search" placeholder="Cliente, razão social, CNPJ, cidade..." class="w-full bg-transparent text-xs outline-none"></div>
+            <select id="filtroMovimento" onchange="renderTabelaComercial()" class="bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold"><option value="todos">Todos</option><option value="faturados">Com faturamento</option><option value="sem_faturamento">Sem faturamento</option><option value="sem_aprovacao">Sem aprovação</option></select>
+          </div>
+        </div>
+        <div id="loadingBox" class="hidden py-16 text-center text-slate-500"><div class="inline-flex items-center gap-2 text-xs font-bold"><i data-lucide="loader-circle" class="w-5 h-5 animate-spin"></i> Carregando clientes...</div></div>
+        <div id="tableWrap" class="overflow-auto custom-scroll max-h-[65vh]">
+          <table class="min-w-[1550px] w-full text-[11px]">
+            <thead class="bg-slate-100 sticky top-0 z-10 text-slate-600 uppercase tracking-wide"><tr><th class="text-left px-3 py-2.5">Cliente</th><th class="text-left px-3 py-2.5">Cidade/UF</th><th class="text-right px-3 py-2.5">Orç. feitos</th><th class="text-right px-3 py-2.5">Aprovados</th><th class="text-right px-3 py-2.5">Conv. qtde</th><th class="text-right px-3 py-2.5">Valor orçado</th><th class="text-right px-3 py-2.5">Valor aprovado</th><th class="text-right px-3 py-2.5">Conv. valor</th><th class="text-right px-3 py-2.5">NFs</th><th class="text-right px-3 py-2.5">Faturado</th><th class="text-center px-3 py-2.5">Últ. aprovação</th><th class="text-center px-3 py-2.5">Últ. NF</th><th class="text-center px-3 py-2.5">Cadastro</th></tr></thead>
+            <tbody id="clientesBody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- VIEW CADASTRAL -->
+    <div id="viewCadastro" class="hidden space-y-4">
+      <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 class="font-extrabold text-sm">Clientes</h2>
-          <p id="tableCount" class="text-[10px] text-slate-500">0 registros</p>
+          <div class="flex items-center gap-2"><i data-lucide="clipboard-check" class="w-5 h-5 text-columbia-700"></i><h2 class="text-base font-black text-slate-800">Análise cadastral</h2></div>
+          <p class="text-[11px] text-slate-500 mt-1">Somente clientes que tiveram <strong>orçamento aprovado (compra)</strong> ou <strong>nota fiscal</strong> no período selecionado.</p>
         </div>
-        <div class="flex flex-wrap gap-2 w-full md:w-auto">
-          <div class="flex items-center gap-2 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 flex-1 md:w-80">
-            <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
-            <input id="searchInput" oninput="renderTabela()" type="search" placeholder="Cliente, razão social, CNPJ, cidade..." class="w-full bg-transparent text-xs outline-none">
+        <div class="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 max-w-xl"><strong>Amarelo = alteração já solicitada.</strong> O valor mostrado é o novo valor pendente, não o valor original do banco.</div>
+      </section>
+
+      <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm"><span class="text-[9px] uppercase font-extrabold text-slate-500">Clientes para analisar</span><div id="cadKpiTotal" class="text-2xl font-black text-columbia-700 mt-1">0</div></div>
+        <div class="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm"><span class="text-[9px] uppercase font-extrabold text-slate-500">Analisados</span><div id="cadKpiAnalisados" class="text-2xl font-black text-emerald-600 mt-1">0</div></div>
+        <div class="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm"><span class="text-[9px] uppercase font-extrabold text-slate-500">Pendentes de análise</span><div id="cadKpiPendentes" class="text-2xl font-black text-red-600 mt-1">0</div></div>
+        <div class="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm"><span class="text-[9px] uppercase font-extrabold text-slate-500">Com alteração solicitada</span><div id="cadKpiAlterados" class="text-2xl font-black text-amber-600 mt-1">0</div></div>
+      </section>
+
+      <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-3.5 border-b border-slate-200 flex flex-wrap items-center gap-2 justify-between">
+          <div><h2 class="font-extrabold text-sm">Cadastro dos clientes movimentados</h2><p id="cadTableCount" class="text-[10px] text-slate-500">0 registros</p></div>
+          <div class="flex flex-wrap gap-2 w-full md:w-auto">
+            <div class="flex items-center gap-2 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 flex-1 md:w-80"><i data-lucide="search" class="w-4 h-4 text-slate-400"></i><input id="cadSearchInput" oninput="renderCadastro()" type="search" placeholder="Cliente, CNPJ, cidade, endereço..." class="w-full bg-transparent text-xs outline-none"></div>
+            <select id="cadFiltroStatus" onchange="renderCadastro()" class="bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold"><option value="todos">Todos</option><option value="pendentes">Não analisados</option><option value="analisados">Analisados</option><option value="alterados">Com alteração</option><option value="sem_alteracao">Sem alteração</option></select>
           </div>
-          <select id="filtroMovimento" onchange="renderTabela()" class="bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold">
-            <option value="todos">Todos</option>
-            <option value="faturados">Com faturamento</option>
-            <option value="sem_faturamento">Sem faturamento</option>
-            <option value="sem_aprovacao">Sem aprovação</option>
-          </select>
         </div>
-      </div>
 
-      <div id="loadingBox" class="hidden py-16 text-center text-slate-500">
-        <div class="inline-flex items-center gap-2 text-xs font-bold"><i data-lucide="loader-circle" class="w-5 h-5 animate-spin"></i> Carregando clientes...</div>
-      </div>
-
-      <div id="tableWrap" class="overflow-auto custom-scroll max-h-[65vh]">
-        <table class="min-w-[1550px] w-full text-[11px]">
-          <thead class="bg-slate-100 sticky top-0 z-10 text-slate-600 uppercase tracking-wide">
-            <tr>
-              <th class="text-left px-3 py-2.5">Cliente</th>
-              <th class="text-left px-3 py-2.5">Cidade/UF</th>
-              <th class="text-right px-3 py-2.5">Orç. feitos</th>
-              <th class="text-right px-3 py-2.5">Aprovados</th>
-              <th class="text-right px-3 py-2.5">Conv. qtde</th>
-              <th class="text-right px-3 py-2.5">Valor orçado</th>
-              <th class="text-right px-3 py-2.5">Valor aprovado</th>
-              <th class="text-right px-3 py-2.5">Conv. valor</th>
-              <th class="text-right px-3 py-2.5">NFs</th>
-              <th class="text-right px-3 py-2.5">Faturado</th>
-              <th class="text-center px-3 py-2.5">Últ. aprovação</th>
-              <th class="text-center px-3 py-2.5">Últ. NF</th>
-              <th class="text-center px-3 py-2.5">Cadastro</th>
-            </tr>
-          </thead>
-          <tbody id="clientesBody" class="divide-y divide-slate-100"></tbody>
-        </table>
-      </div>
-    </section>
+        <div class="overflow-auto custom-scroll max-h-[70vh]">
+          <table class="min-w-[1900px] w-full text-[11px]">
+            <thead class="bg-slate-100 sticky top-0 z-10 text-slate-600 uppercase tracking-wide">
+              <tr>
+                <th class="text-center px-3 py-2.5 w-24">Analisado</th>
+                <th class="text-left px-3 py-2.5">Cliente</th>
+                <th class="text-left px-3 py-2.5">CNPJ / RG-CGC</th>
+                <th class="text-left px-3 py-2.5">IE / CPF</th>
+                <th class="text-left px-3 py-2.5">Contribuinte ICMS</th>
+                <th class="text-left px-3 py-2.5">Consumidor final</th>
+                <th class="text-left px-3 py-2.5">Logradouro / Número</th>
+                <th class="text-left px-3 py-2.5">Bairro</th>
+                <th class="text-left px-3 py-2.5">Cidade / UF</th>
+                <th class="text-left px-3 py-2.5">CEP</th>
+                <th class="text-center px-3 py-2.5">Compra / NF</th>
+                <th class="text-center px-3 py-2.5">Situação</th>
+                <th class="text-center px-3 py-2.5">Ação</th>
+              </tr>
+            </thead>
+            <tbody id="cadastroBody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
   </main>
 
   <!-- MODAL EDIÇÃO -->
   <div id="editModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/60 backdrop-blur-sm p-3">
     <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-5xl max-h-[94vh] overflow-hidden flex flex-col">
       <div class="bg-columbia-700 text-white px-4 sm:px-5 py-3.5 flex justify-between items-center">
-        <div>
-          <h3 class="font-extrabold text-sm">Solicitar alteração cadastral</h3>
-          <p id="editClienteLabel" class="text-[10px] text-columbia-100 mt-0.5"></p>
-        </div>
+        <div><h3 class="font-extrabold text-sm">Solicitar alteração cadastral</h3><p id="editClienteLabel" class="text-[10px] text-columbia-100 mt-0.5"></p></div>
         <button onclick="fecharModal()" class="p-1.5 rounded-lg hover:bg-columbia-800"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
 
       <form id="editForm" class="overflow-y-auto custom-scroll flex-1">
         <div class="p-4 sm:p-5 space-y-4">
-          <div class="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 text-[11px] text-amber-900">
-            Esta ação <strong>não altera o banco de dados</strong>. Ela cria uma solicitação PENDENTE no Google Sheets para posterior validação/update.
-          </div>
+          <div id="editInfoBox" class="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 text-[11px] text-amber-900"></div>
+          <div id="pendingFieldsBox" class="hidden rounded-xl bg-yellow-50 border border-yellow-300 px-3 py-2.5 text-[11px] text-yellow-900"></div>
 
-          <input type="hidden" id="editCodEmpresa">
-          <input type="hidden" id="editCodCliente">
+          <input type="hidden" id="editCodEmpresa"><input type="hidden" id="editCodCliente">
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div><label class="field-label">Nome</label><input id="editNome" class="field-input"></div>
             <div><label class="field-label">Razão social</label><input id="editRazaoSocial" class="field-input"></div>
             <div><label class="field-label">CNPJ / RG-CGC</label><input id="editCnpj" class="field-input"></div>
             <div><label class="field-label">IE / CPF</label><input id="editIe" class="field-input"></div>
-            <div>
-              <label class="field-label">Contribuinte ICMS</label>
-              <select id="editIndIeDest" class="field-input">
-                <option value="0">Não preenchido</option>
-                <option value="1">Contribuinte ICMS</option>
-                <option value="2">Isento de IE</option>
-                <option value="3">Não contribuinte</option>
-              </select>
-            </div>
-            <div>
-              <label class="field-label">Consumidor final</label>
-              <select id="editConsumidorFinal" class="field-input">
-                <option value="0">Não</option>
-                <option value="1">Sim</option>
-              </select>
-            </div>
+            <div><label class="field-label">Contribuinte ICMS</label><select id="editIndIeDest" class="field-input"><option value="0">Não preenchido</option><option value="1">Contribuinte ICMS</option><option value="2">Isento de IE</option><option value="3">Não contribuinte</option></select></div>
+            <div><label class="field-label">Consumidor final</label><select id="editConsumidorFinal" class="field-input"><option value="0">Não</option><option value="1">Sim</option></select></div>
           </div>
 
           <div class="pt-2 border-t border-slate-200">
@@ -285,387 +271,253 @@
 
         <div class="sticky bottom-0 bg-slate-50 border-t border-slate-200 px-4 sm:px-5 py-3 flex justify-end gap-2">
           <button type="button" onclick="fecharModal()" class="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold">Cancelar</button>
-          <button id="btnSalvarAlteracao" type="submit" class="px-4 py-2 rounded-xl bg-columbia-700 hover:bg-columbia-800 text-white text-xs font-extrabold shadow flex items-center gap-1.5">
-            <i data-lucide="send" class="w-4 h-4"></i> Enviar solicitação
-          </button>
+          <button id="btnSalvarAlteracao" type="submit" class="px-4 py-2 rounded-xl bg-columbia-700 hover:bg-columbia-800 text-white text-xs font-extrabold shadow flex items-center gap-1.5"><i data-lucide="send" class="w-4 h-4"></i> Enviar solicitação</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- TOAST -->
   <div id="toast" class="fixed bottom-4 right-4 z-[60] hidden max-w-sm rounded-2xl shadow-2xl border p-3.5 text-xs font-bold"></div>
 
-  <style>
-    .field-label { display:block; font-size:10px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px; }
-    .field-input { width:100%; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:9px 11px; font-size:12px; color:#0f172a; outline:none; }
-    .field-input:focus { border-color:#003e7e; box-shadow:0 0 0 2px rgba(0,62,126,.08); }
-  </style>
+<script>
+  const API_BASE = 'https://columbia.consultoriarf.net/producao';
+  const TOKEN_KEY = 'columbia_analista_token';
+  const USER_KEY = 'columbia_analista_usuario';
 
-  <script>
-    const API_BASE = 'https://columbia.consultoriarf.net/producao';
-    const TOKEN_KEY = 'columbia_analista_token';
-    const USER_KEY = 'columbia_analista_usuario';
+  const FIELD_MAP = {
+    nome: { id:'editNome', label:'Nome' },
+    razao_social: { id:'editRazaoSocial', label:'Razão social' },
+    cnpj: { id:'editCnpj', label:'CNPJ / RG-CGC' },
+    ie: { id:'editIe', label:'IE / CPF' },
+    ind_ie_dest: { id:'editIndIeDest', label:'Contribuinte ICMS' },
+    indfinal_b25a: { id:'editConsumidorFinal', label:'Consumidor final' },
+    endereco: { id:'editEndereco', label:'Logradouro' },
+    numero_imovel: { id:'editNumero', label:'Número' },
+    bairro: { id:'editBairro', label:'Bairro' },
+    cidade: { id:'editCidade', label:'Cidade' },
+    uf: { id:'editUf', label:'UF' },
+    cep: { id:'editCep', label:'CEP' }
+  };
 
-    let rawData = [];
-    let faturamentoChart = null;
-    let clienteEditando = null;
+  let rawData = [];
+  let estadoAnalises = new Map();
+  let estadoAlteracoes = new Map();
+  let faturamentoChart = null;
+  let clienteEditando = null;
+  let valoresModalIniciais = null;
+  let viewAtual = 'comercial';
 
-    document.addEventListener('DOMContentLoaded', () => {
-      const hoje = new Date();
-      document.getElementById('anoInput').value = hoje.getFullYear();
-      document.getElementById('mesInput').value = hoje.getMonth() + 1;
-      document.getElementById('dtInicio').value = `${hoje.getFullYear()}-01-01`;
-      document.getElementById('dtFim').value = hoje.toISOString().slice(0, 10);
-      document.getElementById('userDisplay').textContent = localStorage.getItem(USER_KEY) || 'Usuário';
-      document.getElementById('editForm').addEventListener('submit', enviarAlteracao);
-      lucide.createIcons();
-      consultarDados();
-    });
+  document.addEventListener('DOMContentLoaded', () => {
+    const hoje = new Date();
+    document.getElementById('anoInput').value = hoje.getFullYear();
+    document.getElementById('mesInput').value = hoje.getMonth() + 1;
+    document.getElementById('dtInicio').value = `${hoje.getFullYear()}-01-01`;
+    document.getElementById('dtFim').value = hoje.toISOString().slice(0, 10);
+    document.getElementById('userDisplay').textContent = localStorage.getItem(USER_KEY) || 'Usuário';
+    document.getElementById('editForm').addEventListener('submit', enviarAlteracao);
+    lucide.createIcons();
+    consultarDados();
+  });
 
-    function atualizarCamposPeriodo() {
-      const tipo = document.getElementById('periodoTipo').value;
-      document.getElementById('anoBox').classList.toggle('hidden', tipo === 'intervalo');
-      document.getElementById('mesBox').classList.toggle('hidden', tipo !== 'mes');
-      document.getElementById('intervaloBox').classList.toggle('hidden', tipo !== 'intervalo');
+  function chaveCliente(codEmpresa, codCliente) { return `${Number(codEmpresa || 1)}:${Number(codCliente || 0)}`; }
+
+  function setView(view) {
+    viewAtual = view;
+    const comercial = view === 'comercial';
+    document.getElementById('viewComercial').classList.toggle('hidden', !comercial);
+    document.getElementById('viewCadastro').classList.toggle('hidden', comercial);
+
+    const btnCom = document.getElementById('btnViewComercial');
+    const btnCad = document.getElementById('btnViewCadastro');
+    btnCom.className = comercial ? 'px-3 py-1.5 rounded-lg bg-white text-columbia-800 text-[11px] font-extrabold flex items-center gap-1.5 shadow-sm' : 'px-3 py-1.5 rounded-lg text-white text-[11px] font-extrabold flex items-center gap-1.5';
+    btnCad.className = !comercial ? 'px-3 py-1.5 rounded-lg bg-white text-columbia-800 text-[11px] font-extrabold flex items-center gap-1.5 shadow-sm' : 'px-3 py-1.5 rounded-lg text-white text-[11px] font-extrabold flex items-center gap-1.5';
+
+    if (!comercial) renderCadastro();
+    lucide.createIcons();
+  }
+
+  function atualizarCamposPeriodo() {
+    const tipo = document.getElementById('periodoTipo').value;
+    document.getElementById('anoBox').classList.toggle('hidden', tipo === 'intervalo');
+    document.getElementById('mesBox').classList.toggle('hidden', tipo !== 'mes');
+    document.getElementById('intervaloBox').classList.toggle('hidden', tipo !== 'intervalo');
+  }
+
+  function montarParametrosPeriodo() {
+    const tipo = document.getElementById('periodoTipo').value;
+    const params = new URLSearchParams();
+    if (tipo === 'ano') {
+      const ano = document.getElementById('anoInput').value;
+      if (!ano) throw new Error('Informe o ano.');
+      params.set('ano', ano); document.getElementById('periodoLabel').textContent = `Ano ${ano}`;
+    } else if (tipo === 'mes') {
+      const ano = document.getElementById('anoInput').value, mes = document.getElementById('mesInput').value;
+      if (!ano || !mes) throw new Error('Informe ano e mês.');
+      params.set('ano', ano); params.set('mes', mes);
+      document.getElementById('periodoLabel').textContent = `${document.getElementById('mesInput').selectedOptions[0].textContent}/${ano}`;
+    } else {
+      const inicio = document.getElementById('dtInicio').value, fim = document.getElementById('dtFim').value;
+      if (!inicio || !fim) throw new Error('Informe data inicial e final.');
+      if (inicio > fim) throw new Error('A data inicial não pode ser maior que a final.');
+      params.set('dt_inicio', inicio); params.set('dt_fim', fim);
+      document.getElementById('periodoLabel').textContent = `${formatDate(inicio)} até ${formatDate(fim)}`;
     }
+    return params;
+  }
 
-    function montarParametrosPeriodo() {
-      const tipo = document.getElementById('periodoTipo').value;
-      const params = new URLSearchParams();
-
-      if (tipo === 'ano') {
-        const ano = document.getElementById('anoInput').value;
-        if (!ano) throw new Error('Informe o ano.');
-        params.set('ano', ano);
-        document.getElementById('periodoLabel').textContent = `Ano ${ano}`;
-      } else if (tipo === 'mes') {
-        const ano = document.getElementById('anoInput').value;
-        const mes = document.getElementById('mesInput').value;
-        if (!ano || !mes) throw new Error('Informe ano e mês.');
-        params.set('ano', ano);
-        params.set('mes', mes);
-        const nomeMes = document.getElementById('mesInput').selectedOptions[0].textContent;
-        document.getElementById('periodoLabel').textContent = `${nomeMes}/${ano}`;
-      } else {
-        const inicio = document.getElementById('dtInicio').value;
-        const fim = document.getElementById('dtFim').value;
-        if (!inicio || !fim) throw new Error('Informe data inicial e final.');
-        if (inicio > fim) throw new Error('A data inicial não pode ser maior que a final.');
-        params.set('dt_inicio', inicio);
-        params.set('dt_fim', fim);
-        document.getElementById('periodoLabel').textContent = `${formatDate(inicio)} até ${formatDate(fim)}`;
-      }
-
-      return params;
+  async function apiFetch(url, options = {}) {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) { logout(); throw new Error('Sessão não encontrada.'); }
+    const headers = new Headers(options.headers || {});
+    headers.set('Authorization', `Bearer ${token}`);
+    if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+    const response = await fetch(url, { ...options, headers, cache:'no-store' });
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 401 || response.status === 403) {
+      localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY);
+      alert(data.detail || 'Sessão sem acesso. Faça login novamente.'); window.location.href='login.html';
+      throw new Error(data.detail || 'Acesso negado.');
     }
+    if (!response.ok) throw new Error(data.detail || `Erro HTTP ${response.status}`);
+    return data;
+  }
 
-    async function apiFetch(url, options = {}) {
-      const token = localStorage.getItem(TOKEN_KEY);
-      if (!token) {
-        logout();
-        throw new Error('Sessão não encontrada.');
-      }
-
-      const headers = new Headers(options.headers || {});
-      headers.set('Authorization', `Bearer ${token}`);
-      if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
-
-      const response = await fetch(url, { ...options, headers, cache: 'no-store' });
-      const data = await response.json().catch(() => ({}));
-
-      if (response.status === 401 || response.status === 403) {
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(USER_KEY);
-        alert(data.detail || 'Sessão sem acesso. Faça login novamente.');
-        window.location.href = 'login.html';
-        throw new Error(data.detail || 'Acesso negado.');
-      }
-
-      if (!response.ok) throw new Error(data.detail || `Erro HTTP ${response.status}`);
-      return data;
+  async function consultarDados() {
+    let params;
+    try { params = montarParametrosPeriodo(); } catch (e) { showToast(e.message,'erro'); return; }
+    const refreshIcon=document.getElementById('refreshIcon'), loadingBox=document.getElementById('loadingBox'), tableWrap=document.getElementById('tableWrap');
+    refreshIcon?.classList.add('animate-spin'); loadingBox.classList.remove('hidden'); tableWrap.classList.add('hidden');
+    try {
+      const [clientes, estado] = await Promise.all([
+        apiFetch(`${API_BASE}/analista/clientes?${params.toString()}&_t=${Date.now()}`),
+        carregarEstadoCadastrosSilencioso()
+      ]);
+      rawData = Array.isArray(clientes) ? clientes : [];
+      aplicarEstadoRecebido(estado);
+      renderTudo();
+    } catch (error) {
+      console.error(error); showToast(error.message || 'Erro ao consultar clientes.','erro');
+    } finally {
+      refreshIcon?.classList.remove('animate-spin'); loadingBox.classList.add('hidden'); tableWrap.classList.remove('hidden'); lucide.createIcons();
     }
+  }
 
-    async function consultarDados() {
-      let params;
-      try {
-        params = montarParametrosPeriodo();
-      } catch (error) {
-        showToast(error.message, 'erro');
-        return;
-      }
+  async function carregarEstadoCadastrosSilencioso() {
+    try { return await apiFetch(`${API_BASE}/analista/clientes/estado-cadastros?_t=${Date.now()}`); }
+    catch (error) { console.warn('Estado cadastral indisponível:', error); return {analises:[], alteracoes:[]}; }
+  }
 
-      const refreshIcon = document.getElementById('refreshIcon');
-      const loadingBox = document.getElementById('loadingBox');
-      const tableWrap = document.getElementById('tableWrap');
-      refreshIcon?.classList.add('animate-spin');
-      loadingBox.classList.remove('hidden');
-      tableWrap.classList.add('hidden');
+  function aplicarEstadoRecebido(estado) {
+    estadoAnalises = new Map(); estadoAlteracoes = new Map();
+    (estado?.analises || []).forEach(x => estadoAnalises.set(chaveCliente(x.cod_empresa,x.cod_cliente), x));
+    (estado?.alteracoes || []).forEach(x => estadoAlteracoes.set(chaveCliente(x.cod_empresa,x.cod_cliente), x));
+  }
 
-      try {
-        rawData = await apiFetch(`${API_BASE}/analista/clientes?${params.toString()}&_t=${Date.now()}`);
-        if (!Array.isArray(rawData)) rawData = [];
-        renderTudo();
-      } catch (error) {
-        console.error(error);
-        showToast(error.message || 'Erro ao consultar clientes.', 'erro');
-      } finally {
-        refreshIcon?.classList.remove('animate-spin');
-        loadingBox.classList.add('hidden');
-        tableWrap.classList.remove('hidden');
-        lucide.createIcons();
-      }
-    }
+  async function recarregarEstado() {
+    const estado = await carregarEstadoCadastrosSilencioso();
+    aplicarEstadoRecebido(estado); renderTudo();
+  }
 
-    function renderTudo() {
-      renderKpis();
-      renderChart();
-      renderTabela();
-      lucide.createIcons();
-    }
+  function renderTudo() { renderKpis(); renderChart(); renderTabelaComercial(); renderCadastro(); lucide.createIcons(); }
 
-    function renderKpis() {
-      const soma = (campo) => rawData.reduce((acc, item) => acc + num(item[campo]), 0);
-      const feitos = soma('qtde_orcamentos_feitos');
-      const aprovados = soma('qtde_orcamentos_aprovados');
-      const notas = soma('qtde_notas_emitidas');
-      const orcado = soma('valor_orcado');
-      const aprovado = soma('valor_aprovado');
-      const faturado = soma('valor_faturado');
+  function renderKpis() {
+    const soma=campo=>rawData.reduce((a,i)=>a+num(i[campo]),0), feitos=soma('qtde_orcamentos_feitos'), aprovados=soma('qtde_orcamentos_aprovados'), notas=soma('qtde_notas_emitidas'), orcado=soma('valor_orcado'), aprovado=soma('valor_aprovado'), faturado=soma('valor_faturado');
+    document.getElementById('kpiClientes').textContent=fmtInt(rawData.length); document.getElementById('kpiOrcamentos').textContent=fmtInt(feitos); document.getElementById('kpiAprovados').textContent=fmtInt(aprovados); document.getElementById('kpiConversao').textContent=fmtPct(feitos?(aprovados/feitos)*100:0); document.getElementById('kpiNotas').textContent=fmtInt(notas); document.getElementById('kpiFaturamento').textContent=fmtBRL(faturado);
+    document.getElementById('resumoOrcado').textContent=fmtBRL(orcado); document.getElementById('resumoAprovado').textContent=fmtBRL(aprovado); document.getElementById('resumoConversaoValor').textContent=fmtPct(orcado?(aprovado/orcado)*100:0); document.getElementById('resumoFaturado').textContent=fmtBRL(faturado); document.getElementById('resumoTicket').textContent=fmtBRL(notas?faturado/notas:0);
+  }
 
-      document.getElementById('kpiClientes').textContent = fmtInt(rawData.length);
-      document.getElementById('kpiOrcamentos').textContent = fmtInt(feitos);
-      document.getElementById('kpiAprovados').textContent = fmtInt(aprovados);
-      document.getElementById('kpiConversao').textContent = fmtPct(feitos ? (aprovados / feitos) * 100 : 0);
-      document.getElementById('kpiNotas').textContent = fmtInt(notas);
-      document.getElementById('kpiFaturamento').textContent = fmtBRL(faturado);
+  function renderChart() {
+    const top=[...rawData].sort((a,b)=>num(b.valor_faturado)-num(a.valor_faturado)).slice(0,10).reverse();
+    if (faturamentoChart) faturamentoChart.destroy();
+    faturamentoChart=new Chart(document.getElementById('chartFaturamento'),{type:'bar',data:{labels:top.map(x=>abreviar(x.nome||x.razao_social||`Cliente ${x.cod_cliente}`,28)),datasets:[{label:'Faturamento',data:top.map(x=>num(x.valor_faturado)),backgroundColor:'#1d72b8',borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtBRL(c.raw)}}},scales:{x:{ticks:{callback:v=>compactBRL(v),font:{size:10}},grid:{color:'#e2e8f0'}},y:{ticks:{font:{size:10}},grid:{display:false}}}}});
+  }
 
-      document.getElementById('resumoOrcado').textContent = fmtBRL(orcado);
-      document.getElementById('resumoAprovado').textContent = fmtBRL(aprovado);
-      document.getElementById('resumoConversaoValor').textContent = fmtPct(orcado ? (aprovado / orcado) * 100 : 0);
-      document.getElementById('resumoFaturado').textContent = fmtBRL(faturado);
-      document.getElementById('resumoTicket').textContent = fmtBRL(notas ? faturado / notas : 0);
-    }
+  function getFilteredData() {
+    const busca=document.getElementById('searchInput').value.trim().toLowerCase(), movimento=document.getElementById('filtroMovimento').value;
+    return rawData.filter(item=>{ const texto=[item.nome,item.razao_social,item.cnpj,item.ie,item.cidade,item.uf,item.cod_cliente].map(v=>String(v??'').toLowerCase()).join(' '); if(busca&&!texto.includes(busca))return false; if(movimento==='faturados'&&num(item.valor_faturado)<=0)return false; if(movimento==='sem_faturamento'&&num(item.valor_faturado)>0)return false; if(movimento==='sem_aprovacao'&&num(item.qtde_orcamentos_aprovados)>0)return false; return true; });
+  }
 
-    function renderChart() {
-      const top = [...rawData]
-        .sort((a, b) => num(b.valor_faturado) - num(a.valor_faturado))
-        .slice(0, 10)
-        .reverse();
+  function renderTabelaComercial() {
+    const dados=getFilteredData(), tbody=document.getElementById('clientesBody'); document.getElementById('tableCount').textContent=`${fmtInt(dados.length)} registro${dados.length===1?'':'s'}`;
+    if(!dados.length){tbody.innerHTML='<tr><td colspan="13" class="py-12 text-center text-slate-400 font-bold">Nenhum cliente encontrado para os filtros selecionados.</td></tr>';return;}
+    tbody.innerHTML=dados.map(item=>{ const convQtd=num(item.perc_aprovacao_qtde),convVal=num(item.perc_aprovacao_valor), alt=getAlteracao(item), temAlt=!!alt; return `<tr class="hover:bg-slate-50 transition"><td class="px-3 py-2.5 max-w-[260px]"><div class="font-extrabold text-slate-800 truncate" title="${esc(item.nome)}">${esc(item.nome||'-')}</div><div class="text-[9px] text-slate-500 truncate">${esc(item.razao_social||'')}</div><div class="text-[9px] text-slate-400">Cód. ${esc(item.cod_cliente)} · ${esc(item.cnpj||'sem CNPJ')}</div></td><td class="px-3 py-2.5"><div class="font-bold">${esc(item.cidade||'-')}</div><div class="text-slate-500">${esc(item.uf||'')}</div></td><td class="px-3 py-2.5 text-right font-bold">${fmtInt(num(item.qtde_orcamentos_feitos))}</td><td class="px-3 py-2.5 text-right font-bold text-emerald-700">${fmtInt(num(item.qtde_orcamentos_aprovados))}</td><td class="px-3 py-2.5 text-right"><span class="${badgePct(convQtd)}">${fmtPct(convQtd)}</span></td><td class="px-3 py-2.5 text-right font-mono">${fmtBRL(num(item.valor_orcado))}</td><td class="px-3 py-2.5 text-right font-mono font-bold">${fmtBRL(num(item.valor_aprovado))}</td><td class="px-3 py-2.5 text-right"><span class="${badgePct(convVal)}">${fmtPct(convVal)}</span></td><td class="px-3 py-2.5 text-right font-bold">${fmtInt(num(item.qtde_notas_emitidas))}</td><td class="px-3 py-2.5 text-right font-mono font-extrabold text-columbia-700">${fmtBRL(num(item.valor_faturado))}</td><td class="px-3 py-2.5 text-center">${formatDate(item.ultima_aprovacao)}</td><td class="px-3 py-2.5 text-center">${formatDate(item.ultima_nf)}</td><td class="px-3 py-2.5 text-center"><button onclick="abrirEdicao(${Number(item.cod_empresa||1)},${Number(item.cod_cliente)})" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg ${temAlt?'bg-amber-50 border-amber-300 text-amber-800':'bg-columbia-50 border-columbia-100 text-columbia-700'} border hover:opacity-80 font-extrabold"><i data-lucide="${temAlt?'file-pen-line':'pencil'}" class="w-3.5 h-3.5"></i>${temAlt?'Alteração pendente':'Editar'}</button></td></tr>`; }).join(''); lucide.createIcons();
+  }
 
-      if (faturamentoChart) faturamentoChart.destroy();
+  function clientesCadastroPeriodo() { return rawData.filter(x=>num(x.qtde_orcamentos_aprovados)>0 || num(x.qtde_notas_emitidas)>0); }
+  function getAnalise(item) { return estadoAnalises.get(chaveCliente(item.cod_empresa,item.cod_cliente)); }
+  function getAlteracao(item) { return estadoAlteracoes.get(chaveCliente(item.cod_empresa,item.cod_cliente)); }
+  function camposAlterados(alt) { return new Set(String(alt?.campos_alterados||'').split(',').map(x=>x.trim()).filter(Boolean)); }
+  function estaAnalisado(item) { const a=getAnalise(item); return String(a?.analisado||'').toUpperCase()==='SIM' || !!getAlteracao(item); }
 
-      const ctx = document.getElementById('chartFaturamento');
-      faturamentoChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: top.map(x => abreviar(x.nome || x.razao_social || `Cliente ${x.cod_cliente}`, 28)),
-          datasets: [{
-            label: 'Faturamento',
-            data: top.map(x => num(x.valor_faturado)),
-            backgroundColor: '#1d72b8',
-            borderRadius: 6
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          indexAxis: 'y',
-          plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: { label: c => fmtBRL(c.raw) } }
-          },
-          scales: {
-            x: { ticks: { callback: v => compactBRL(v), font: { size: 10 } }, grid: { color: '#e2e8f0' } },
-            y: { ticks: { font: { size: 10 } }, grid: { display: false } }
-          }
-        }
-      });
-    }
+  function valorEfetivo(item, campo) {
+    const alt=getAlteracao(item), campos=camposAlterados(alt);
+    if(alt && campos.has(campo) && alt[`novo_${campo}`] !== undefined && alt[`novo_${campo}`] !== null) return alt[`novo_${campo}`];
+    return item[campo] ?? '';
+  }
 
-    function getFilteredData() {
-      const busca = document.getElementById('searchInput').value.trim().toLowerCase();
-      const movimento = document.getElementById('filtroMovimento').value;
+  function rotuloIe(v) { const n=Number(v||0); return n===1?'Contribuinte ICMS':n===2?'Isento de IE':n===3?'Não contribuinte':'Não preenchido'; }
+  function rotuloConsumidor(v) { return Number(v||0)===1?'Sim':'Não'; }
+  function celulaCad(item,campo,valor,extra='') { const changed=camposAlterados(getAlteracao(item)).has(campo); return `<td class="px-3 py-2.5 ${changed?'cell-change':''} ${extra}">${esc(valor??'')}</td>`; }
 
-      return rawData.filter(item => {
-        const texto = [item.nome, item.razao_social, item.cnpj, item.ie, item.cidade, item.uf, item.cod_cliente]
-          .map(v => String(v ?? '').toLowerCase()).join(' ');
-        if (busca && !texto.includes(busca)) return false;
-        if (movimento === 'faturados' && num(item.valor_faturado) <= 0) return false;
-        if (movimento === 'sem_faturamento' && num(item.valor_faturado) > 0) return false;
-        if (movimento === 'sem_aprovacao' && num(item.qtde_orcamentos_aprovados) > 0) return false;
-        return true;
-      });
-    }
+  function renderCadastro() {
+    let dados=clientesCadastroPeriodo();
+    const busca=(document.getElementById('cadSearchInput')?.value||'').trim().toLowerCase(), filtro=document.getElementById('cadFiltroStatus')?.value||'todos';
+    dados=dados.filter(item=>{ const alt=getAlteracao(item), analisado=estaAnalisado(item), efetivos=['nome','razao_social','cnpj','ie','endereco','numero_imovel','bairro','cidade','uf','cep'].map(c=>valorEfetivo(item,c)); const texto=[item.cod_cliente,...efetivos].join(' ').toLowerCase(); if(busca&&!texto.includes(busca))return false; if(filtro==='pendentes'&&analisado)return false; if(filtro==='analisados'&&!analisado)return false; if(filtro==='alterados'&&!alt)return false; if(filtro==='sem_alteracao'&&alt)return false; return true; });
 
-    function renderTabela() {
-      const dados = getFilteredData();
-      const tbody = document.getElementById('clientesBody');
-      document.getElementById('tableCount').textContent = `${fmtInt(dados.length)} registro${dados.length === 1 ? '' : 's'}`;
+    const todos=clientesCadastroPeriodo(), analisados=todos.filter(estaAnalisado).length, alterados=todos.filter(x=>!!getAlteracao(x)).length;
+    document.getElementById('cadKpiTotal').textContent=fmtInt(todos.length); document.getElementById('cadKpiAnalisados').textContent=fmtInt(analisados); document.getElementById('cadKpiPendentes').textContent=fmtInt(todos.length-analisados); document.getElementById('cadKpiAlterados').textContent=fmtInt(alterados); document.getElementById('cadTableCount').textContent=`${fmtInt(dados.length)} registro${dados.length===1?'':'s'}`;
 
-      if (!dados.length) {
-        tbody.innerHTML = `<tr><td colspan="13" class="py-12 text-center text-slate-400 font-bold">Nenhum cliente encontrado para os filtros selecionados.</td></tr>`;
-        return;
-      }
+    const tbody=document.getElementById('cadastroBody'); if(!dados.length){tbody.innerHTML='<tr><td colspan="13" class="py-12 text-center text-slate-400 font-bold">Nenhum cliente encontrado.</td></tr>';return;}
+    tbody.innerHTML=dados.map(item=>{ const alt=getAlteracao(item), campos=camposAlterados(alt), analisado=estaAnalisado(item), analise=getAnalise(item); const nome=valorEfetivo(item,'nome')||valorEfetivo(item,'razao_social')||'-'; const razao=valorEfetivo(item,'razao_social'); const endereco=`${valorEfetivo(item,'endereco')||''}${valorEfetivo(item,'numero_imovel')?`, ${valorEfetivo(item,'numero_imovel')}`:''}`; const cidadeUf=`${valorEfetivo(item,'cidade')||''}${valorEfetivo(item,'uf')?` / ${valorEfetivo(item,'uf')}`:''}`; const changeEndereco=campos.has('endereco')||campos.has('numero_imovel'), changeCidade=campos.has('cidade')||campos.has('uf'); return `<tr class="${analisado?'bg-emerald-50/20':''} hover:bg-slate-50 transition"><td class="px-3 py-2.5 text-center"><input class="analysis-check" type="checkbox" ${analisado?'checked':''} onchange="marcarAnalisado(${Number(item.cod_empresa||1)},${Number(item.cod_cliente)},this.checked,this)" title="${analisado?`Analisado ${formatDateTime(analise?.data_analise)}`:'Marcar como analisado'}"></td><td class="px-3 py-2.5 ${campos.has('nome')||campos.has('razao_social')?'cell-change':''}"><div class="font-extrabold">${esc(nome)}</div><div class="text-[9px] opacity-70">${esc(razao||'')} · Cód. ${esc(item.cod_cliente)}</div></td>${celulaCad(item,'cnpj',valorEfetivo(item,'cnpj')||'-')}${celulaCad(item,'ie',valorEfetivo(item,'ie')||'-')}${celulaCad(item,'ind_ie_dest',rotuloIe(valorEfetivo(item,'ind_ie_dest')))}${celulaCad(item,'indfinal_b25a',rotuloConsumidor(valorEfetivo(item,'indfinal_b25a')))}<td class="px-3 py-2.5 ${changeEndereco?'cell-change':''}">${esc(endereco||'-')}</td>${celulaCad(item,'bairro',valorEfetivo(item,'bairro')||'-')}<td class="px-3 py-2.5 ${changeCidade?'cell-change':''}">${esc(cidadeUf||'-')}</td>${celulaCad(item,'cep',valorEfetivo(item,'cep')||'-')}<td class="px-3 py-2.5 text-center"><div class="font-bold text-emerald-700">${fmtInt(num(item.qtde_orcamentos_aprovados))} aprov.</div><div class="text-slate-500">${fmtInt(num(item.qtde_notas_emitidas))} NF</div></td><td class="px-3 py-2.5 text-center">${alt?`<span class="inline-flex px-2 py-1 rounded-full bg-amber-100 text-amber-800 font-extrabold">Alteração pendente</span><div class="text-[9px] text-slate-400 mt-1">${esc(alt.campos_alterados||'')}</div>`:(analisado?'<span class="inline-flex px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 font-extrabold">Analisado</span>':'<span class="inline-flex px-2 py-1 rounded-full bg-red-50 text-red-700 font-extrabold">Pendente</span>')}</td><td class="px-3 py-2.5 text-center"><button onclick="abrirEdicao(${Number(item.cod_empresa||1)},${Number(item.cod_cliente)})" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg ${alt?'bg-amber-500 hover:bg-amber-600 text-white':'bg-columbia-700 hover:bg-columbia-800 text-white'} font-extrabold shadow-sm"><i data-lucide="pencil" class="w-3.5 h-3.5"></i>${alt?'Revisar alteração':'Analisar / editar'}</button></td></tr>`; }).join(''); lucide.createIcons();
+  }
 
-      tbody.innerHTML = dados.map(item => {
-        const convQtd = num(item.perc_aprovacao_qtde);
-        const convVal = num(item.perc_aprovacao_valor);
-        return `
-          <tr class="hover:bg-slate-50 transition">
-            <td class="px-3 py-2.5 max-w-[260px]">
-              <div class="font-extrabold text-slate-800 truncate" title="${esc(item.nome)}">${esc(item.nome || '-')}</div>
-              <div class="text-[9px] text-slate-500 truncate" title="${esc(item.razao_social)}">${esc(item.razao_social || '')}</div>
-              <div class="text-[9px] text-slate-400">Cód. ${esc(item.cod_cliente)} · ${esc(item.cnpj || 'sem CNPJ')}</div>
-            </td>
-            <td class="px-3 py-2.5"><div class="font-bold">${esc(item.cidade || '-')}</div><div class="text-slate-500">${esc(item.uf || '')}</div></td>
-            <td class="px-3 py-2.5 text-right font-bold">${fmtInt(num(item.qtde_orcamentos_feitos))}</td>
-            <td class="px-3 py-2.5 text-right font-bold text-emerald-700">${fmtInt(num(item.qtde_orcamentos_aprovados))}</td>
-            <td class="px-3 py-2.5 text-right"><span class="${badgePct(convQtd)}">${fmtPct(convQtd)}</span></td>
-            <td class="px-3 py-2.5 text-right font-mono">${fmtBRL(num(item.valor_orcado))}</td>
-            <td class="px-3 py-2.5 text-right font-mono font-bold">${fmtBRL(num(item.valor_aprovado))}</td>
-            <td class="px-3 py-2.5 text-right"><span class="${badgePct(convVal)}">${fmtPct(convVal)}</span></td>
-            <td class="px-3 py-2.5 text-right font-bold">${fmtInt(num(item.qtde_notas_emitidas))}</td>
-            <td class="px-3 py-2.5 text-right font-mono font-extrabold text-columbia-700">${fmtBRL(num(item.valor_faturado))}</td>
-            <td class="px-3 py-2.5 text-center">${formatDate(item.ultima_aprovacao)}</td>
-            <td class="px-3 py-2.5 text-center">${formatDate(item.ultima_nf)}</td>
-            <td class="px-3 py-2.5 text-center">
-              <button onclick="abrirEdicao(${Number(item.cod_empresa || 1)}, ${Number(item.cod_cliente)})" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-columbia-50 border border-columbia-100 text-columbia-700 hover:bg-columbia-100 font-extrabold">
-                <i data-lucide="pencil" class="w-3.5 h-3.5"></i> Editar
-              </button>
-            </td>
-          </tr>`;
-      }).join('');
+  async function marcarAnalisado(codEmpresa,codCliente,analisado,checkbox) {
+    checkbox.disabled=true;
+    try { await apiFetch(`${API_BASE}/analista/clientes/analise`,{method:'POST',body:JSON.stringify({cod_empresa:Number(codEmpresa),cod_cliente:Number(codCliente),analisado:!!analisado})}); await recarregarEstado(); showToast(analisado?'Cliente marcado como analisado.':'Marcação de análise removida.','sucesso'); }
+    catch(error){ checkbox.checked=!analisado; showToast(error.message||'Não foi possível salvar a análise.','erro'); }
+    finally{ checkbox.disabled=false; }
+  }
 
-      lucide.createIcons();
-    }
+  function valoresEfetivosCliente(item) { const obj={}; Object.keys(FIELD_MAP).forEach(c=>obj[c]=valorEfetivo(item,c)); return obj; }
 
-    function abrirEdicao(codEmpresa, codCliente) {
-      const item = rawData.find(x => Number(x.cod_empresa || 1) === Number(codEmpresa) && Number(x.cod_cliente) === Number(codCliente));
-      if (!item) return;
-      clienteEditando = item;
+  function abrirEdicao(codEmpresa,codCliente) {
+    const item=rawData.find(x=>Number(x.cod_empresa||1)===Number(codEmpresa)&&Number(x.cod_cliente)===Number(codCliente)); if(!item)return;
+    clienteEditando=item; const alt=getAlteracao(item), campos=camposAlterados(alt), v=valoresEfetivosCliente(item); valoresModalIniciais={...v};
+    document.getElementById('editCodEmpresa').value=item.cod_empresa||1; document.getElementById('editCodCliente').value=item.cod_cliente;
+    Object.entries(FIELD_MAP).forEach(([campo,cfg])=>{ const el=document.getElementById(cfg.id); el.value=(campo==='ind_ie_dest'||campo==='indfinal_b25a')?String(Number(v[campo]||0)):String(v[campo]??''); el.classList.toggle('pending-change',campos.has(campo)); });
+    document.getElementById('editClienteLabel').textContent=`Cód. ${item.cod_cliente} · ${v.nome||v.razao_social||''}`;
+    const info=document.getElementById('editInfoBox'), pendingBox=document.getElementById('pendingFieldsBox');
+    if(alt){ info.innerHTML='Este cliente já possui uma <strong>alteração PENDENTE</strong>. Os valores amarelos abaixo já mostram o que você solicitou anteriormente.'; const nomes=[...campos].map(c=>FIELD_MAP[c]?.label||c); pendingBox.innerHTML=`<strong>Campos já alterados:</strong> ${esc(nomes.join(', '))}. Você pode revisar e, se mudar novamente, será criada uma nova solicitação com os valores mais recentes.`; pendingBox.classList.remove('hidden'); document.getElementById('btnSalvarAlteracao').innerHTML='<i data-lucide="send" class="w-4 h-4"></i> Enviar nova alteração'; }
+    else { info.innerHTML='Esta ação <strong>não altera o banco de dados</strong>. Ela cria uma solicitação PENDENTE no Google Sheets para posterior validação/update.'; pendingBox.classList.add('hidden'); document.getElementById('btnSalvarAlteracao').innerHTML='<i data-lucide="send" class="w-4 h-4"></i> Enviar solicitação'; }
+    const modal=document.getElementById('editModal'); modal.classList.remove('hidden'); modal.classList.add('flex'); lucide.createIcons();
+  }
 
-      document.getElementById('editCodEmpresa').value = item.cod_empresa || 1;
-      document.getElementById('editCodCliente').value = item.cod_cliente;
-      document.getElementById('editNome').value = item.nome || '';
-      document.getElementById('editRazaoSocial').value = item.razao_social || '';
-      document.getElementById('editCnpj').value = item.cnpj || '';
-      document.getElementById('editIe').value = item.ie || '';
-      document.getElementById('editIndIeDest').value = String(item.ind_ie_dest ?? 0);
-      document.getElementById('editConsumidorFinal').value = String(item.indfinal_b25a ?? 0);
-      document.getElementById('editEndereco').value = item.endereco || '';
-      document.getElementById('editNumero').value = item.numero_imovel || '';
-      document.getElementById('editBairro').value = item.bairro || '';
-      document.getElementById('editCidade').value = item.cidade || '';
-      document.getElementById('editUf').value = item.uf || '';
-      document.getElementById('editCep').value = item.cep || '';
-      document.getElementById('editClienteLabel').textContent = `Cód. ${item.cod_cliente} · ${item.nome || item.razao_social || ''}`;
+  function fecharModal(){ const modal=document.getElementById('editModal'); modal.classList.add('hidden'); modal.classList.remove('flex'); clienteEditando=null; valoresModalIniciais=null; Object.values(FIELD_MAP).forEach(cfg=>document.getElementById(cfg.id)?.classList.remove('pending-change')); }
 
-      const modal = document.getElementById('editModal');
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
-      lucide.createIcons();
-    }
+  function payloadModal() { return {cod_empresa:Number(document.getElementById('editCodEmpresa').value||1),cod_cliente:Number(document.getElementById('editCodCliente').value),nome:document.getElementById('editNome').value.trim(),razao_social:document.getElementById('editRazaoSocial').value.trim(),cnpj:document.getElementById('editCnpj').value.trim(),ie:document.getElementById('editIe').value.trim(),ind_ie_dest:Number(document.getElementById('editIndIeDest').value||0),indfinal_b25a:Number(document.getElementById('editConsumidorFinal').value||0),endereco:document.getElementById('editEndereco').value.trim(),numero_imovel:document.getElementById('editNumero').value.trim(),bairro:document.getElementById('editBairro').value.trim(),cidade:document.getElementById('editCidade').value.trim(),uf:document.getElementById('editUf').value.trim().toUpperCase(),cep:document.getElementById('editCep').value.trim()}; }
 
-    function fecharModal() {
-      const modal = document.getElementById('editModal');
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
-      clienteEditando = null;
-    }
+  async function enviarAlteracao(event) {
+    event.preventDefault(); if(!clienteEditando)return; const btn=document.getElementById('btnSalvarAlteracao'),payload=payloadModal(), alt=getAlteracao(clienteEditando);
+    if(alt && valoresModalIniciais){ const semMudanca=Object.keys(FIELD_MAP).every(c=>String(payload[c]??'')===String(valoresModalIniciais[c]??'')); if(semMudanca){ showToast('Esses valores já estão registrados como alteração pendente.','erro'); return; } }
+    btn.disabled=true; btn.classList.add('opacity-60'); const original=btn.innerHTML; btn.innerHTML='<span>Enviando...</span>';
+    try { const data=await apiFetch(`${API_BASE}/analista/clientes/alteracoes`,{method:'POST',body:JSON.stringify(payload)}); fecharModal(); await recarregarEstado(); showToast(`${data.mensagem} ID: ${data.id_solicitacao}`,'sucesso'); }
+    catch(error){ showToast(error.message||'Não foi possível registrar a alteração.','erro'); }
+    finally{ btn.disabled=false; btn.classList.remove('opacity-60'); btn.innerHTML=original; lucide.createIcons(); }
+  }
 
-    async function enviarAlteracao(event) {
-      event.preventDefault();
-      if (!clienteEditando) return;
+  function logout(){ localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); localStorage.removeItem('columbia_analista_cod_responsavel'); window.location.href='login.html'; }
+  function showToast(texto,tipo='sucesso'){ const toast=document.getElementById('toast'); toast.textContent=texto; toast.className='fixed bottom-4 right-4 z-[60] max-w-sm rounded-2xl shadow-2xl border p-3.5 text-xs font-bold'; if(tipo==='erro')toast.classList.add('bg-red-50','border-red-200','text-red-800'); else toast.classList.add('bg-emerald-50','border-emerald-200','text-emerald-800'); toast.classList.remove('hidden'); clearTimeout(window.__toastTimer); window.__toastTimer=setTimeout(()=>toast.classList.add('hidden'),5500); }
 
-      const btn = document.getElementById('btnSalvarAlteracao');
-      const payload = {
-        cod_empresa: Number(document.getElementById('editCodEmpresa').value || 1),
-        cod_cliente: Number(document.getElementById('editCodCliente').value),
-        nome: document.getElementById('editNome').value.trim(),
-        razao_social: document.getElementById('editRazaoSocial').value.trim(),
-        cnpj: document.getElementById('editCnpj').value.trim(),
-        ie: document.getElementById('editIe').value.trim(),
-        ind_ie_dest: Number(document.getElementById('editIndIeDest').value || 0),
-        indfinal_b25a: Number(document.getElementById('editConsumidorFinal').value || 0),
-        endereco: document.getElementById('editEndereco').value.trim(),
-        numero_imovel: document.getElementById('editNumero').value.trim(),
-        bairro: document.getElementById('editBairro').value.trim(),
-        cidade: document.getElementById('editCidade').value.trim(),
-        uf: document.getElementById('editUf').value.trim().toUpperCase(),
-        cep: document.getElementById('editCep').value.trim()
-      };
-
-      btn.disabled = true;
-      btn.classList.add('opacity-60');
-      const originalHtml = btn.innerHTML;
-      btn.innerHTML = '<span>Enviando...</span>';
-
-      try {
-        const data = await apiFetch(`${API_BASE}/analista/clientes/alteracoes`, {
-          method: 'POST',
-          body: JSON.stringify(payload)
-        });
-        fecharModal();
-        showToast(`${data.mensagem} ID: ${data.id_solicitacao}`, 'sucesso');
-      } catch (error) {
-        showToast(error.message || 'Não foi possível registrar a alteração.', 'erro');
-      } finally {
-        btn.disabled = false;
-        btn.classList.remove('opacity-60');
-        btn.innerHTML = originalHtml;
-        lucide.createIcons();
-      }
-    }
-
-    function logout() {
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(USER_KEY);
-      localStorage.removeItem('columbia_analista_cod_responsavel');
-      window.location.href = 'login.html';
-    }
-
-    function showToast(texto, tipo = 'sucesso') {
-      const toast = document.getElementById('toast');
-      toast.textContent = texto;
-      toast.className = 'fixed bottom-4 right-4 z-[60] max-w-sm rounded-2xl shadow-2xl border p-3.5 text-xs font-bold';
-      if (tipo === 'erro') toast.classList.add('bg-red-50', 'border-red-200', 'text-red-800');
-      else toast.classList.add('bg-emerald-50', 'border-emerald-200', 'text-emerald-800');
-      toast.classList.remove('hidden');
-      clearTimeout(window.__toastTimer);
-      window.__toastTimer = setTimeout(() => toast.classList.add('hidden'), 5500);
-    }
-
-    function num(v) {
-      if (v === null || v === undefined || v === '') return 0;
-      const n = Number(v);
-      return Number.isFinite(n) ? n : 0;
-    }
-    function fmtBRL(v) { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num(v)); }
-    function fmtInt(v) { return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 }).format(num(v)); }
-    function fmtPct(v) { return `${new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(num(v))}%`; }
-    function compactBRL(v) {
-      const n = num(v); const abs = Math.abs(n);
-      if (abs >= 1e6) return `R$ ${(n / 1e6).toFixed(1)}M`;
-      if (abs >= 1e3) return `R$ ${(n / 1e3).toFixed(0)}k`;
-      return `R$ ${n.toFixed(0)}`;
-    }
-    function formatDate(v) {
-      if (!v) return '-';
-      const s = String(v).slice(0, 10);
-      const [y, m, d] = s.split('-');
-      return y && m && d ? `${d}/${m}/${y}` : s;
-    }
-    function abreviar(v, n) { const s = String(v ?? ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
-    function esc(v) {
-      return String(v ?? '').replace(/[&<>'"]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[ch]));
-    }
-    function badgePct(v) {
-      const n = num(v);
-      if (n >= 70) return 'inline-flex px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-extrabold';
-      if (n >= 40) return 'inline-flex px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-extrabold';
-      return 'inline-flex px-2 py-0.5 rounded-full bg-red-50 text-red-700 font-extrabold';
-    }
-  </script>
+  function num(v){if(v===null||v===undefined||v==='')return 0;const n=Number(v);return Number.isFinite(n)?n:0;}
+  function fmtBRL(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(num(v));}
+  function fmtInt(v){return new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0}).format(num(v));}
+  function fmtPct(v){return `${new Intl.NumberFormat('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}).format(num(v))}%`;}
+  function compactBRL(v){const n=num(v),abs=Math.abs(n);if(abs>=1e6)return `R$ ${(n/1e6).toFixed(1)}M`;if(abs>=1e3)return `R$ ${(n/1e3).toFixed(0)}k`;return `R$ ${n.toFixed(0)}`;}
+  function formatDate(v){if(!v)return '-';const s=String(v).slice(0,10),[y,m,d]=s.split('-');return y&&m&&d?`${d}/${m}/${y}`:s;}
+  function formatDateTime(v){if(!v)return '';const d=new Date(v);return isNaN(d)?formatDate(v):d.toLocaleString('pt-BR');}
+  function abreviar(v,n){const s=String(v??'');return s.length>n?s.slice(0,n-1)+'…':s;}
+  function esc(v){return String(v??'').replace(/[&<>'"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));}
+  function badgePct(v){const n=num(v);if(n>=70)return'inline-flex px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-extrabold';if(n>=40)return'inline-flex px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-extrabold';return'inline-flex px-2 py-0.5 rounded-full bg-red-50 text-red-700 font-extrabold';}
+</script>
 </body>
 </html>
