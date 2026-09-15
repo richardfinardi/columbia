@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="LOGO MINIMALISTA.png">
+  <title>Login | Análise de Clientes - Columbia Machine</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            columbia: {
+              50: '#f0f7ff',
+              100: '#e0effe',
+              500: '#1d72b8',
+              600: '#155b96',
+              700: '#003e7e',
+              800: '#002e61',
+              900: '#001e40'
+            }
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-4 font-sans">
+  <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden">
+    <div class="bg-columbia-700 p-6 text-center text-white">
+      <div class="flex justify-center mb-3">
+        <img src="./logo.png" alt="Columbia Machine" class="h-10 object-contain bg-white p-1 rounded-xl shadow-sm" onerror="this.style.display='none'">
+      </div>
+      <h1 class="text-xl font-extrabold tracking-wide">Columbia Machine Brasil</h1>
+      <p class="text-xs text-columbia-100 mt-1">Análise e Cadastro de Clientes</p>
+    </div>
+
+    <form id="loginForm" class="p-6 space-y-4 text-xs">
+      <div>
+        <label class="block font-bold text-slate-700 mb-1">Usuário</label>
+        <input type="text" id="inputUsuario" required placeholder="Digite seu usuário GRV..."
+               autocomplete="username"
+               class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-800 text-xs focus:outline-none focus:border-columbia-700 font-bold uppercase">
+      </div>
+
+      <div>
+        <label class="block font-bold text-slate-700 mb-1">Senha</label>
+        <input type="password" id="inputSenha" required placeholder="Digite sua senha GRV..."
+               autocomplete="current-password"
+               class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-800 text-xs focus:outline-none focus:border-columbia-700 font-medium">
+      </div>
+
+      <div class="rounded-xl bg-blue-50 border border-blue-200 px-3 py-2.5 text-[11px] text-blue-900 leading-relaxed">
+        Acesso exclusivo para usuários com <strong>U_ANALISTA_CADASTRO = 1</strong> no sistema.
+      </div>
+
+      <p id="msgError" class="text-red-700 font-bold text-center hidden bg-red-50 p-2.5 rounded-xl border border-red-200"></p>
+
+      <button type="submit" id="btnLogin"
+              class="w-full py-3 bg-columbia-700 text-white font-extrabold rounded-xl hover:bg-columbia-800 transition shadow-md text-xs disabled:opacity-60">
+        Entrar no Sistema
+      </button>
+    </form>
+  </div>
+
+  <script>
+    const API_BASE = 'https://columbia.consultoriarf.net/producao';
+    const TOKEN_KEY = 'columbia_analista_token';
+
+    if (localStorage.getItem(TOKEN_KEY)) {
+      window.location.href = 'index.html';
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', handleLogin);
+
+    async function handleLogin(event) {
+      event.preventDefault();
+
+      const usuario = document.getElementById('inputUsuario').value.trim().toUpperCase();
+      const senha = document.getElementById('inputSenha').value;
+      const msgError = document.getElementById('msgError');
+      const btnLogin = document.getElementById('btnLogin');
+
+      msgError.classList.add('hidden');
+      btnLogin.disabled = true;
+      btnLogin.textContent = 'Autenticando...';
+
+      try {
+        const response = await fetch(`${API_BASE}/analista/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ usuario, senha })
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data.detail || 'Não foi possível autenticar.');
+        }
+
+        if (Number(data.u_analista_cadastro || 0) !== 1) {
+          throw new Error('Seu usuário não possui acesso ao módulo de análise de clientes.');
+        }
+
+        localStorage.setItem(TOKEN_KEY, data.access_token);
+        localStorage.setItem('columbia_analista_usuario', data.usuario || usuario);
+        localStorage.setItem('columbia_analista_cod_responsavel', data.cod_responsavel ?? '');
+
+        window.location.href = 'index.html';
+
+      } catch (error) {
+        msgError.textContent = error.message;
+        msgError.classList.remove('hidden');
+      } finally {
+        btnLogin.disabled = false;
+        btnLogin.textContent = 'Entrar no Sistema';
+      }
+    }
+  </script>
+</body>
+</html>
