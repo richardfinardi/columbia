@@ -259,6 +259,7 @@ const COLS={
  cliente:[
   col('analisado','Analisado',i=>isAnalyzed('cliente',i)?'Sim':'Não',i=>isAnalyzed('cliente',i)?1:0,'center',i=>checkboxCell('cliente',i)),
   col('cliente','Cliente',i=>effective('cliente',i,'nome')||effective('cliente',i,'razao_social')||`Cliente ${i.cod_cliente}`,null,'left',i=>entityNameCell('cliente',i)),
+  col('segmento','Segmento',i=>i.segmento||'Sem segmento'),
   col('cnpj','CNPJ / RG-CGC',i=>effective('cliente',i,'cnpj')||'Sem CNPJ'),col('ie','IE / CPF',i=>effective('cliente',i,'ie')||'Sem IE/CPF'),
   col('icms','Contribuinte ICMS',i=>labelIe(effective('cliente',i,'ind_ie_dest'))),col('consumidor','Consumidor final',i=>Number(effective('cliente',i,'indfinal_b25a'))===1?'Sim':'Não'),
   col('endereco','Endereço',i=>addressEffective('cliente',i)||'Sem endereço'),col('bairro','Bairro',i=>effective('cliente',i,'bairro')||'Sem bairro'),col('cidade','Cidade / UF',i=>cityUfEffective('cliente',i)||'Sem cidade/UF'),col('cep','CEP',i=>effective('cliente',i,'cep')||'Sem CEP'),
