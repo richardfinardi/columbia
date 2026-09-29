@@ -56,7 +56,6 @@
           const p=JSON.parse(localStorage.getItem(PERMISSIONS_KEY)||'{}');
           document.getElementById('cardConferencia').classList.remove('hidden');
           document.getElementById('cardNotas').classList.toggle('hidden',Number(p.u_notas||0)!==1);
-        document.getElementById('cardCustos').classList.toggle('hidden',Number(p.u_custos||0)!==1);
           document.getElementById('cardCustos').classList.toggle('hidden',Number(p.u_custos||0)!==1);
           return;
         }
