@@ -170,24 +170,24 @@ const NOTAS_COLUMNS={
   faturamento:[
     ['mes_ano','MÊS/ANO','text'],['nf','NF','text'],['data','Data','date'],['cliente','CLIENTE','text'],['cnpj','CNPJ','text'],['cfop','CFOP','text'],['status','STATUS','text'],
     ['vl_faturado','Faturamento','money',1],['vl_frete','Frete','money',1],['vl_nota','Total da nota','money',1],['outras_despesas','Outras Desp.','money',1],
-    ['icms','ICMS','money',1],['pis','PIS','money',1],['cofins','COFINS','money',1],['ipi','IPI','money',1],['iss','ISS','money',1],['segmento_final','Segmento','text'],['tipo','TIPO','text']
+    ['icms','ICMS','money',1],['pis','PIS','money',1],['cofins','COFINS','money',1],['ipi','IPI','money',1],['iss','ISS','money',1],['segmento_final','Segmento','text'],['tipo','TIPO','text'],['obs_nota','Observação da Nota','text']
   ],
   sucata:[
     ['mes_ano','MÊS/ANO','text'],['nf','NF','text'],['data','DT_EMISSAO','date'],['cliente','CLIENTE','text'],['cnpj','CNPJ','text'],['cfop','CFOP','text'],['status','STATUS','text'],
-    ['vl_faturado','VL FATURADO','money',1],['icms','ICMS','money',1],['pis','PIS','money',1],['cofins','COFINS','money',1],['ipi','IPI','money',1],['segmento_final','Segmento','text']
+    ['vl_faturado','VL FATURADO','money',1],['icms','ICMS','money',1],['pis','PIS','money',1],['cofins','COFINS','money',1],['ipi','IPI','money',1],['segmento_final','Segmento','text'],['obs_nota','Observação da Nota','text']
   ],
   devolucoes:[
     ['mes_ano','MÊS/ANO','text'],['nf','NF','text'],['data','DT_EMISSAO','date'],['cliente','CLIENTE','text'],['cnpj','CNPJ','text'],['cfop','CFOP','text'],['status','STATUS','text'],
-    ['vl_nota','VL NF','money',1],['icms','ICMS','money',1],['pis','PIS','money',1],['cofins','COFINS','money',1],['ipi','IPI','money',1],['segmento_final','Segmento','text'],['tipo','TIPO','text'],['nf_referenciada','NF_REFERENCIADA1','text'],['tp_nf','tp_nf','text']
+    ['vl_nota','VL NF','money',1],['icms','ICMS','money',1],['pis','PIS','money',1],['cofins','COFINS','money',1],['ipi','IPI','money',1],['segmento_final','Segmento','text'],['tipo','TIPO','text'],['nf_referenciada','NF_REFERENCIADA1','text'],['tp_nf','tp_nf','text'],['obs_nota','Observação da Nota','text']
   ],
   canceladas:[
     ['mes_ano','MÊS/ANO','text'],['nf','NF','text'],['data','DT_EMISSAO','date'],['cliente','CLIENTE','text'],['cnpj','CNPJ','text'],['cfop','CFOP','text'],['status','STATUS','text'],
-    ['vl_faturado','VL FATURADO','money',1],['vl_nota','VL NF','money',1],['icms','ICMS','money',1],['pis','PIS','money',1],['cofins','COFINS','money',1],['ipi','IPI','money',1],['segmento_final','Segmento','text'],['tipo','TIPO','text']
+    ['vl_faturado','VL FATURADO','money',1],['vl_nota','VL NF','money',1],['icms','ICMS','money',1],['pis','PIS','money',1],['cofins','COFINS','money',1],['ipi','IPI','money',1],['segmento_final','Segmento','text'],['tipo','TIPO','text'],['obs_nota','Observação da Nota','text']
   ],
   todas:[
     ['mes_ano','MÊS/ANO','text'],['nf','NF','text'],['data','DT_EMISSAO','date'],['cliente','CLIENTE','text'],['cnpj','CNPJ','text'],['cfop','CFOP','text'],['status','STATUS','text'],
     ['vl_faturado','Faturamento','money',1],['vl_frete','Frete','money',1],['vl_nota','Total da nota','money',1],['outras_despesas','Outras Desp.','money',1],
-    ['icms','ICMS','money',1],['pis','PIS','money',1],['cofins','COFINS','money',1],['ipi','Soma de ipi','money',1],['iss','ISS','money',1],['segmento_final','Segmento','text'],['tipo','TIPO','text'],['obs_nota','obs_nota','text']
+    ['icms','ICMS','money',1],['pis','PIS','money',1],['cofins','COFINS','money',1],['ipi','Soma de ipi','money',1],['iss','ISS','money',1],['segmento_final','Segmento','text'],['tipo','TIPO','text'],['obs_nota','Observação da Nota','text']
   ]
 };
 function columnsForView(){return (NOTAS_COLUMNS[notasView]||NOTAS_COLUMNS.todas).map(function(x){return {key:x[0],label:x[1],type:x[2],sum:!!x[3]}})}
