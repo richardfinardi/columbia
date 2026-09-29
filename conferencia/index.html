@@ -8,7 +8,12 @@
   <title>Análises | Columbia Machine</title>
 
   <script>
-    if (!localStorage.getItem('columbia_analista_token')) window.location.href = '../login.html';
+    const __columbiaToken = localStorage.getItem('columbia_analista_token');
+    if (!__columbiaToken) window.location.href = '../login.html';
+    try {
+      const __p = JSON.parse(localStorage.getItem('columbia_permissoes') || '{}');
+      if (Object.keys(__p).length && Number(__p.u_analista_cadastro || 0) !== 1) window.location.href = '../';
+    } catch (_) {}
   </script>
 
   <script src="https://cdn.tailwindcss.com"></script>
