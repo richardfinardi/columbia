@@ -309,41 +309,41 @@ function renderComparativoMatrix(){
     const open=expandedComparativo.has(m.key);
     const label=meses[m.mes-1].slice(0,3).toLowerCase()+'/'+m.ano;
     rowsHtml+='<tr id="comp-'+m.key+'" class="border-t bg-slate-50/70">'+
-      '<td class="px-3 py-2.5 font-black whitespace-nowrap"><button onclick="toggleComparativoMonth(\''+m.key+'\')" class="inline-flex items-center gap-2 hover:text-columbia-700"><span class="inline-flex w-4 h-4 items-center justify-center border border-slate-300 rounded text-[10px] bg-white">'+(open?'−':'+')+'</span>'+label+'</button></td>'+
-      '<td class="px-3 py-2.5 text-right font-black">'+fmtBRL(m.bruto)+'</td>'+
-      '<td class="px-3 py-2.5 text-right font-black">'+(m.devol?fmtBRL(m.devol):'')+'</td>'+
-      '<td class="px-3 py-2.5 text-right font-black">'+fmtBRL(m.liquido)+'</td>'+
+      '<td class="px-2 py-1.5 font-black whitespace-nowrap text-[11px]"><button onclick="toggleComparativoMonth(\''+m.key+'\')" class="inline-flex items-center gap-1.5 hover:text-columbia-700"><span class="inline-flex w-3.5 h-3.5 items-center justify-center border border-slate-300 rounded text-[9px] bg-white leading-none">'+(open?'−':'+')+'</span>'+label+'</button></td>'+
+      '<td class="px-2 py-1.5 text-right font-black text-[11px]">'+fmtBRL(m.bruto)+'</td>'+
+      '<td class="px-2 py-1.5 text-right font-black text-[11px]">'+(m.devol?fmtBRL(m.devol):'')+'</td>'+
+      '<td class="px-2 py-1.5 text-right font-black text-[11px]">'+fmtBRL(m.liquido)+'</td>'+
       '</tr>';
     if(open){
       m.segmentos.forEach(function(s){
         rowsHtml+='<tr class="border-t border-slate-100 hover:bg-slate-50">'+
-          '<td class="px-3 py-2 pl-10 text-[11px] text-slate-600">'+esc(s.segmento)+'</td>'+
-          '<td class="px-3 py-2 text-right text-slate-700">'+(s.bruto?fmtBRL(s.bruto):'')+'</td>'+
-          '<td class="px-3 py-2 text-right text-slate-700">'+(s.devol?fmtBRL(s.devol):'')+'</td>'+
-          '<td class="px-3 py-2 text-right text-slate-700">'+((s.bruto||s.devol)?fmtBRL(s.liquido):'')+'</td>'+
+          '<td class="px-2 py-1 pl-8 text-[10px] text-slate-600">'+esc(s.segmento)+'</td>'+
+          '<td class="px-2 py-1 text-right text-[10px] text-slate-700">'+(s.bruto?fmtBRL(s.bruto):'')+'</td>'+
+          '<td class="px-2 py-1 text-right text-[10px] text-slate-700">'+(s.devol?fmtBRL(s.devol):'')+'</td>'+
+          '<td class="px-2 py-1 text-right text-[10px] text-slate-700">'+((s.bruto||s.devol)?fmtBRL(s.liquido):'')+'</td>'+
           '</tr>';
       });
     }
   });
 
   document.getElementById('comparativoTable').innerHTML=
-    '<div class="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b bg-white">'+
-      '<div><div class="text-xs font-black text-slate-800">Matriz Mês/Ano</div><div class="text-[10px] text-slate-500">Clique no mês para abrir o detalhamento por segmento.</div></div>'+
-      '<div class="flex gap-2"><button onclick="expandAllComparativo()" class="border rounded-lg px-2.5 py-1.5 text-[10px] font-bold hover:bg-slate-50">Expandir todos</button><button onclick="collapseAllComparativo()" class="border rounded-lg px-2.5 py-1.5 text-[10px] font-bold hover:bg-slate-50">Recolher todos</button></div>'+
+    '<div class="flex flex-wrap items-center justify-end gap-1.5 px-2 py-1.5 border-b bg-white">'+
+      '<button onclick="expandAllComparativo()" class="border rounded-md px-2 py-1 text-[9px] font-bold hover:bg-slate-50">Expandir tudo</button>'+
+      '<button onclick="collapseAllComparativo()" class="border rounded-md px-2 py-1 text-[9px] font-bold hover:bg-slate-50">Recolher tudo</button>'+
     '</div>'+
-    '<table class="min-w-[650px] w-full text-xs">'+
+    '<table class="min-w-[560px] w-full text-[10px] leading-tight">'+
       '<thead class="bg-white text-slate-700"><tr>'+
-        '<th class="text-left px-3 py-2.5 font-bold">Mês/Ano</th>'+
-        '<th class="text-right px-3 py-2.5 font-bold">Bruto</th>'+
-        '<th class="text-right px-3 py-2.5 font-bold">Devoluções</th>'+
-        '<th class="text-right px-3 py-2.5 font-bold">Líquido</th>'+
+        '<th class="text-left px-2 py-1.5 font-bold">Mês/Ano</th>'+
+        '<th class="text-right px-2 py-1.5 font-bold">Bruto</th>'+
+        '<th class="text-right px-2 py-1.5 font-bold">Devoluções</th>'+
+        '<th class="text-right px-2 py-1.5 font-bold">Líquido</th>'+
       '</tr></thead>'+
       '<tbody>'+rowsHtml+'</tbody>'+
       '<tfoot><tr class="border-t-2 border-slate-300 bg-slate-100">'+
-        '<td class="px-3 py-3 font-black">Total</td>'+
-        '<td class="px-3 py-3 text-right font-black">'+fmtBRL(total.bruto)+'</td>'+
-        '<td class="px-3 py-3 text-right font-black">'+fmtBRL(total.devol)+'</td>'+
-        '<td class="px-3 py-3 text-right font-black">'+fmtBRL(total.liquido)+'</td>'+
+        '<td class="px-2 py-2 font-black text-[11px]">Total</td>'+
+        '<td class="px-2 py-2 text-right font-black text-[11px]">'+fmtBRL(total.bruto)+'</td>'+
+        '<td class="px-2 py-2 text-right font-black text-[11px]">'+fmtBRL(total.devol)+'</td>'+
+        '<td class="px-2 py-2 text-right font-black text-[11px]">'+fmtBRL(total.liquido)+'</td>'+
       '</tr></tfoot>'+
     '</table>';
 }
