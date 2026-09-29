@@ -561,8 +561,18 @@ function changePage(d){page+=d;renderNotas();const t=document.getElementById('no
 function exportCsv(){
   const rows=notasRows(), cols=columnsForView();
   const q=function(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"'};
+  const csvMoney=function(v){
+    return num(v).toLocaleString('pt-BR',{
+      minimumFractionDigits:2,
+      maximumFractionDigits:2,
+      useGrouping:false
+    });
+  };
   const body=[cols.map(function(c){return q(c.label)}).join(';')].concat(rows.map(function(r){
-    return cols.map(function(c){return q(c.type==='money'?num(colRaw(c,r)):colDisplay(c,r))}).join(';');
+    return cols.map(function(c){
+      const valor=c.type==='money'?csvMoney(colRaw(c,r)):colDisplay(c,r);
+      return q(valor);
+    }).join(';');
   })).join('\n');
   const blob=new Blob(['\ufeff'+body],{type:'text/csv;charset=utf-8;'}),a=document.createElement('a');
   a.href=URL.createObjectURL(blob);a.download='notas_fiscais_'+notasView+'.csv';a.click();URL.revokeObjectURL(a.href);
