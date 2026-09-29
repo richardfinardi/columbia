@@ -35,8 +35,7 @@
     <div class="flex flex-wrap items-center gap-2">
       <a href="../" class="flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl text-xs font-bold"><i data-lucide="layout-grid" class="w-4 h-4"></i><span class="hidden sm:inline">Menu</span></a>
       <div class="flex overflow-x-auto custom-scroll bg-columbia-800/70 border border-columbia-600 rounded-xl p-1 max-w-[calc(100vw-30px)]">
-        <button id="tabFaturamento" onclick="setView('faturamento')" class="tab-btn"><i data-lucide="chart-column" class="w-3.5 h-3.5"></i>Faturamento</button>
-        <button id="tabComparativo" onclick="setView('comparativo')" class="tab-btn active"><i data-lucide="chart-no-axes-combined" class="w-3.5 h-3.5"></i>Comparativo</button>
+        <button id="tabFaturamento" onclick="setView('faturamento')" class="tab-btn active"><i data-lucide="chart-column" class="w-3.5 h-3.5"></i>Faturamento</button>
         <button id="tabNotas" onclick="setView('notas')" class="tab-btn"><i data-lucide="receipt-text" class="w-3.5 h-3.5"></i>Notas</button>
       </div>
       <button onclick="refreshAll(true)" class="flex items-center gap-1.5 px-3 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-xl text-xs font-bold"><i id="refreshIcon" data-lucide="refresh-cw" class="w-4 h-4"></i><span class="hidden sm:inline">Atualizar</span></button>
@@ -65,29 +64,33 @@
   <div id="loadingBox" class="hidden bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-500 font-bold"><i data-lucide="loader-circle" class="w-7 h-7 mx-auto mb-2 animate-spin text-columbia-700"></i>Carregando dados...</div>
   <div id="errorBox" class="hidden bg-red-50 border border-red-200 text-red-800 rounded-2xl p-4 text-sm font-bold"></div>
 
-  <div id="viewFaturamento" class="main-view hidden space-y-4">
+  <div id="viewFaturamento" class="main-view space-y-4">
     <section class="grid grid-cols-2 xl:grid-cols-4 gap-3">
-      <div class="bg-white rounded-2xl border p-4"><div class="text-[9px] uppercase font-black text-slate-500">Faturamento Bruto</div><div id="kBruto" class="text-xl sm:text-2xl font-black text-columbia-700 mt-1">R$ 0</div></div>
-      <div class="bg-white rounded-2xl border p-4"><div class="text-[9px] uppercase font-black text-slate-500">Devoluções</div><div id="kDevol" class="text-xl sm:text-2xl font-black text-red-600 mt-1">R$ 0</div></div>
-      <div class="bg-white rounded-2xl border p-4"><div class="text-[9px] uppercase font-black text-slate-500">Faturamento Líquido</div><div id="kLiquido" class="text-xl sm:text-2xl font-black text-emerald-600 mt-1">R$ 0</div></div>
-      <div class="bg-white rounded-2xl border p-4"><div class="text-[9px] uppercase font-black text-slate-500">Notas no filtro</div><div id="kNotas" class="text-xl sm:text-2xl font-black text-slate-800 mt-1">0</div></div>
+      <div class="bg-white rounded-2xl border p-3.5"><div class="text-[9px] uppercase font-black text-slate-500">Faturamento Bruto</div><div id="kBruto" class="text-lg sm:text-xl font-black text-columbia-700 mt-1">R$ 0</div></div>
+      <div class="bg-white rounded-2xl border p-3.5"><div class="text-[9px] uppercase font-black text-slate-500">Devoluções</div><div id="kDevol" class="text-lg sm:text-xl font-black text-red-600 mt-1">R$ 0</div></div>
+      <div class="bg-white rounded-2xl border p-3.5"><div class="text-[9px] uppercase font-black text-slate-500">Faturamento Líquido</div><div id="kLiquido" class="text-lg sm:text-xl font-black text-emerald-600 mt-1">R$ 0</div></div>
+      <div class="bg-white rounded-2xl border p-3.5"><div class="text-[9px] uppercase font-black text-slate-500">Notas no filtro</div><div id="kNotas" class="text-lg sm:text-xl font-black text-slate-800 mt-1">0</div></div>
     </section>
-    <section class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-      <div class="bg-white rounded-2xl border p-4"><div class="flex justify-between items-center mb-3"><h2 class="font-black text-sm">Faturamento mensal</h2><span class="text-[10px] text-slate-400">Bruto / Devoluções / Líquido</span></div><div class="h-[320px]"><canvas id="chartMensal"></canvas></div></div>
-      <div class="bg-white rounded-2xl border p-4"><div class="flex justify-between items-center mb-3"><h2 class="font-black text-sm">Faturamento líquido por segmento</h2><span class="text-[10px] text-slate-400">Top 12</span></div><div class="h-[320px]"><canvas id="chartSegmento"></canvas></div></div>
-    </section>
-    <section class="bg-white rounded-2xl border p-4"><div class="flex justify-between items-center mb-3"><h2 class="font-black text-sm">Top clientes por faturamento bruto</h2><span class="text-[10px] text-slate-400">Top 15 + Outros</span></div><div class="h-[340px]"><canvas id="chartClientes"></canvas></div></section>
-  </div>
 
-  <div id="viewComparativo" class="main-view space-y-4">
-    <section class="bg-white rounded-2xl border overflow-hidden shadow-sm">
-      <div id="comparativoTable" class="overflow-auto custom-scroll"></div>
-    </section>
-    <section class="bg-white rounded-2xl border p-4">
-      <div class="flex flex-wrap justify-between gap-2 items-center mb-3">
-        <div><h2 class="font-black text-sm">Evolução do faturamento</h2><p class="text-[10px] text-slate-500 mt-1">Bruto, devoluções e líquido por período.</p></div>
+    <section class="grid grid-cols-1 xl:grid-cols-[0.95fr_1.05fr] gap-4 items-stretch">
+      <div class="bg-white rounded-2xl border overflow-hidden shadow-sm min-h-[420px]">
+        <div id="comparativoTable" class="overflow-auto custom-scroll"></div>
       </div>
-      <div class="h-[360px]"><canvas id="chartComparativo"></canvas></div>
+      <div class="bg-white rounded-2xl border p-4 shadow-sm min-h-[420px]">
+        <div class="flex justify-between items-center mb-2">
+          <h2 class="font-black text-sm">Faturamento líquido por segmento</h2>
+          <span class="text-[10px] text-slate-400">Top 12</span>
+        </div>
+        <div class="h-[365px]"><canvas id="chartSegmento"></canvas></div>
+      </div>
+    </section>
+
+    <section class="bg-white rounded-2xl border p-4 shadow-sm">
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="font-black text-sm">Top clientes por faturamento bruto</h2>
+        <span class="text-[10px] text-slate-400">Top 15 + Outros</span>
+      </div>
+      <div class="h-[245px]"><canvas id="chartClientes"></canvas></div>
     </section>
   </div>
 
@@ -112,10 +115,10 @@ const API_NOTAS='https://columbia.consultoriarf.net/notas_fiscais';
 const API_ORC='https://columbia.consultoriarf.net/orcamento_class';
 const API_DEV='https://columbia.consultoriarf.net/orc_nf_dev';
 const CACHE_DB='columbia_notas_cache_v1', CACHE_STORE='dados', CACHE_KEY='payload';
-let rawNotas=[], notas=[], orcamentos=[], vinculos=[], viewAtual='comparativo', notasView='todas', page=1, pageSize=100;
+let rawNotas=[], notas=[], orcamentos=[], vinculos=[], viewAtual='faturamento', notasView='todas', page=1, pageSize=100;
 let expandedComparativo=new Set();
 let comparativoInitialized=false;
-let chartMensal=null, chartSegmento=null, chartClientes=null, chartComparativo=null, filterTimer=null;
+let chartSegmento=null, chartClientes=null, filterTimer=null;
 const meses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 function num(v){const n=Number(v);return Number.isFinite(n)?n:0}
@@ -216,14 +219,15 @@ function notasRows(){
 }
 
 function setView(v){
-  viewAtual=v;
+  viewAtual=v==='notas'?'notas':'faturamento';
   document.querySelectorAll('.main-view').forEach(function(x){x.classList.add('hidden')});
-  document.getElementById('view'+v.charAt(0).toUpperCase()+v.slice(1)).classList.remove('hidden');
-  ['faturamento','comparativo','notas'].forEach(function(x){document.getElementById('tab'+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle('active',x===v)});
+  document.getElementById(viewAtual==='notas'?'viewNotas':'viewFaturamento').classList.remove('hidden');
+  document.getElementById('tabFaturamento').classList.toggle('active',viewAtual==='faturamento');
+  document.getElementById('tabNotas').classList.toggle('active',viewAtual==='notas');
   renderAll();lucide.createIcons();
 }
 function setNotasView(v){notasView=v;page=1;document.querySelectorAll('[data-nv]').forEach(function(b){b.classList.toggle('active',b.dataset.nv===v)});renderNotas()}
-function renderAll(){if(!notas.length)return;renderKpis();renderCharts();renderComparativo();renderNotas();lucide.createIcons()}
+function renderAll(){if(!notas.length)return;renderKpis();renderCharts();renderComparativoMatrix();renderNotas();lucide.createIcons()}
 function renderKpis(){const rows=filteredRows(),m=metrics(rows);document.getElementById('kBruto').textContent=fmtBRL(m.bruto);document.getElementById('kDevol').textContent=fmtBRL(m.devol);document.getElementById('kLiquido').textContent=fmtBRL(m.liquido);document.getElementById('kNotas').textContent=fmtInt(rows.length)}
 
 function aggregatePeriod(rows){
@@ -232,17 +236,33 @@ function aggregatePeriod(rows){
   return [...map.values()].map(function(x){x.liquido=x.bruto-x.devol;return x}).sort(function(a,b){return a.key.localeCompare(b.key)});
 }
 function renderCharts(){
-  const rows=filteredRows(), periods=aggregatePeriod(rows), labels=periods.map(function(x){return String(x.mes).padStart(2,'0')+'/'+x.ano});
-  if(chartMensal)chartMensal.destroy();
-  chartMensal=new Chart(document.getElementById('chartMensal'),{type:'bar',data:{labels:labels,datasets:[{label:'Bruto',data:periods.map(function(x){return x.bruto})},{label:'Devoluções',data:periods.map(function(x){return x.devol})},{label:'Líquido',data:periods.map(function(x){return x.liquido})}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:function(c){return c.dataset.label+': '+fmtBRL(c.raw)}}}},scales:{y:{ticks:{callback:function(v){return 'R$ '+new Intl.NumberFormat('pt-BR',{notation:'compact'}).format(v)}}}}}});
-  const sm=new Map();rows.forEach(function(r){const s=r.segmento_final||'SEM CLASSIFICAÇÃO';if(!sm.has(s))sm.set(s,{bruto:0,devol:0});const x=sm.get(s);if(isFat(r))x.bruto+=r.vl_faturado;if(isDev(r))x.devol+=devValue(r)});
-  const seg=[...sm.entries()].map(function(e){return {s:e[0],v:e[1].bruto-e[1].devol}}).sort(function(a,b){return b.v-a.v}).slice(0,12);
+  const rows=filteredRows();
+  const sm=new Map();
+  rows.forEach(function(r){
+    const s=r.segmento_final||'SEM CLASSIFICAÇÃO';
+    if(!sm.has(s))sm.set(s,{bruto:0,devol:0});
+    const x=sm.get(s);
+    if(isFat(r))x.bruto+=r.vl_faturado;
+    if(isDev(r))x.devol+=devValue(r);
+  });
+  const seg=[...sm.entries()].map(function(e){return {s:e[0],v:e[1].bruto-e[1].devol}})
+    .sort(function(a,b){return b.v-a.v}).slice(0,12);
   if(chartSegmento)chartSegmento.destroy();
-  chartSegmento=new Chart(document.getElementById('chartSegmento'),{type:'bar',data:{labels:seg.map(function(x){return x.s}),datasets:[{label:'Líquido',data:seg.map(function(x){return x.v})}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return fmtBRL(c.raw)}}}},scales:{x:{ticks:{callback:function(v){return 'R$ '+new Intl.NumberFormat('pt-BR',{notation:'compact'}).format(v)}}}}}});
-  const cm=new Map();rows.filter(isFat).forEach(function(r){cm.set(r.cliente,(cm.get(r.cliente)||0)+r.vl_faturado)});
-  const arr=[...cm.entries()].map(function(e){return {c:e[0]||'SEM CLIENTE',v:e[1]}}).sort(function(a,b){return b.v-a.v});const top=arr.slice(0,15), outros=sum(arr.slice(15),function(x){return x.v});if(outros>0)top.push({c:'Outros',v:outros});
+  const segCanvas=document.getElementById('chartSegmento');
+  if(segCanvas){
+    chartSegmento=new Chart(segCanvas,{type:'bar',data:{labels:seg.map(function(x){return x.s}),datasets:[{label:'Líquido',data:seg.map(function(x){return x.v})}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return fmtBRL(c.raw)}}}},scales:{x:{ticks:{callback:function(v){return 'R$ '+new Intl.NumberFormat('pt-BR',{notation:'compact'}).format(v)}}}}}});
+  }
+
+  const cm=new Map();
+  rows.filter(isFat).forEach(function(r){cm.set(r.cliente,(cm.get(r.cliente)||0)+r.vl_faturado)});
+  const arr=[...cm.entries()].map(function(e){return {c:e[0]||'SEM CLIENTE',v:e[1]}}).sort(function(a,b){return b.v-a.v});
+  const top=arr.slice(0,15), outros=sum(arr.slice(15),function(x){return x.v});
+  if(outros>0)top.push({c:'Outros',v:outros});
   if(chartClientes)chartClientes.destroy();
-  chartClientes=new Chart(document.getElementById('chartClientes'),{type:'bar',data:{labels:top.map(function(x){return x.c}),datasets:[{label:'Faturamento',data:top.map(function(x){return x.v})}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return fmtBRL(c.raw)}}}},scales:{y:{ticks:{callback:function(v){return 'R$ '+new Intl.NumberFormat('pt-BR',{notation:'compact'}).format(v)}}},x:{ticks:{maxRotation:45,minRotation:0}}}}});
+  const cliCanvas=document.getElementById('chartClientes');
+  if(cliCanvas){
+    chartClientes=new Chart(cliCanvas,{type:'bar',data:{labels:top.map(function(x){return x.c}),datasets:[{label:'Faturamento',data:top.map(function(x){return x.v})}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return fmtBRL(c.raw)}}}},scales:{y:{ticks:{callback:function(v){return 'R$ '+new Intl.NumberFormat('pt-BR',{notation:'compact'}).format(v)}}},x:{ticks:{maxRotation:35,minRotation:0,font:{size:8}}}}}});
+  }
 }
 function buildComparativoMatrix(rows){
   const monthMap=new Map();
@@ -348,12 +368,6 @@ function renderComparativoMatrix(){
       '</tr></tfoot>'+
     '</table>';
 }
-function renderComparativo(){
-  const p=aggregatePeriod(filteredRows());
-  if(chartComparativo)chartComparativo.destroy();
-  chartComparativo=new Chart(document.getElementById('chartComparativo'),{type:'line',data:{labels:p.map(function(x){return String(x.mes).padStart(2,'0')+'/'+x.ano}),datasets:[{label:'Bruto',data:p.map(function(x){return x.bruto}),tension:.25},{label:'Devoluções',data:p.map(function(x){return x.devol}),tension:.25},{label:'Líquido',data:p.map(function(x){return x.liquido}),tension:.25}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:function(c){return c.dataset.label+': '+fmtBRL(c.raw)}}}},scales:{y:{ticks:{callback:function(v){return 'R$ '+new Intl.NumberFormat('pt-BR',{notation:'compact'}).format(v)}}}}}});
-  renderComparativoMatrix();
-}
 function renderNotas(){
   const rows=notasRows(), totalPages=Math.max(1,Math.ceil(rows.length/pageSize));if(page>totalPages)page=totalPages;const ini=(page-1)*pageSize, vis=rows.slice(ini,ini+pageSize);
   document.getElementById('notasCount').textContent=fmtInt(rows.length)+' registro(s)';
@@ -385,7 +399,7 @@ async function refreshAll(manual){
   }finally{if(manual)icon.classList.remove('animate-spin');lucide.createIcons()}
 }
 async function init(){
-  setView('comparativo');
+  setView('faturamento');
   document.getElementById('loadingBox').classList.remove('hidden');const c=await cacheRead();if(c)await applyPayload(c,'cache');document.getElementById('loadingBox').classList.add('hidden');await refreshAll(false);lucide.createIcons();
 }
 document.addEventListener('DOMContentLoaded',init);
