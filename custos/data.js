@@ -5,8 +5,41 @@ let raw={},rows=[],view='detalhe',columnFilters={},sortState={key:'dt_emissao',d
 const brl=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}),num2=new Intl.NumberFormat('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}),pct=new Intl.NumberFormat('pt-BR',{style:'percent',minimumFractionDigits:2,maximumFractionDigits:2});
 function n(v){if(v==null||v==='')return 0;if(typeof v==='number')return Number.isFinite(v)?v:0;const s=String(v).trim().replace(/\s/g,'');if(/^[-+]?\d{1,3}(\.\d{3})*,\d+$/.test(s))return Number(s.replace(/\./g,'').replace(',','.'));if(/^[-+]?\d+,\d+$/.test(s))return Number(s.replace(',','.'));const x=Number(s);return Number.isFinite(x)?x:0}
 function lower(o){const r={};Object.keys(o||{}).forEach(k=>r[String(k).toLowerCase()]=o[k]);return r}function norm(v){return String(v==null?'':v).trim().toUpperCase()}function esc(v){return String(v==null?'':v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}function money(v){return brl.format(n(v))}function number(v){return num2.format(n(v))}function percent(v){return pct.format(n(v))}function dateBR(v){if(!v)return'-';const p=String(v).slice(0,10).split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:v}
-const BASE_COLS=[['tipo','Tipo',114,'text'],['classificacao','Classificação',106,'text'],['dt_emissao','Emissão',87,'date'],['nf','NF',69,'int'],['orcamento','Orçamento',91,'text'],['n_os','OS',54,'os'],['cliente','Cliente',275,'text'],['codigo_interno','Código',122,'text'],['produto','Produto',444,'text'],['qtde','Qtde',55,'num'],['cfop','CFOP',55,'text'],['vl_faturado','Vl Faturado',119,'money'],['impostos','Impostos',111,'money'],['fat_liquido','Fat Líquido',119,'money'],['mp_previsto','MP Previsto',111,'money'],['mp_realizado','MP Realizado',141,'money'],['st_previsto','ST Previsto',111,'money'],['st_realizado','ST Realizado',111,'money'],['mo_previsto','MO Previsto',111,'money'],['mo_realizado','MO Realizado',116,'money'],['total_previsto','Total Previsto',138,'money'],['total_realizado','Total Realizado',120,'money'],['margem','Margem R$',107,'money'],['margem_pct','Margem %',82,'pct']];
-const RET_COLS=[['mp_retrabalho','MP Retrabalho',120,'money'],['st_retrabalho','ST Retrabalho',120,'money'],['mo_retrabalho','MO Retrabalho',120,'money'],['total_sem_rnc','Total Realizado sem RNC',155,'money'],['margem_prevista','Margem Prevista',125,'money'],['margem_prevista_pct','Margem Prevista %',125,'pct']];
+// Colunas extraídas diretamente do visual tableEx do PBIX - página DETALHAMENTOS
+const BASE_COLS=[
+['tipo','TIPO',114.48084381373616,'text'],
+['classificacao','CLASSIFICACAO',106,'text'],
+['dt_emissao','DT_EMISSAO',87,'date'],
+['nf','NF',69.44612304666795,'int'],
+['orcamento','ORCAMENTO',91,'text'],
+['n_os','N_OS',44,'os'],
+['cliente','CLIENTE',275.39883540266436,'text'],
+['codigo_interno','CODIGO_INTERNO',122,'text'],
+['produto','PRODUTO',444,'text'],
+['qtde','QTDE',44,'num'],
+['cfop','CFOP',43,'text'],
+['vl_faturado','VL FATURADO',119,'money'],
+['impostos','IMPOSTOS',111,'money'],
+['fat_liquido','FAT LIQUIDO',119,'money'],
+['mp_previsto','MP PREVISTO',111,'money'],
+['mp_realizado','MP REALIZADO',141.4750699490433,'money'],
+['st_previsto','ST PREVISTO',111,'money'],
+['st_realizado','ST REALIZADO',111,'money'],
+['mo_previsto','MO PREVISTO',111,'money'],
+['mo_realizado','MO REALIZADO',115.75591022152845,'money'],
+['total_previsto','TOTAL PREVISTO',137.68240230473495,'money'],
+['total_realizado','TOTAL REALIZADO',120,'money'],
+['margem','MARGEM $',107.30446607556652,'money'],
+['margem_pct','MARGEM %',82,'pct']
+];
+const RET_COLS=[
+['mp_retrabalho','MP RETRABALHO',120,'money'],
+['st_retrabalho','ST RETRABALHO',120,'money'],
+['mo_retrabalho','MO RETRABALHO',120,'money'],
+['total_sem_rnc','TOTAL REALIZADO SEM RNC',155,'money'],
+['margem_prevista','MARGEM PREVISTA',125,'money'],
+['margem_prevista_pct','MARGEM PREVISTA %',125,'pct']
+];
 function columns(){return view==='retrabalho'?BASE_COLS.concat(RET_COLS):BASE_COLS}function group(arr){const m=new Map();(arr||[]).forEach(x=>{x=lower(x);const k=String(x.codint||'');if(!k)return;if(!m.has(k))m.set(k,[]);m.get(k).push(x)});return m}function sum(a,f){return(a||[]).reduce((s,x)=>s+n(x[f]),0)}
 function buildRows(){const mp=group(raw.mp),mo=group(raw.mo),setup=group(raw.setup),st=group(raw.st),cms=group(raw.cms),est=group(raw.estoque),rev=group(raw.rev);rows=(raw.fat||[]).map(lower).map(f=>{const k=String(f.codint||''),M=mp.get(k)||[],O=mo.get(k)||[],S=st.get(k)||[],U=setup.get(k)||[],C=cms.get(k)||[],E=est.get(k)||[],R=rev.get(k)||[],qtde=n(f.qtde),prod=Math.max(...M.map(x=>n(x.qtde_prod_mp)),...O.map(x=>n(x.qtde_prod)),...S.map(x=>n(x.qtde_prod_st)),0),fac=prod>0&&qtde>0?qtde/prod:1;let mpP=sum(M,'custo_mp_previsto')*fac,mpR=sum(M,'custo_mp_realizado')*fac,stP=sum(S,'custo_st_previsto')*fac,stR=sum(S,'custo_st_realizado')*fac,moP=sum(O,'custo_previsto')*fac,moR=(sum(O,'custo_realizado')+sum(U,'custo_realizado'))*fac,cmsP=sum(C,'custo_previsto'),cmsR=sum(C,'custo_realizado'),estP=E.reduce((s,x)=>s+n(x.custo_previsto_un)*n(x.qtde||qtde),0),estR=E.reduce((s,x)=>s+n(x.custo_realizado_un)*n(x.qtde||qtde),0),revR=sum(R,'custo_total_realizado');let totalP=mpP+stP+moP+cmsP+estP,totalR=mpR+stR+moR+cmsR+estR+revR,fat=n(f.vl_faturado),imp=n(f.impostos),liq=fat-imp,rmp=sum(M.filter(x=>norm(x.retrabalho)==='SIM'),'custo_mp_realizado')*fac,rst=sum(S.filter(x=>norm(x.retrabalho)==='SIM'),'custo_st_realizado')*fac,rmo=sum(O.filter(x=>norm(x.retrabalho)==='SIM'),'custo_realizado')*fac,mar=liq-totalR,marP=liq-totalP;return{codint:k,tipo:f.tipo||'',classificacao:f.classificacao||'',dt_emissao:f.dt_emissao||'',nf:f.nf||f.numero||'',orcamento:f.orcamento||'',n_os:f.n_os||f.os||'',cliente:f.cliente||'',codigo_interno:f.codigo_interno||f.codigo||'',produto:f.produto||'',qtde,cfop:f.cfop||'',estoque:f.estoque||'',vl_faturado:fat,impostos:imp,fat_liquido:liq,mp_previsto:mpP,mp_realizado:mpR,st_previsto:stP,st_realizado:stR,mo_previsto:moP,mo_realizado:moR,total_previsto:totalP,total_realizado:totalR,margem:mar,margem_pct:liq?mar/liq:0,mp_retrabalho:rmp,st_retrabalho:rst,mo_retrabalho:rmo,total_sem_rnc:totalR-rmp-rst-rmo,margem_prevista:marP,margem_prevista_pct:liq?marP/liq:0}});populateTopFilters();renderAll()}
 async function fetchJson(url){const token=localStorage.getItem('columbia_analista_token'),r=await fetch(url+(url.includes('?')?'&':'?')+'_t='+Date.now(),{cache:'no-store',headers:{Authorization:'Bearer '+token,'Cache-Control':'no-cache'}});if(r.status===401){location.href='../login.html';throw Error('Sessão expirada')}if(r.status===403){location.href='../';throw Error('Usuário sem acesso a Custos')}const body=await r.text();if(!r.ok){let detail='';try{const j=JSON.parse(body);detail=j.detail||j.error||j.message||''}catch(e){detail=body}throw Error('HTTP '+r.status+(detail?' — '+detail:''))}let d;try{d=JSON.parse(body)}catch(e){throw Error('JSON inválido')}if(!Array.isArray(d))throw Error('JSON inválido');return d}
