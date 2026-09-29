@@ -7,7 +7,12 @@
   <link rel="apple-touch-icon" href="../LOGO MINIMALISTA.png">
   <title>Notas Fiscais | Columbia Machine</title>
   <script>
-    if (!localStorage.getItem('columbia_analista_token')) window.location.href = '../login.html';
+    const __columbiaToken = localStorage.getItem('columbia_analista_token');
+    if (!__columbiaToken) window.location.href = '../login.html';
+    try {
+      const __p = JSON.parse(localStorage.getItem('columbia_permissoes') || '{}');
+      if (Object.keys(__p).length && Number(__p.u_notas || 0) !== 1) window.location.href = '../';
+    } catch (_) {}
   </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>tailwind.config={theme:{extend:{colors:{columbia:{50:'#f0f7ff',100:'#e0effe',500:'#1d72b8',600:'#155b96',700:'#003e7e',800:'#002e61',900:'#001e40'}}}}};</script>
@@ -23,6 +28,15 @@
     .filter-input{width:100%;border:1px solid #cbd5e1;border-radius:11px;background:#fff;padding:8px 9px;font-size:11px;font-weight:700;outline:none;color:#334155}
     .filter-input:focus{border-color:#003e7e;box-shadow:0 0 0 2px rgba(0,62,126,.08)}
     th{white-space:nowrap}
+    .period-drop{position:relative}
+    .period-drop summary{list-style:none;cursor:pointer}.period-drop summary::-webkit-details-marker{display:none}
+    .period-menu{position:absolute;z-index:70;top:calc(100% + 6px);left:0;min-width:220px;max-height:320px;overflow:auto;background:#fff;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 16px 40px rgba(15,23,42,.16);padding:8px}
+    .period-option{display:flex;align-items:center;gap:8px;padding:6px 7px;border-radius:8px;font-size:11px;font-weight:700;color:#334155}.period-option:hover{background:#f8fafc}
+    .excel-filter-btn{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:6px;color:#64748b;flex:0 0 auto}.excel-filter-btn:hover{background:#e2e8f0;color:#0f172a}.excel-filter-btn.active{background:#dbeafe;color:#1d4ed8}
+    .sort-head{display:inline-flex;align-items:center;gap:4px;cursor:pointer;user-select:none}
+    .sort-arrow{font-size:9px;color:#94a3b8}.sort-arrow.active{color:#003e7e;font-weight:900}
+    .filter-modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.3);z-index:80;display:flex;align-items:flex-start;justify-content:center;padding:10vh 12px 20px}
+    .sticky-total{position:sticky;bottom:0;z-index:5}
   </style>
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-800">
@@ -44,20 +58,24 @@
 </header>
 
 <main class="max-w-[1900px] mx-auto p-3 sm:p-5 space-y-4">
-  <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-3.5">
-    <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2.5">
-      <div><label class="text-[9px] font-black uppercase text-slate-500">Ano</label><select id="fAno" onchange="filterChanged()" class="filter-input"></select></div>
-      <div><label class="text-[9px] font-black uppercase text-slate-500">Mês</label><select id="fMes" onchange="filterChanged()" class="filter-input"><option value="">Todos</option></select></div>
-      <div><label class="text-[9px] font-black uppercase text-slate-500">Segmento</label><select id="fSegmento" onchange="filterChanged()" class="filter-input"></select></div>
-      <div><label class="text-[9px] font-black uppercase text-slate-500">Cliente</label><select id="fCliente" onchange="filterChanged()" class="filter-input"></select></div>
-      <div><label class="text-[9px] font-black uppercase text-slate-500">CFOP</label><select id="fCfop" onchange="filterChanged()" class="filter-input"></select></div>
-      <div><label class="text-[9px] font-black uppercase text-slate-500">Status</label><select id="fStatus" onchange="filterChanged()" class="filter-input"></select></div>
-      <div><label class="text-[9px] font-black uppercase text-slate-500">Tipo</label><select id="fTipo" onchange="filterChanged()" class="filter-input"></select></div>
-      <div class="flex items-end"><button onclick="clearFilters()" class="w-full border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 rounded-xl px-3 py-2 text-[11px] font-extrabold flex items-center justify-center gap-1.5"><i data-lucide="filter-x" class="w-4 h-4"></i>Limpar</button></div>
-    </div>
-    <div class="mt-2.5 flex flex-wrap items-center gap-2">
-      <div class="flex-1 min-w-[240px] flex items-center gap-2 border border-slate-300 rounded-xl px-3 py-2 bg-slate-50"><i data-lucide="search" class="w-4 h-4 text-slate-400"></i><input id="fBusca" oninput="debouncedFilter()" class="w-full bg-transparent outline-none text-xs" placeholder="Pesquisar NF, cliente, CNPJ, segmento, CFOP, observação..."></div>
-      <div id="syncStatus" class="text-[10px] font-bold text-slate-500 px-2"></div>
+  <section class="bg-white rounded-2xl border border-slate-200 shadow-sm px-3 py-2.5">
+    <div class="flex flex-wrap items-end gap-2">
+      <details id="yearDrop" class="period-drop">
+        <summary class="min-w-[180px] border border-slate-300 rounded-xl bg-white px-3 py-2">
+          <div class="text-[8px] uppercase font-black text-slate-400">Ano</div>
+          <div class="flex items-center justify-between gap-3"><span id="yearLabel" class="text-xs font-extrabold text-slate-700">-</span><i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i></div>
+        </summary>
+        <div id="yearOptions" class="period-menu custom-scroll"></div>
+      </details>
+      <details id="monthDrop" class="period-drop">
+        <summary class="min-w-[210px] border border-slate-300 rounded-xl bg-white px-3 py-2">
+          <div class="text-[8px] uppercase font-black text-slate-400">Mês</div>
+          <div class="flex items-center justify-between gap-3"><span id="monthLabel" class="text-xs font-extrabold text-slate-700">Todos</span><i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i></div>
+        </summary>
+        <div id="monthOptions" class="period-menu custom-scroll"></div>
+      </details>
+      <button onclick="clearPeriodFilters()" class="border border-slate-200 hover:bg-slate-50 rounded-xl px-3 py-2 text-[10px] font-extrabold text-slate-600 flex items-center gap-1.5"><i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>Limpar período</button>
+      <div id="syncStatus" class="ml-auto text-[10px] font-bold text-slate-500 px-2 py-2"></div>
     </div>
   </section>
 
@@ -96,11 +114,11 @@
 
   <div id="viewNotas" class="main-view hidden space-y-4">
     <section class="bg-white rounded-2xl border p-3 flex flex-wrap gap-2 items-center">
-      <button class="view-btn active" data-nv="todas" onclick="setNotasView('todas')">Todas</button>
-      <button class="view-btn" data-nv="faturamento" onclick="setNotasView('faturamento')">Faturamento</button>
+      <button class="view-btn active" data-nv="faturamento" onclick="setNotasView('faturamento')">Faturamento</button>
       <button class="view-btn" data-nv="sucata" onclick="setNotasView('sucata')">Sucata</button>
       <button class="view-btn" data-nv="devolucoes" onclick="setNotasView('devolucoes')">Devoluções</button>
       <button class="view-btn" data-nv="canceladas" onclick="setNotasView('canceladas')">Canceladas / Inutilizadas</button>
+      <button class="view-btn" data-nv="todas" onclick="setNotasView('todas')">Todas</button>
       <div class="ml-auto flex items-center gap-2"><span id="notasCount" class="text-xs font-bold text-slate-500"></span><button onclick="exportCsv()" class="border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl px-3 py-2 text-[11px] font-extrabold flex items-center gap-1.5"><i data-lucide="file-spreadsheet" class="w-4 h-4"></i>Exportar CSV</button></div>
     </section>
     <section class="bg-white rounded-2xl border overflow-hidden">
@@ -108,6 +126,21 @@
       <div id="pager" class="border-t p-3 flex flex-wrap gap-2 items-center justify-between"></div>
     </section>
   </div>
+
+<div id="columnFilterModal" class="filter-modal-backdrop hidden" onclick="if(event.target===this)closeColumnFilter()">
+  <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-sm overflow-hidden">
+    <div class="px-4 py-3 border-b flex items-center justify-between">
+      <div><div class="text-[9px] uppercase font-black text-slate-400">Filtro da coluna</div><div id="columnFilterTitle" class="text-sm font-black text-slate-800"></div></div>
+      <button onclick="closeColumnFilter()" class="p-1.5 rounded-lg hover:bg-slate-100"><i data-lucide="x" class="w-4 h-4"></i></button>
+    </div>
+    <div class="p-3 space-y-2">
+      <div class="flex items-center gap-2 border border-slate-300 rounded-xl px-3 py-2"><i data-lucide="search" class="w-4 h-4 text-slate-400"></i><input id="columnFilterSearch" oninput="renderColumnFilterOptions()" class="w-full text-xs outline-none" placeholder="Pesquisar..."></div>
+      <div class="flex items-center justify-between text-[10px] font-bold"><button onclick="selectAllColumnFilter(true)" class="text-columbia-700 hover:underline">Selecionar tudo</button><button onclick="selectAllColumnFilter(false)" class="text-red-600 hover:underline">Limpar seleção</button></div>
+      <div id="columnFilterOptions" class="max-h-64 overflow-auto custom-scroll border rounded-xl p-1"></div>
+      <div class="flex justify-end gap-2 pt-1"><button onclick="closeColumnFilter()" class="px-3 py-2 rounded-xl border text-xs font-bold">Cancelar</button><button onclick="applyColumnFilter()" class="px-4 py-2 rounded-xl bg-columbia-700 text-white text-xs font-extrabold">Aplicar</button></div>
+    </div>
+  </div>
+</div>
 </main>
 
 <script>
@@ -115,7 +148,9 @@ const API_NOTAS='https://columbia.consultoriarf.net/notas_fiscais';
 const API_ORC='https://columbia.consultoriarf.net/orcamento_class';
 const API_DEV='https://columbia.consultoriarf.net/orc_nf_dev';
 const CACHE_DB='columbia_notas_cache_v1', CACHE_STORE='dados', CACHE_KEY='payload';
-let rawNotas=[], notas=[], orcamentos=[], vinculos=[], viewAtual='faturamento', notasView='todas', page=1, pageSize=100;
+let rawNotas=[], notas=[], orcamentos=[], vinculos=[], viewAtual='faturamento', notasView='faturamento', page=1, pageSize=100;
+let selectedYears=new Set(), selectedMonths=new Set(), periodInitialized=false;
+let columnFilters={}, sortState={key:'data',dir:'desc'}, activeFilterColumn=null, tempFilterSelection=new Set();
 let expandedComparativo=new Set();
 let comparativoInitialized=false;
 let chartSegmento=null, chartClientes=null, filterTimer=null;
@@ -130,6 +165,36 @@ function dateOnly(v){if(!v)return'';return String(v).slice(0,10)}
 function dateBR(v){const s=dateOnly(v);if(!s)return'-';const p=s.split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:s}
 function objLower(o){const r={};Object.keys(o||{}).forEach(function(k){r[String(k).toLowerCase()]=o[k]});return r}
 
+
+const NOTAS_COLUMNS={
+  faturamento:[
+    ['mes_ano','MÊS/ANO','text'],['nf','NF','text'],['data','Data','date'],['cliente','CLIENTE','text'],['cnpj','CNPJ','text'],['cfop','CFOP','text'],['status','STATUS','text'],
+    ['vl_faturado','Faturamento','money',1],['vl_frete','Frete','money',1],['vl_nota','Total da nota','money',1],['outras_despesas','Outras Desp.','money',1],
+    ['icms','ICMS','money',1],['pis','PIS','money',1],['cofins','COFINS','money',1],['ipi','IPI','money',1],['iss','ISS','money',1],['segmento_final','Segmento','text'],['tipo','TIPO','text']
+  ],
+  sucata:[
+    ['mes_ano','MÊS/ANO','text'],['nf','NF','text'],['data','DT_EMISSAO','date'],['cliente','CLIENTE','text'],['cnpj','CNPJ','text'],['cfop','CFOP','text'],['status','STATUS','text'],
+    ['vl_faturado','VL FATURADO','money',1],['icms','ICMS','money',1],['pis','PIS','money',1],['cofins','COFINS','money',1],['ipi','IPI','money',1],['segmento_final','Segmento','text']
+  ],
+  devolucoes:[
+    ['mes_ano','MÊS/ANO','text'],['nf','NF','text'],['data','DT_EMISSAO','date'],['cliente','CLIENTE','text'],['cnpj','CNPJ','text'],['cfop','CFOP','text'],['status','STATUS','text'],
+    ['vl_nota','VL NF','money',1],['icms','ICMS','money',1],['pis','PIS','money',1],['cofins','COFINS','money',1],['ipi','IPI','money',1],['segmento_final','Segmento','text'],['tipo','TIPO','text'],['nf_referenciada','NF_REFERENCIADA1','text'],['tp_nf','tp_nf','text']
+  ],
+  canceladas:[
+    ['mes_ano','MÊS/ANO','text'],['nf','NF','text'],['data','DT_EMISSAO','date'],['cliente','CLIENTE','text'],['cnpj','CNPJ','text'],['cfop','CFOP','text'],['status','STATUS','text'],
+    ['vl_faturado','VL FATURADO','money',1],['vl_nota','VL NF','money',1],['icms','ICMS','money',1],['pis','PIS','money',1],['cofins','COFINS','money',1],['ipi','IPI','money',1],['segmento_final','Segmento','text'],['tipo','TIPO','text']
+  ],
+  todas:[
+    ['mes_ano','MÊS/ANO','text'],['nf','NF','text'],['data','DT_EMISSAO','date'],['cliente','CLIENTE','text'],['cnpj','CNPJ','text'],['cfop','CFOP','text'],['status','STATUS','text'],
+    ['vl_faturado','Faturamento','money',1],['vl_frete','Frete','money',1],['vl_nota','Total da nota','money',1],['outras_despesas','Outras Desp.','money',1],
+    ['icms','ICMS','money',1],['pis','PIS','money',1],['cofins','COFINS','money',1],['ipi','Soma de ipi','money',1],['iss','ISS','money',1],['segmento_final','Segmento','text'],['tipo','TIPO','text'],['obs_nota','obs_nota','text']
+  ]
+};
+function columnsForView(){return (NOTAS_COLUMNS[notasView]||NOTAS_COLUMNS.todas).map(function(x){return {key:x[0],label:x[1],type:x[2],sum:!!x[3]}})}
+function mesAno(r){return r.mes&&r.ano?meses[r.mes-1].slice(0,3).toLowerCase()+'/'+r.ano:''}
+function colRaw(col,r){return col.key==='mes_ano'?mesAno(r):r[col.key]}
+function colToken(col,r){const v=colRaw(col,r);return col.type==='money'?String(num(v)):String(v==null?'':v)}
+function colDisplay(col,r){const v=colRaw(col,r);if(col.type==='money')return fmtBRL(v);if(col.type==='date')return dateBR(v);return String(v==null?'':v)}
 function normalizeNota(row){
   const r=objLower(row);
   return {
@@ -180,48 +245,110 @@ function isCancel(r){return ['CANCELADA','INUTILIZADA'].includes(norm(r.status))
 function sum(arr,fn){return arr.reduce(function(a,x){return a+num(fn(x))},0)}
 function metrics(rows){const bruto=sum(rows.filter(isFat),function(r){return r.vl_faturado});const devol=sum(rows.filter(isDev),function(r){return devValue(r)});return {bruto:bruto,devol:devol,liquido:bruto-devol}}
 
-function optionList(el, values, allLabel){
-  const cur=el.value;
-  el.innerHTML='<option value="">'+allLabel+'</option>'+values.map(function(v){return '<option value="'+esc(v)+'">'+esc(v)+'</option>'}).join('');
-  if(values.includes(cur))el.value=cur;
+function updatePeriodLabels(){
+  const years=[...selectedYears].sort(function(a,b){return a-b});
+  const months=[...selectedMonths].sort(function(a,b){return a-b});
+  document.getElementById('yearLabel').textContent=!years.length?'Todos':years.length===1?String(years[0]):years.length+' anos';
+  document.getElementById('monthLabel').textContent=!months.length?'Todos':months.length===1?meses[months[0]-1]:months.length+' meses';
 }
-function populateFilters(){
+function populatePeriodFilters(){
   const years=[...new Set(notas.map(function(r){return r.ano}).filter(Boolean))].sort(function(a,b){return b-a});
-  const yearEl=document.getElementById('fAno'), current=yearEl.value, now=new Date().getFullYear();
-  yearEl.innerHTML='<option value="">Todos</option>'+years.map(function(y){return '<option value="'+y+'">'+y+'</option>'}).join('');
-  if(current&&years.includes(Number(current)))yearEl.value=current; else if(years.includes(now))yearEl.value=String(now); else if(years.length)yearEl.value=String(years[0]);
-  document.getElementById('fMes').innerHTML='<option value="">Todos</option>'+meses.map(function(m,i){return '<option value="'+(i+1)+'">'+m+'</option>'}).join('');
-  optionList(document.getElementById('fSegmento'),[...new Set(notas.map(function(r){return r.segmento_final}).filter(Boolean))].sort(),'Todos');
-  optionList(document.getElementById('fCliente'),[...new Set(notas.map(function(r){return r.cliente}).filter(Boolean))].sort(),'Todos');
-  optionList(document.getElementById('fCfop'),[...new Set(notas.map(function(r){return r.cfop}).filter(Boolean))].sort(),'Todos');
-  optionList(document.getElementById('fStatus'),[...new Set(notas.map(function(r){return r.status}).filter(Boolean))].sort(),'Todos');
-  optionList(document.getElementById('fTipo'),[...new Set(notas.map(function(r){return r.tipo}).filter(Boolean))].sort(),'Todos');
+  if(!periodInitialized){
+    if(years.length)selectedYears=new Set([years[0]]);
+    selectedMonths.clear();
+    periodInitialized=true;
+  }else{
+    selectedYears=new Set([...selectedYears].filter(function(y){return years.includes(y)}));
+  }
+  document.getElementById('yearOptions').innerHTML=years.map(function(y){return '<label class="period-option"><input type="checkbox" '+(selectedYears.has(y)?'checked':'')+' onchange="toggleYear('+y+',this.checked)"> '+y+'</label>'}).join('');
+  document.getElementById('monthOptions').innerHTML=meses.map(function(m,i){const n=i+1;return '<label class="period-option"><input type="checkbox" '+(selectedMonths.has(n)?'checked':'')+' onchange="toggleMonth('+n+',this.checked)"> '+m+'</label>'}).join('');
+  updatePeriodLabels();
 }
-function filterChanged(){page=1;renderAll()}
-function debouncedFilter(){clearTimeout(filterTimer);filterTimer=setTimeout(function(){page=1;renderAll()},180)}
-function clearFilters(){
-  ['fAno','fMes','fSegmento','fCliente','fCfop','fStatus','fTipo'].forEach(function(id){document.getElementById(id).value=''});
-  document.getElementById('fBusca').value='';page=1;renderAll();
-}
+function toggleYear(y,on){if(on)selectedYears.add(y);else selectedYears.delete(y);page=1;updatePeriodLabels();renderAll()}
+function toggleMonth(m,on){if(on)selectedMonths.add(m);else selectedMonths.delete(m);page=1;updatePeriodLabels();renderAll()}
+function clearPeriodFilters(){selectedYears.clear();selectedMonths.clear();page=1;populatePeriodFilters();renderAll()}
 function filteredRows(){
-  const ano=document.getElementById('fAno').value, mes=document.getElementById('fMes').value, seg=document.getElementById('fSegmento').value;
-  const cli=document.getElementById('fCliente').value, cfop=document.getElementById('fCfop').value, status=document.getElementById('fStatus').value, tipo=document.getElementById('fTipo').value;
-  const q=norm(document.getElementById('fBusca').value);
   return notas.filter(function(r){
-    if(ano && String(r.ano)!==ano)return false;if(mes && String(r.mes)!==mes)return false;if(seg && r.segmento_final!==seg)return false;
-    if(cli && r.cliente!==cli)return false;if(cfop && r.cfop!==cfop)return false;if(status && r.status!==status)return false;if(tipo && r.tipo!==tipo)return false;
-    if(q){const hay=norm([r.nf,r.cliente,r.cnpj,r.segmento_final,r.cfop,r.status,r.tipo,r.nf_referenciada,r.orc_dev,r.obs_nota].join(' | '));if(!hay.includes(q))return false}
+    if(selectedYears.size && !selectedYears.has(r.ano))return false;
+    if(selectedMonths.size && !selectedMonths.has(r.mes))return false;
     return true;
   });
 }
-function notasRows(){
+function baseNotasRows(){
   let rows=filteredRows();
   if(notasView==='faturamento')rows=rows.filter(function(r){return ['NF FATURADAS','NF SERVICO'].includes(norm(r.tipo)) && r.vl_faturado>0});
   else if(notasView==='sucata')rows=rows.filter(function(r){return norm(r.segmento_final)==='SUCATA'});
   else if(notasView==='devolucoes')rows=rows.filter(isDev);
   else if(notasView==='canceladas')rows=rows.filter(isCancel);
-  return rows.sort(function(a,b){return String(b.data).localeCompare(String(a.data))||String(b.nf).localeCompare(String(a.nf),undefined,{numeric:true})});
+  return rows;
 }
+function notasRows(){
+  const cols=columnsForView();
+  let rows=baseNotasRows().filter(function(r){
+    return cols.every(function(col){
+      const selected=columnFilters[col.key];
+      return !selected || !selected.size || selected.has(colToken(col,r));
+    });
+  });
+  if(sortState.key){
+    const col=cols.find(function(x){return x.key===sortState.key});
+    if(col){
+      rows=rows.slice().sort(function(a,b){
+        let av=colRaw(col,a),bv=colRaw(col,b);
+        let cmp=0;
+        if(col.type==='money')cmp=num(av)-num(bv);
+        else if(col.type==='date')cmp=String(av||'').localeCompare(String(bv||''));
+        else cmp=String(av==null?'':av).localeCompare(String(bv==null?'':bv),'pt-BR',{numeric:true,sensitivity:'base'});
+        return sortState.dir==='asc'?cmp:-cmp;
+      });
+    }
+  }
+  return rows;
+}
+function toggleSort(key){
+  if(sortState.key===key)sortState.dir=sortState.dir==='asc'?'desc':'asc';
+  else sortState={key:key,dir:'asc'};
+  page=1;renderNotas();
+}
+function openColumnFilter(key){
+  const col=columnsForView().find(function(x){return x.key===key});if(!col)return;
+  activeFilterColumn=key;
+  const existing=columnFilters[key];
+  const values=[...new Map(baseNotasRows().map(function(r){return [colToken(col,r),colDisplay(col,r)]})).entries()]
+    .sort(function(a,b){return String(a[1]).localeCompare(String(b[1]),'pt-BR',{numeric:true,sensitivity:'base'})});
+  tempFilterSelection=existing?new Set(existing):new Set(values.map(function(x){return x[0]}));
+  document.getElementById('columnFilterTitle').textContent=col.label;
+  document.getElementById('columnFilterSearch').value='';
+  document.getElementById('columnFilterModal').classList.remove('hidden');
+  renderColumnFilterOptions();lucide.createIcons();
+}
+function closeColumnFilter(){document.getElementById('columnFilterModal').classList.add('hidden');activeFilterColumn=null}
+function currentFilterValues(){
+  const col=columnsForView().find(function(x){return x.key===activeFilterColumn});if(!col)return [];
+  return [...new Map(baseNotasRows().map(function(r){return [colToken(col,r),colDisplay(col,r)]})).entries()]
+    .sort(function(a,b){return String(a[1]).localeCompare(String(b[1]),'pt-BR',{numeric:true,sensitivity:'base'})});
+}
+function renderColumnFilterOptions(){
+  if(!activeFilterColumn)return;
+  const q=norm(document.getElementById('columnFilterSearch').value);
+  const vals=currentFilterValues().filter(function(x){return !q||norm(x[1]).includes(q)});
+  document.getElementById('columnFilterOptions').innerHTML=vals.map(function(x){
+    return '<label class="period-option"><input type="checkbox" value="'+esc(x[0])+'" '+(tempFilterSelection.has(x[0])?'checked':'')+' onchange="toggleTempFilter(this.value,this.checked)"> <span class="truncate">'+esc(x[1]||'(Em branco)')+'</span></label>';
+  }).join('')||'<div class="p-3 text-xs text-slate-400">Nenhum valor.</div>';
+}
+function toggleTempFilter(v,on){if(on)tempFilterSelection.add(v);else tempFilterSelection.delete(v)}
+function selectAllColumnFilter(on){
+  const q=norm(document.getElementById('columnFilterSearch').value);
+  currentFilterValues().filter(function(x){return !q||norm(x[1]).includes(q)}).forEach(function(x){if(on)tempFilterSelection.add(x[0]);else tempFilterSelection.delete(x[0])});
+  renderColumnFilterOptions();
+}
+function applyColumnFilter(){
+  const total=currentFilterValues().length;
+  if(tempFilterSelection.size===0 || tempFilterSelection.size===total)delete columnFilters[activeFilterColumn];
+  else columnFilters[activeFilterColumn]=new Set(tempFilterSelection);
+  page=1;closeColumnFilter();renderNotas();
+}
+function clearAllColumnFilters(){columnFilters={};page=1;renderNotas()}
 
 function setView(v){
   viewAtual=v==='notas'?'notas':'faturamento';
@@ -231,7 +358,7 @@ function setView(v){
   document.getElementById('tabNotas').classList.toggle('active',viewAtual==='notas');
   renderAll();lucide.createIcons();
 }
-function setNotasView(v){notasView=v;page=1;document.querySelectorAll('[data-nv]').forEach(function(b){b.classList.toggle('active',b.dataset.nv===v)});renderNotas()}
+function setNotasView(v){notasView=v;page=1;columnFilters={};sortState={key:'data',dir:'desc'};document.querySelectorAll('[data-nv]').forEach(function(b){b.classList.toggle('active',b.dataset.nv===v)});renderNotas()}
 function renderAll(){if(!notas.length)return;renderKpis();renderCharts();renderComparativoMatrix();renderNotas();lucide.createIcons()}
 function renderKpis(){const rows=filteredRows(),m=metrics(rows);document.getElementById('kBruto').textContent=fmtBRL(m.bruto);document.getElementById('kDevol').textContent=fmtBRL(m.devol);document.getElementById('kLiquido').textContent=fmtBRL(m.liquido);document.getElementById('kNotas').textContent=fmtInt(rows.length)}
 
@@ -374,25 +501,78 @@ function renderComparativoMatrix(){
     '</table>';
 }
 function renderNotas(){
-  const rows=notasRows(), totalPages=Math.max(1,Math.ceil(rows.length/pageSize));if(page>totalPages)page=totalPages;const ini=(page-1)*pageSize, vis=rows.slice(ini,ini+pageSize);
+  const cols=columnsForView(), rows=notasRows(), totalPages=Math.max(1,Math.ceil(rows.length/pageSize));
+  if(page>totalPages)page=totalPages;
+  const ini=(page-1)*pageSize,vis=rows.slice(ini,ini+pageSize);
   document.getElementById('notasCount').textContent=fmtInt(rows.length)+' registro(s)';
-  document.getElementById('notasTable').innerHTML='<table class="min-w-[1750px] w-full text-[11px]"><thead class="bg-slate-50 text-slate-500 uppercase text-[9px] sticky top-0"><tr><th class="text-left p-2.5">Data</th><th class="text-left p-2.5">NF</th><th class="text-left p-2.5">Cliente</th><th class="text-left p-2.5">Segmento</th><th class="text-left p-2.5">Tipo</th><th class="text-left p-2.5">CFOP</th><th class="text-left p-2.5">Status</th><th class="text-right p-2.5">Valor Nota</th><th class="text-right p-2.5">Faturamento</th><th class="text-right p-2.5">Frete</th><th class="text-right p-2.5">ICMS</th><th class="text-right p-2.5">PIS</th><th class="text-right p-2.5">COFINS</th><th class="text-right p-2.5">IPI</th><th class="text-right p-2.5">ISS</th><th class="text-left p-2.5">NF Ref.</th><th class="text-left p-2.5">Obs.</th></tr></thead><tbody>'+vis.map(function(r){return '<tr class="border-t hover:bg-slate-50"><td class="p-2.5 whitespace-nowrap">'+dateBR(r.data)+'</td><td class="p-2.5 font-black text-columbia-700">'+esc(r.nf)+'</td><td class="p-2.5 max-w-[260px] truncate" title="'+esc(r.cliente)+'">'+esc(r.cliente)+'</td><td class="p-2.5 font-bold">'+esc(r.segmento_final)+'</td><td class="p-2.5">'+esc(r.tipo)+'</td><td class="p-2.5">'+esc(r.cfop)+'</td><td class="p-2.5 font-bold">'+esc(r.status)+'</td><td class="p-2.5 text-right font-bold">'+fmtBRL(r.vl_nota)+'</td><td class="p-2.5 text-right font-black">'+fmtBRL(r.vl_faturado)+'</td><td class="p-2.5 text-right">'+fmtBRL(r.vl_frete)+'</td><td class="p-2.5 text-right">'+fmtBRL(r.icms)+'</td><td class="p-2.5 text-right">'+fmtBRL(r.pis)+'</td><td class="p-2.5 text-right">'+fmtBRL(r.cofins)+'</td><td class="p-2.5 text-right">'+fmtBRL(r.ipi)+'</td><td class="p-2.5 text-right">'+fmtBRL(r.iss)+'</td><td class="p-2.5">'+esc(r.nf_referenciada)+'</td><td class="p-2.5 max-w-[320px] truncate" title="'+esc(r.obs_nota)+'">'+esc(r.obs_nota)+'</td></tr>'}).join('')+'</tbody></table>';
-  document.getElementById('pager').innerHTML='<div class="text-xs text-slate-500 font-bold">Página '+page+' de '+totalPages+' · '+fmtInt(rows.length)+' registros</div><div class="flex gap-2"><button '+(page<=1?'disabled':'')+' onclick="changePage(-1)" class="border rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-40">Anterior</button><button '+(page>=totalPages?'disabled':'')+' onclick="changePage(1)" class="border rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-40">Próxima</button></div>';
+
+  const minWidth=Math.max(1100,cols.reduce(function(a,col){return a+(col.key==='cliente'?260:col.key==='obs_nota'?320:col.type==='money'?125:col.key==='cnpj'?145:105)},0));
+  const head=cols.map(function(col){
+    const active=columnFilters[col.key]&&columnFilters[col.key].size;
+    const arrow=sortState.key===col.key?(sortState.dir==='asc'?'▲':'▼'):'↕';
+    return '<th class="'+(col.type==='money'?'text-right':'text-left')+' px-2 py-2 border-b bg-slate-50">'+
+      '<div class="flex items-center '+(col.type==='money'?'justify-end':'justify-start')+' gap-1">'+
+        '<button onclick="toggleSort(\''+col.key+'\')" class="sort-head">'+esc(col.label)+'<span class="sort-arrow '+(sortState.key===col.key?'active':'')+'">'+arrow+'</span></button>'+
+        '<button onclick="openColumnFilter(\''+col.key+'\')" class="excel-filter-btn '+(active?'active':'')+'" title="Filtrar '+esc(col.label)+'"><i data-lucide="filter" class="w-3 h-3"></i></button>'+
+      '</div></th>';
+  }).join('');
+
+  const body=vis.map(function(row){
+    return '<tr class="border-b border-slate-100 hover:bg-slate-50">'+cols.map(function(col){
+      const val=colDisplay(col,row),align=col.type==='money'?'text-right tabular-nums':'text-left';
+      const width=col.key==='cliente'?'max-w-[260px]':col.key==='obs_nota'?'max-w-[320px]':'';
+      return '<td class="px-2 py-1.5 '+align+' '+width+' '+(col.type==='money'?'font-semibold':'')+'">'+
+        (width?'<div class="truncate" title="'+esc(val)+'">'+esc(val)+'</div>':esc(val))+
+      '</td>';
+    }).join('')+'</tr>';
+  }).join('');
+
+  const foot=cols.map(function(col,idx){
+    if(idx===0)return '<td class="px-2 py-2 font-black">Total</td>';
+    if(col.sum)return '<td class="px-2 py-2 text-right font-black tabular-nums">'+fmtBRL(sum(rows,function(r){return num(colRaw(col,r))}))+'</td>';
+    return '<td class="px-2 py-2"></td>';
+  }).join('');
+
+  document.getElementById('notasTable').innerHTML=
+    '<table class="w-full text-[10px]" style="min-width:'+minWidth+'px">'+
+      '<thead class="sticky top-0 z-10 text-slate-600 uppercase text-[9px]">'+
+        '<tr>'+head+'</tr>'+
+      '</thead>'+
+      '<tbody>'+body+'</tbody>'+
+      '<tfoot class="sticky-total"><tr class="border-t-2 border-slate-300 bg-slate-100">'+foot+'</tr></tfoot>'+
+    '</table>';
+
+  document.getElementById('pager').innerHTML=
+    '<div class="flex items-center gap-2"><div class="text-xs text-slate-500 font-bold">Página '+page+' de '+totalPages+' · '+fmtInt(rows.length)+' registros</div>'+
+    (Object.keys(columnFilters).length?'<button onclick="clearAllColumnFilters()" class="text-[10px] font-extrabold text-red-600 hover:underline">Limpar filtros das colunas</button>':'')+
+    '</div><div class="flex gap-2"><button '+(page<=1?'disabled':'')+' onclick="changePage(-1)" class="border rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-40">Anterior</button><button '+(page>=totalPages?'disabled':'')+' onclick="changePage(1)" class="border rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-40">Próxima</button></div>';
+  lucide.createIcons();
 }
 function changePage(d){page+=d;renderNotas();window.scrollTo({top:0,behavior:'smooth'})}
 function exportCsv(){
-  const rows=notasRows(), cols=['data','nf','cliente','cnpj','segmento_final','tipo','cfop','status','vl_nota','vl_faturado','vl_frete','icms','pis','cofins','ipi','iss','nf_referenciada','orc_dev','obs_nota'];
-  const q=function(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"'};const body=[cols.join(';')].concat(rows.map(function(r){return cols.map(function(c){return q(r[c])}).join(';')})).join('\n');
-  const blob=new Blob(['\ufeff'+body],{type:'text/csv;charset=utf-8;'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='notas_fiscais_columbia.csv';a.click();URL.revokeObjectURL(a.href);
+  const rows=notasRows(), cols=columnsForView();
+  const q=function(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"'};
+  const body=[cols.map(function(c){return q(c.label)}).join(';')].concat(rows.map(function(r){
+    return cols.map(function(c){return q(c.type==='money'?num(colRaw(c,r)):colDisplay(c,r))}).join(';');
+  })).join('\n');
+  const blob=new Blob(['\ufeff'+body],{type:'text/csv;charset=utf-8;'}),a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download='notas_fiscais_'+notasView+'.csv';a.click();URL.revokeObjectURL(a.href);
 }
 
 function openDb(){return new Promise(function(resolve,reject){const req=indexedDB.open(CACHE_DB,1);req.onupgradeneeded=function(){if(!req.result.objectStoreNames.contains(CACHE_STORE))req.result.createObjectStore(CACHE_STORE)};req.onsuccess=function(){resolve(req.result)};req.onerror=function(){reject(req.error)}})}
 async function cacheRead(){try{const db=await openDb();return await new Promise(function(resolve){const tx=db.transaction(CACHE_STORE,'readonly'),rq=tx.objectStore(CACHE_STORE).get(CACHE_KEY);rq.onsuccess=function(){resolve(rq.result||null)};rq.onerror=function(){resolve(null)}})}catch(e){return null}}
 async function cacheWrite(v){try{const db=await openDb();await new Promise(function(resolve,reject){const tx=db.transaction(CACHE_STORE,'readwrite');tx.objectStore(CACHE_STORE).put(v,CACHE_KEY);tx.oncomplete=resolve;tx.onerror=function(){reject(tx.error)}})}catch(e){console.warn('cache',e)}}
-async function fetchJson(url){const r=await fetch(url+'?_t='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache'}});if(!r.ok)throw new Error(url+' — HTTP '+r.status);const d=await r.json();if(!Array.isArray(d))throw new Error('Formato inválido: '+url);return d}
+async function fetchJson(url){
+  const token=localStorage.getItem('columbia_analista_token');
+  const r=await fetch(url+'?_t='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache','Authorization':'Bearer '+token}});
+  if(r.status===401){window.location.href='../login.html';throw new Error('Sessão expirada')}
+  if(r.status===403){window.location.href='../';throw new Error('Usuário sem acesso a Notas Fiscais')}
+  if(!r.ok)throw new Error(url+' — HTTP '+r.status);
+  const d=await r.json();if(!Array.isArray(d))throw new Error('Formato inválido: '+url);return d
+}
 async function applyPayload(p,source){
   rawNotas=Array.isArray(p.notas)?p.notas:[];orcamentos=Array.isArray(p.orcamentos)?p.orcamentos:[];vinculos=Array.isArray(p.vinculos)?p.vinculos:[];
-  prepareData();populateFilters();renderAll();document.getElementById('syncStatus').textContent=(source==='cache'?'Cache local · ':'Atualizado · ')+new Date(p.savedAt||Date.now()).toLocaleString('pt-BR');
+  prepareData();populatePeriodFilters();renderAll();document.getElementById('syncStatus').textContent=(source==='cache'?'Cache local · ':'Atualizado · ')+new Date(p.savedAt||Date.now()).toLocaleString('pt-BR');
 }
 async function refreshAll(manual){
   const icon=document.getElementById('refreshIcon');if(manual)icon.classList.add('animate-spin');document.getElementById('errorBox').classList.add('hidden');
@@ -405,7 +585,18 @@ async function refreshAll(manual){
 }
 async function init(){
   setView('faturamento');
-  document.getElementById('loadingBox').classList.remove('hidden');const c=await cacheRead();if(c)await applyPayload(c,'cache');document.getElementById('loadingBox').classList.add('hidden');await refreshAll(false);lucide.createIcons();
+  const token=localStorage.getItem('columbia_analista_token');
+  try{
+    const access=await fetch('https://columbia.consultoriarf.net/producao/portal/me',{headers:{Authorization:'Bearer '+token},cache:'no-store'});
+    if(!access.ok)throw new Error('acesso');
+    const p=await access.json();
+    localStorage.setItem('columbia_permissoes',JSON.stringify(p));
+    if(Number(p.u_notas||0)!==1){window.location.href='../';return}
+  }catch(e){window.location.href='../login.html';return}
+  document.getElementById('loadingBox').classList.remove('hidden');
+  const cached=await cacheRead();if(cached)await applyPayload(cached,'cache');
+  document.getElementById('loadingBox').classList.add('hidden');
+  await refreshAll(false);lucide.createIcons();
 }
 document.addEventListener('DOMContentLoaded',init);
 </script>
