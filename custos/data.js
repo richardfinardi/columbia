@@ -1,5 +1,5 @@
 const API_BASE='https://columbia.consultoriarf.net';
-const ENDPOINTS={fat:['/faturamento','/fat','/custo_faturamento'],mp:['/custo_materia_prima','/mp'],mo:['/custo_mao_obra','/mo'],setup:['/custo_mo_realizado_setup','/mo_realizado_setup'],st:['/custo_servicos_terceiros','/st'],cms:['/custo_cms','/cms'],estoque:['/custo_estoque','/estoque','/custo-do-estoque','/custo_do_estoque'],rev:['/custo_revenda','/rev'],detalhe:['/detalhamento_previsto_realizado','/nova']};
+const ENDPOINTS={fat:['/01_faturamento'],mp:['/02_custo_materia_prima'],mo:['/03_custo_mao_obra'],setup:['/04_custo_mo_realizado_setup'],st:['/05_custo_servicos_terceiros'],cms:['/06_custo_cms'],estoque:['/07_custo_estoque'],rev:['/08_custo_revenda'],detalhe:['/09_detalhamento_previsto_realizado']};
 const CACHE_DB='columbia_custos_cache_v1',CACHE_STORE='dados',CACHE_KEY='payload';
 let raw={},rows=[],view='detalhe',columnFilters={},sortState={key:'dt_emissao',dir:'desc'},activeFilterColumn=null,tempFilter=new Set(),filterTimer=null,detailLoaded=false,chartFat=null,chartMargem=null,chartGasto=null;
 const brl=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}),num2=new Intl.NumberFormat('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}),pct=new Intl.NumberFormat('pt-BR',{style:'percent',minimumFractionDigits:2,maximumFractionDigits:2});
