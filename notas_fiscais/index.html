@@ -81,7 +81,7 @@
 
   <div id="viewComparativo" class="main-view hidden space-y-4">
     <section class="bg-white rounded-2xl border p-4"><div class="flex flex-wrap justify-between gap-2 items-center mb-3"><div><h2 class="font-black text-sm">Comparativo por período</h2><p class="text-[10px] text-slate-500 mt-1">Mantém os filtros acima e compara Bruto, Devoluções e Líquido.</p></div></div><div class="h-[430px]"><canvas id="chartComparativo"></canvas></div></section>
-    <section class="bg-white rounded-2xl border overflow-hidden"><div id="comparativoTable" class="overflow-auto custom-scroll"></div></section>
+    <section class="bg-white rounded-2xl border overflow-hidden shadow-sm"><div id="comparativoTable" class="overflow-auto custom-scroll"></div></section>
   </div>
 
   <div id="viewNotas" class="main-view hidden space-y-4">
@@ -106,6 +106,7 @@ const API_ORC='https://columbia.consultoriarf.net/orcamento_class';
 const API_DEV='https://columbia.consultoriarf.net/orc_nf_dev';
 const CACHE_DB='columbia_notas_cache_v1', CACHE_STORE='dados', CACHE_KEY='payload';
 let rawNotas=[], notas=[], orcamentos=[], vinculos=[], viewAtual='faturamento', notasView='todas', page=1, pageSize=100;
+let expandedComparativo=new Set();
 let chartMensal=null, chartSegmento=null, chartClientes=null, chartComparativo=null, filterTimer=null;
 const meses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
@@ -234,11 +235,96 @@ function renderCharts(){
   if(chartClientes)chartClientes.destroy();
   chartClientes=new Chart(document.getElementById('chartClientes'),{type:'bar',data:{labels:top.map(function(x){return x.c}),datasets:[{label:'Faturamento',data:top.map(function(x){return x.v})}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return fmtBRL(c.raw)}}}},scales:{y:{ticks:{callback:function(v){return 'R$ '+new Intl.NumberFormat('pt-BR',{notation:'compact'}).format(v)}}},x:{ticks:{maxRotation:45,minRotation:0}}}}});
 }
+function buildComparativoMatrix(rows){
+  const monthMap=new Map();
+  rows.forEach(function(r){
+    if(!r.ano||!r.mes)return;
+    const key=r.ano+'-'+String(r.mes).padStart(2,'0');
+    if(!monthMap.has(key))monthMap.set(key,{key:key,ano:r.ano,mes:r.mes,bruto:0,devol:0,segments:new Map()});
+    const m=monthMap.get(key);
+    const segKey=(r.segmento_final&&r.segmento_final!=='SEM CLASSIFICAÇÃO')?r.segmento_final:'';
+    if(!m.segments.has(segKey))m.segments.set(segKey,{segmento:segKey,bruto:0,devol:0});
+    const s=m.segments.get(segKey);
+    if(isFat(r)){m.bruto+=r.vl_faturado;s.bruto+=r.vl_faturado}
+    if(isDev(r)){m.devol+=r.vl_nota;s.devol+=r.vl_nota}
+  });
+  return [...monthMap.values()].map(function(m){
+    m.liquido=m.bruto-m.devol;
+    m.segmentos=[...m.segments.values()]
+      .map(function(s){s.liquido=s.bruto-s.devol;return s})
+      .filter(function(s){return s.bruto!==0||s.devol!==0})
+      .sort(function(a,b){
+        if(a.segmento===''&&b.segmento!=='')return -1;
+        if(a.segmento!==''&&b.segmento==='')return 1;
+        return a.segmento.localeCompare(b.segmento,'pt-BR',{numeric:true,sensitivity:'base'});
+      });
+    return m;
+  }).filter(function(m){return m.bruto!==0||m.devol!==0})
+    .sort(function(a,b){return a.key.localeCompare(b.key)});
+}
+function toggleComparativoMonth(key){
+  if(expandedComparativo.has(key))expandedComparativo.delete(key);else expandedComparativo.add(key);
+  renderComparativoMatrix();
+}
+function expandAllComparativo(){
+  buildComparativoMatrix(filteredRows()).forEach(function(m){expandedComparativo.add(m.key)});
+  renderComparativoMatrix();
+}
+function collapseAllComparativo(){expandedComparativo.clear();renderComparativoMatrix()}
+function renderComparativoMatrix(){
+  const months=buildComparativoMatrix(filteredRows());
+  if(!expandedComparativo.size && months.length)months.forEach(function(m){expandedComparativo.add(m.key)});
+  const total=months.reduce(function(a,m){a.bruto+=m.bruto;a.devol+=m.devol;return a},{bruto:0,devol:0});
+  total.liquido=total.bruto-total.devol;
+
+  let rowsHtml='';
+  months.forEach(function(m){
+    const open=expandedComparativo.has(m.key);
+    const label=meses[m.mes-1].slice(0,3).toLowerCase()+'/'+m.ano;
+    rowsHtml+='<tr class="border-t bg-slate-50/70">'+
+      '<td class="px-3 py-2.5 font-black whitespace-nowrap"><button onclick="toggleComparativoMonth(\''+m.key+'\')" class="inline-flex items-center gap-2 hover:text-columbia-700"><span class="inline-flex w-4 h-4 items-center justify-center border border-slate-300 rounded text-[10px] bg-white">'+(open?'−':'+')+'</span>'+label+'</button></td>'+
+      '<td class="px-3 py-2.5 text-right font-black">'+fmtBRL(m.bruto)+'</td>'+
+      '<td class="px-3 py-2.5 text-right font-black">'+(m.devol?fmtBRL(m.devol):'')+'</td>'+
+      '<td class="px-3 py-2.5 text-right font-black">'+fmtBRL(m.liquido)+'</td>'+
+      '</tr>';
+    if(open){
+      m.segmentos.forEach(function(s){
+        rowsHtml+='<tr class="border-t border-slate-100 hover:bg-slate-50">'+
+          '<td class="px-3 py-2 pl-10 text-[11px] text-slate-600">'+esc(s.segmento)+'</td>'+
+          '<td class="px-3 py-2 text-right text-slate-700">'+(s.bruto?fmtBRL(s.bruto):'')+'</td>'+
+          '<td class="px-3 py-2 text-right text-slate-700">'+(s.devol?fmtBRL(s.devol):'')+'</td>'+
+          '<td class="px-3 py-2 text-right text-slate-700">'+((s.bruto||s.devol)?fmtBRL(s.liquido):'')+'</td>'+
+          '</tr>';
+      });
+    }
+  });
+
+  document.getElementById('comparativoTable').innerHTML=
+    '<div class="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b bg-white">'+
+      '<div><div class="text-xs font-black text-slate-800">Matriz Mês/Ano</div><div class="text-[10px] text-slate-500">Clique no mês para abrir o detalhamento por segmento.</div></div>'+
+      '<div class="flex gap-2"><button onclick="expandAllComparativo()" class="border rounded-lg px-2.5 py-1.5 text-[10px] font-bold hover:bg-slate-50">Expandir todos</button><button onclick="collapseAllComparativo()" class="border rounded-lg px-2.5 py-1.5 text-[10px] font-bold hover:bg-slate-50">Recolher todos</button></div>'+
+    '</div>'+
+    '<table class="min-w-[650px] w-full text-xs">'+
+      '<thead class="bg-white text-slate-700"><tr>'+
+        '<th class="text-left px-3 py-2.5 font-bold">Mês/Ano</th>'+
+        '<th class="text-right px-3 py-2.5 font-bold">Bruto</th>'+
+        '<th class="text-right px-3 py-2.5 font-bold">Devoluções</th>'+
+        '<th class="text-right px-3 py-2.5 font-bold">Líquido</th>'+
+      '</tr></thead>'+
+      '<tbody>'+rowsHtml+'</tbody>'+
+      '<tfoot><tr class="border-t-2 border-slate-300 bg-slate-100">'+
+        '<td class="px-3 py-3 font-black">Total</td>'+
+        '<td class="px-3 py-3 text-right font-black">'+fmtBRL(total.bruto)+'</td>'+
+        '<td class="px-3 py-3 text-right font-black">'+fmtBRL(total.devol)+'</td>'+
+        '<td class="px-3 py-3 text-right font-black">'+fmtBRL(total.liquido)+'</td>'+
+      '</tr></tfoot>'+
+    '</table>';
+}
 function renderComparativo(){
   const p=aggregatePeriod(filteredRows());
   if(chartComparativo)chartComparativo.destroy();
   chartComparativo=new Chart(document.getElementById('chartComparativo'),{type:'line',data:{labels:p.map(function(x){return String(x.mes).padStart(2,'0')+'/'+x.ano}),datasets:[{label:'Bruto',data:p.map(function(x){return x.bruto}),tension:.25},{label:'Devoluções',data:p.map(function(x){return x.devol}),tension:.25},{label:'Líquido',data:p.map(function(x){return x.liquido}),tension:.25}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:function(c){return c.dataset.label+': '+fmtBRL(c.raw)}}}},scales:{y:{ticks:{callback:function(v){return 'R$ '+new Intl.NumberFormat('pt-BR',{notation:'compact'}).format(v)}}}}}});
-  document.getElementById('comparativoTable').innerHTML='<table class="min-w-full text-xs"><thead class="bg-slate-50 text-slate-500 uppercase text-[9px]"><tr><th class="text-left p-3">Período</th><th class="text-right p-3">Bruto</th><th class="text-right p-3">Devoluções</th><th class="text-right p-3">Líquido</th><th class="text-right p-3">% Devolução</th></tr></thead><tbody>'+p.map(function(x){return '<tr class="border-t"><td class="p-3 font-bold">'+String(x.mes).padStart(2,'0')+'/'+x.ano+'</td><td class="p-3 text-right font-bold">'+fmtBRL(x.bruto)+'</td><td class="p-3 text-right font-bold text-red-600">'+fmtBRL(x.devol)+'</td><td class="p-3 text-right font-black text-emerald-700">'+fmtBRL(x.liquido)+'</td><td class="p-3 text-right">'+(x.bruto?((x.devol/x.bruto)*100).toFixed(1).replace('.',',')+'%':'-')+'</td></tr>'}).join('')+'</tbody></table>';
+  renderComparativoMatrix();
 }
 function renderNotas(){
   const rows=notasRows(), totalPages=Math.max(1,Math.ceil(rows.length/pageSize));if(page>totalPages)page=totalPages;const ini=(page-1)*pageSize, vis=rows.slice(ini,ini+pageSize);
