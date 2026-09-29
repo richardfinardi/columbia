@@ -89,11 +89,18 @@
       btnLogin.textContent = 'Autenticando...';
 
       try {
-        const response = await fetch(`${API_BASE}/portal/login`, {
+        let response = await fetch(`${API_BASE}/portal/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ usuario, senha })
         });
+        if (response.status === 404 || response.status === 405) {
+          response = await fetch(`${API_BASE}/analista/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usuario, senha })
+          });
+        }
 
         const data = await response.json().catch(() => ({}));
 
