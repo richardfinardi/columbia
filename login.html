@@ -33,7 +33,7 @@
         <img src="./logo.png" alt="Columbia Machine" class="h-10 object-contain bg-white p-1 rounded-xl shadow-sm" onerror="this.style.display='none'">
       </div>
       <h1 class="text-xl font-extrabold tracking-wide">Columbia Machine Brasil</h1>
-      <p class="text-xs text-columbia-100 mt-1">Análise Comercial, Compras e Cadastros</p>
+      <p class="text-xs text-columbia-100 mt-1">Portal de aplicações</p>
     </div>
 
     <form id="loginForm" class="p-6 space-y-4 text-xs">
@@ -52,7 +52,7 @@
       </div>
 
       <div class="rounded-xl bg-blue-50 border border-blue-200 px-3 py-2.5 text-[11px] text-blue-900 leading-relaxed">
-        Acesso exclusivo para usuários com <strong>U_ANALISTA_CADASTRO = 1</strong> no sistema.
+        Os módulos são liberados conforme as permissões <strong>U_*</strong> do seu usuário no GRV.
       </div>
 
       <p id="msgError" class="text-red-700 font-bold text-center hidden bg-red-50 p-2.5 rounded-xl border border-red-200"></p>
@@ -67,6 +67,8 @@
   <script>
     const API_BASE = 'https://columbia.consultoriarf.net/producao';
     const TOKEN_KEY = 'columbia_analista_token';
+    const PERMISSIONS_KEY = 'columbia_permissoes';
+    const ACCESS_FIELDS = ["u_analista_cadastro","u_anexo","u_custos","u_engenharia","u_faturamento","u_finalizacao","u_notas","u_pcp","u_vendedor"];
 
     if (localStorage.getItem(TOKEN_KEY)) {
       window.location.href = 'index.html';
@@ -87,7 +89,7 @@
       btnLogin.textContent = 'Autenticando...';
 
       try {
-        const response = await fetch(`${API_BASE}/analista/login`, {
+        const response = await fetch(`${API_BASE}/portal/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ usuario, senha })
@@ -99,11 +101,11 @@
           throw new Error(data.detail || 'Não foi possível autenticar.');
         }
 
-        if (Number(data.u_analista_cadastro || 0) !== 1) {
-          throw new Error('Seu usuário não possui acesso ao módulo de análise de clientes.');
-        }
+        const permissoes = {};
+        ACCESS_FIELDS.forEach(campo => permissoes[campo] = Number(data[campo] || 0) === 1 ? 1 : 0);
 
         localStorage.setItem(TOKEN_KEY, data.access_token);
+        localStorage.setItem(PERMISSIONS_KEY, JSON.stringify(permissoes));
         localStorage.setItem('columbia_analista_usuario', data.usuario || usuario);
         localStorage.setItem('columbia_analista_cod_responsavel', data.cod_responsavel ?? '');
 
