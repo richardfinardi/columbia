@@ -588,10 +588,12 @@ async function init(){
   const token=localStorage.getItem('columbia_analista_token');
   try{
     const access=await fetch('https://columbia.consultoriarf.net/producao/portal/me',{headers:{Authorization:'Bearer '+token},cache:'no-store'});
-    if(!access.ok)throw new Error('acesso');
-    const p=await access.json();
-    localStorage.setItem('columbia_permissoes',JSON.stringify(p));
-    if(Number(p.u_notas||0)!==1){window.location.href='../';return}
+    if(access.status!==404&&access.status!==405){
+      if(!access.ok)throw new Error('acesso');
+      const p=await access.json();
+      localStorage.setItem('columbia_permissoes',JSON.stringify(p));
+      if(Number(p.u_notas||0)!==1){window.location.href='../';return}
+    }
   }catch(e){window.location.href='../login.html';return}
   document.getElementById('loadingBox').classList.remove('hidden');
   const cached=await cacheRead();if(cached)await applyPayload(cached,'cache');
