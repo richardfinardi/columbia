@@ -167,9 +167,10 @@ function prepareData(){
 
 function isFat(r){return ['NF FATURADAS','NF SERVICO','SUCATA'].includes(norm(r.tipo)) && r.vl_faturado>0}
 function isDev(r){return ['EMISSAO DEVOLUCAO','ENTRADA'].includes(norm(r.tipo))}
+function devValue(r){return isDev(r)?r.vl_faturado:0}
 function isCancel(r){return ['CANCELADA','INUTILIZADA'].includes(norm(r.status)) || norm(r.tipo)==='NF INUT/CANC'}
 function sum(arr,fn){return arr.reduce(function(a,x){return a+num(fn(x))},0)}
-function metrics(rows){const bruto=sum(rows.filter(isFat),function(r){return r.vl_faturado});const devol=sum(rows.filter(isDev),function(r){return r.vl_nota});return {bruto:bruto,devol:devol,liquido:bruto-devol}}
+function metrics(rows){const bruto=sum(rows.filter(isFat),function(r){return r.vl_faturado});const devol=sum(rows.filter(isDev),function(r){return devValue(r)});return {bruto:bruto,devol:devol,liquido:bruto-devol}}
 
 function optionList(el, values, allLabel){
   const cur=el.value;
@@ -227,14 +228,14 @@ function renderKpis(){const rows=filteredRows(),m=metrics(rows);document.getElem
 
 function aggregatePeriod(rows){
   const map=new Map();
-  rows.forEach(function(r){if(!r.ano||!r.mes)return;const k=r.ano+'-'+String(r.mes).padStart(2,'0');if(!map.has(k))map.set(k,{key:k,ano:r.ano,mes:r.mes,bruto:0,devol:0});const x=map.get(k);if(isFat(r))x.bruto+=r.vl_faturado;if(isDev(r))x.devol+=r.vl_nota});
+  rows.forEach(function(r){if(!r.ano||!r.mes)return;const k=r.ano+'-'+String(r.mes).padStart(2,'0');if(!map.has(k))map.set(k,{key:k,ano:r.ano,mes:r.mes,bruto:0,devol:0});const x=map.get(k);if(isFat(r))x.bruto+=r.vl_faturado;if(isDev(r))x.devol+=devValue(r)});
   return [...map.values()].map(function(x){x.liquido=x.bruto-x.devol;return x}).sort(function(a,b){return a.key.localeCompare(b.key)});
 }
 function renderCharts(){
   const rows=filteredRows(), periods=aggregatePeriod(rows), labels=periods.map(function(x){return String(x.mes).padStart(2,'0')+'/'+x.ano});
   if(chartMensal)chartMensal.destroy();
   chartMensal=new Chart(document.getElementById('chartMensal'),{type:'bar',data:{labels:labels,datasets:[{label:'Bruto',data:periods.map(function(x){return x.bruto})},{label:'Devoluções',data:periods.map(function(x){return x.devol})},{label:'Líquido',data:periods.map(function(x){return x.liquido})}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:function(c){return c.dataset.label+': '+fmtBRL(c.raw)}}}},scales:{y:{ticks:{callback:function(v){return 'R$ '+new Intl.NumberFormat('pt-BR',{notation:'compact'}).format(v)}}}}}});
-  const sm=new Map();rows.forEach(function(r){const s=r.segmento_final||'SEM CLASSIFICAÇÃO';if(!sm.has(s))sm.set(s,{bruto:0,devol:0});const x=sm.get(s);if(isFat(r))x.bruto+=r.vl_faturado;if(isDev(r))x.devol+=r.vl_nota});
+  const sm=new Map();rows.forEach(function(r){const s=r.segmento_final||'SEM CLASSIFICAÇÃO';if(!sm.has(s))sm.set(s,{bruto:0,devol:0});const x=sm.get(s);if(isFat(r))x.bruto+=r.vl_faturado;if(isDev(r))x.devol+=devValue(r)});
   const seg=[...sm.entries()].map(function(e){return {s:e[0],v:e[1].bruto-e[1].devol}}).sort(function(a,b){return b.v-a.v}).slice(0,12);
   if(chartSegmento)chartSegmento.destroy();
   chartSegmento=new Chart(document.getElementById('chartSegmento'),{type:'bar',data:{labels:seg.map(function(x){return x.s}),datasets:[{label:'Líquido',data:seg.map(function(x){return x.v})}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return fmtBRL(c.raw)}}}},scales:{x:{ticks:{callback:function(v){return 'R$ '+new Intl.NumberFormat('pt-BR',{notation:'compact'}).format(v)}}}}}});
@@ -254,7 +255,7 @@ function buildComparativoMatrix(rows){
     if(!m.segments.has(segKey))m.segments.set(segKey,{segmento:segKey,bruto:0,devol:0});
     const s=m.segments.get(segKey);
     if(isFat(r)){m.bruto+=r.vl_faturado;s.bruto+=r.vl_faturado}
-    if(isDev(r)){m.devol+=r.vl_nota;s.devol+=r.vl_nota}
+    if(isDev(r)){const dv=devValue(r);m.devol+=dv;s.devol+=dv}
   });
   return [...monthMap.values()].map(function(m){
     m.liquido=m.bruto-m.devol;
