@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="../LOGO MINIMALISTA.png">
+  <link rel="apple-touch-icon" href="../LOGO MINIMALISTA.png">
+  <title>Notas Fiscais | Columbia Machine</title>
+  <script>
+    if (!localStorage.getItem('columbia_analista_token')) window.location.href = '../login.html';
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{colors:{columbia:{50:'#f0f7ff',100:'#e0effe',500:'#1d72b8',600:'#155b96',700:'#003e7e',800:'#002e61',900:'#001e40'}}}}};</script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <style>
+    body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif}
+    .custom-scroll::-webkit-scrollbar{width:7px;height:7px}.custom-scroll::-webkit-scrollbar-track{background:#f1f5f9}.custom-scroll::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:9px}
+    .tab-btn{padding:8px 12px;border-radius:10px;color:white;font-size:12px;font-weight:800;display:flex;align-items:center;gap:6px;white-space:nowrap}
+    .tab-btn.active{background:white;color:#002e61;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+    .view-btn{padding:7px 11px;border:1px solid #cbd5e1;border-radius:10px;background:white;color:#475569;font-size:11px;font-weight:800;white-space:nowrap}
+    .view-btn.active{background:#003e7e;color:white;border-color:#003e7e}
+    .filter-input{width:100%;border:1px solid #cbd5e1;border-radius:11px;background:#fff;padding:8px 9px;font-size:11px;font-weight:700;outline:none;color:#334155}
+    .filter-input:focus{border-color:#003e7e;box-shadow:0 0 0 2px rgba(0,62,126,.08)}
+    th{white-space:nowrap}
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800">
+<header class="bg-columbia-700 text-white sticky top-0 z-40 shadow-md">
+  <div class="max-w-[1900px] mx-auto px-3 sm:px-5 py-2.5 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-3 min-w-0">
+      <a href="../" class="bg-white rounded-xl p-1.5 shrink-0"><img src="../logo.png" alt="Columbia Machine" class="h-8 sm:h-9 w-auto object-contain"></a>
+      <div class="min-w-0"><h1 class="text-base sm:text-xl font-extrabold tracking-wide leading-tight truncate">Columbia Machine Brasil</h1><p class="text-[10px] sm:text-xs text-columbia-100">Notas Fiscais e Faturamento</p></div>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <a href="../" class="flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl text-xs font-bold"><i data-lucide="layout-grid" class="w-4 h-4"></i><span class="hidden sm:inline">Menu</span></a>
+      <div class="flex overflow-x-auto custom-scroll bg-columbia-800/70 border border-columbia-600 rounded-xl p-1 max-w-[calc(100vw-30px)]">
+        <button id="tabFaturamento" onclick="setView('faturamento')" class="tab-btn active"><i data-lucide="chart-column" class="w-3.5 h-3.5"></i>Faturamento</button>
+        <button id="tabComparativo" onclick="setView('comparativo')" class="tab-btn"><i data-lucide="chart-no-axes-combined" class="w-3.5 h-3.5"></i>Comparativo</button>
+        <button id="tabNotas" onclick="setView('notas')" class="tab-btn"><i data-lucide="receipt-text" class="w-3.5 h-3.5"></i>Notas</button>
+      </div>
+      <button onclick="refreshAll(true)" class="flex items-center gap-1.5 px-3 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-xl text-xs font-bold"><i id="refreshIcon" data-lucide="refresh-cw" class="w-4 h-4"></i><span class="hidden sm:inline">Atualizar</span></button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-[1900px] mx-auto p-3 sm:p-5 space-y-4">
+  <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-3.5">
+    <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2.5">
+      <div><label class="text-[9px] font-black uppercase text-slate-500">Ano</label><select id="fAno" onchange="filterChanged()" class="filter-input"></select></div>
+      <div><label class="text-[9px] font-black uppercase text-slate-500">Mês</label><select id="fMes" onchange="filterChanged()" class="filter-input"><option value="">Todos</option></select></div>
+      <div><label class="text-[9px] font-black uppercase text-slate-500">Segmento</label><select id="fSegmento" onchange="filterChanged()" class="filter-input"></select></div>
+      <div><label class="text-[9px] font-black uppercase text-slate-500">Cliente</label><select id="fCliente" onchange="filterChanged()" class="filter-input"></select></div>
+      <div><label class="text-[9px] font-black uppercase text-slate-500">CFOP</label><select id="fCfop" onchange="filterChanged()" class="filter-input"></select></div>
+      <div><label class="text-[9px] font-black uppercase text-slate-500">Status</label><select id="fStatus" onchange="filterChanged()" class="filter-input"></select></div>
+      <div><label class="text-[9px] font-black uppercase text-slate-500">Tipo</label><select id="fTipo" onchange="filterChanged()" class="filter-input"></select></div>
+      <div class="flex items-end"><button onclick="clearFilters()" class="w-full border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 rounded-xl px-3 py-2 text-[11px] font-extrabold flex items-center justify-center gap-1.5"><i data-lucide="filter-x" class="w-4 h-4"></i>Limpar</button></div>
+    </div>
+    <div class="mt-2.5 flex flex-wrap items-center gap-2">
+      <div class="flex-1 min-w-[240px] flex items-center gap-2 border border-slate-300 rounded-xl px-3 py-2 bg-slate-50"><i data-lucide="search" class="w-4 h-4 text-slate-400"></i><input id="fBusca" oninput="debouncedFilter()" class="w-full bg-transparent outline-none text-xs" placeholder="Pesquisar NF, cliente, CNPJ, segmento, CFOP, observação..."></div>
+      <div id="syncStatus" class="text-[10px] font-bold text-slate-500 px-2"></div>
+    </div>
+  </section>
+
+  <div id="loadingBox" class="hidden bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-500 font-bold"><i data-lucide="loader-circle" class="w-7 h-7 mx-auto mb-2 animate-spin text-columbia-700"></i>Carregando dados...</div>
+  <div id="errorBox" class="hidden bg-red-50 border border-red-200 text-red-800 rounded-2xl p-4 text-sm font-bold"></div>
+
+  <div id="viewFaturamento" class="main-view space-y-4">
+    <section class="grid grid-cols-2 xl:grid-cols-4 gap-3">
+      <div class="bg-white rounded-2xl border p-4"><div class="text-[9px] uppercase font-black text-slate-500">Faturamento Bruto</div><div id="kBruto" class="text-xl sm:text-2xl font-black text-columbia-700 mt-1">R$ 0</div></div>
+      <div class="bg-white rounded-2xl border p-4"><div class="text-[9px] uppercase font-black text-slate-500">Devoluções</div><div id="kDevol" class="text-xl sm:text-2xl font-black text-red-600 mt-1">R$ 0</div></div>
+      <div class="bg-white rounded-2xl border p-4"><div class="text-[9px] uppercase font-black text-slate-500">Faturamento Líquido</div><div id="kLiquido" class="text-xl sm:text-2xl font-black text-emerald-600 mt-1">R$ 0</div></div>
+      <div class="bg-white rounded-2xl border p-4"><div class="text-[9px] uppercase font-black text-slate-500">Notas no filtro</div><div id="kNotas" class="text-xl sm:text-2xl font-black text-slate-800 mt-1">0</div></div>
+    </section>
+    <section class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div class="bg-white rounded-2xl border p-4"><div class="flex justify-between items-center mb-3"><h2 class="font-black text-sm">Faturamento mensal</h2><span class="text-[10px] text-slate-400">Bruto / Devoluções / Líquido</span></div><div class="h-[320px]"><canvas id="chartMensal"></canvas></div></div>
+      <div class="bg-white rounded-2xl border p-4"><div class="flex justify-between items-center mb-3"><h2 class="font-black text-sm">Faturamento líquido por segmento</h2><span class="text-[10px] text-slate-400">Top 12</span></div><div class="h-[320px]"><canvas id="chartSegmento"></canvas></div></div>
+    </section>
+    <section class="bg-white rounded-2xl border p-4"><div class="flex justify-between items-center mb-3"><h2 class="font-black text-sm">Top clientes por faturamento bruto</h2><span class="text-[10px] text-slate-400">Top 15 + Outros</span></div><div class="h-[340px]"><canvas id="chartClientes"></canvas></div></section>
+  </div>
+
+  <div id="viewComparativo" class="main-view hidden space-y-4">
+    <section class="bg-white rounded-2xl border p-4"><div class="flex flex-wrap justify-between gap-2 items-center mb-3"><div><h2 class="font-black text-sm">Comparativo por período</h2><p class="text-[10px] text-slate-500 mt-1">Mantém os filtros acima e compara Bruto, Devoluções e Líquido.</p></div></div><div class="h-[430px]"><canvas id="chartComparativo"></canvas></div></section>
+    <section class="bg-white rounded-2xl border overflow-hidden"><div id="comparativoTable" class="overflow-auto custom-scroll"></div></section>
+  </div>
+
+  <div id="viewNotas" class="main-view hidden space-y-4">
+    <section class="bg-white rounded-2xl border p-3 flex flex-wrap gap-2 items-center">
+      <button class="view-btn active" data-nv="todas" onclick="setNotasView('todas')">Todas</button>
+      <button class="view-btn" data-nv="faturamento" onclick="setNotasView('faturamento')">Faturamento</button>
+      <button class="view-btn" data-nv="sucata" onclick="setNotasView('sucata')">Sucata</button>
+      <button class="view-btn" data-nv="devolucoes" onclick="setNotasView('devolucoes')">Devoluções</button>
+      <button class="view-btn" data-nv="canceladas" onclick="setNotasView('canceladas')">Canceladas / Inutilizadas</button>
+      <div class="ml-auto flex items-center gap-2"><span id="notasCount" class="text-xs font-bold text-slate-500"></span><button onclick="exportCsv()" class="border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl px-3 py-2 text-[11px] font-extrabold flex items-center gap-1.5"><i data-lucide="file-spreadsheet" class="w-4 h-4"></i>Exportar CSV</button></div>
+    </section>
+    <section class="bg-white rounded-2xl border overflow-hidden">
+      <div id="notasTable" class="overflow-auto custom-scroll"></div>
+      <div id="pager" class="border-t p-3 flex flex-wrap gap-2 items-center justify-between"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+const API_NOTAS='https://columbia.consultoriarf.net/notas_fiscais';
+const API_ORC='https://columbia.consultoriarf.net/orcamento_class';
+const API_DEV='https://columbia.consultoriarf.net/orc_nf_dev';
+const CACHE_DB='columbia_notas_cache_v1', CACHE_STORE='dados', CACHE_KEY='payload';
+let rawNotas=[], notas=[], orcamentos=[], vinculos=[], viewAtual='faturamento', notasView='todas', page=1, pageSize=100;
+let chartMensal=null, chartSegmento=null, chartClientes=null, chartComparativo=null, filterTimer=null;
+const meses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+function num(v){const n=Number(v);return Number.isFinite(n)?n:0}
+function fmtBRL(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(num(v))}
+function fmtInt(v){return new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0}).format(num(v))}
+function esc(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]})}
+function norm(v){return String(v==null?'':v).trim().toUpperCase()}
+function dateOnly(v){if(!v)return'';return String(v).slice(0,10)}
+function dateBR(v){const s=dateOnly(v);if(!s)return'-';const p=s.split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:s}
+function objLower(o){const r={};Object.keys(o||{}).forEach(function(k){r[String(k).toLowerCase()]=o[k]});return r}
+
+function normalizeNota(row){
+  const r=objLower(row);
+  return {
+    tipo:String(r.tipo||'').trim(), data:dateOnly(r.data||r.dt_emissao), nf:String(r.nf||'').trim(),
+    cliente:String(r.cliente||r.razao_social||'').trim(), cnpj:String(r.cnpj||'').trim(), cfop:String(r.cfop||'').trim(),
+    status:String(r.status||'').trim(), vl_nota:num(r.vl_nota||r.vl_total), vl_faturado:num(r.vl_faturado||r.vl_faturameto||r.vl_faturamento),
+    icms:num(r.icms||r.vl_icms), pis:num(r.pis||r.vl_pis), cofins:num(r.cofins||r.vl_cofins),
+    segmento:String(r.segmento||'').trim(), nf_faturamento:String(r.nf_faturamento||'').trim(), nf_referenciada:String(r.nf_referenciada||'').trim(),
+    tp_nf:String(r.tp_nf||'').trim(), iss:num(r.iss), orc_dev:String(r.orc_dev||'').trim(), vl_frete:num(r.vl_frete),
+    frete_por_conta:String(r.frete_por_conta==null?'':r.frete_por_conta).trim(), ipi:num(r.ipi),
+    obs_nota:String(r.obs_nota||r.obs_text||'').trim(), outras_despesas:num(r.outras_despesas)
+  };
+}
+
+function buildSegmentMaps(){
+  const orcMap=new Map(), nfMap=new Map();
+  orcamentos.forEach(function(x){const r=objLower(x),k=norm(r.n_orcamento),s=String(r.classificacao||'').trim();if(k&&s&&!orcMap.has(k))orcMap.set(k,s)});
+  vinculos.forEach(function(x){const r=objLower(x),k=norm(r.nf_vinc),s=String(r.segmento||'').trim();if(k&&s&&!nfMap.has(k))nfMap.set(k,s)});
+  return {orcMap:orcMap,nfMap:nfMap};
+}
+
+function prepareData(){
+  const maps=buildSegmentMaps();
+  notas=rawNotas.map(normalizeNota).filter(function(r){
+    const y=Number((r.data||'').slice(0,4));
+    return y>2023 && !String(r.nf).includes('11825');
+  }).map(function(r){
+    let seg=r.segmento;
+    let origem=seg?'NOTAS':'';
+    if(!seg && r.orc_dev && maps.orcMap.has(norm(r.orc_dev))){seg=maps.orcMap.get(norm(r.orc_dev));origem='ORCAMENTO_CLASS'}
+    if(!seg && r.nf_referenciada && maps.nfMap.has(norm(r.nf_referenciada))){seg=maps.nfMap.get(norm(r.nf_referenciada));origem='ORC_NF_DEV'}
+    if(!seg && r.nf && maps.nfMap.has(norm(r.nf))){seg=maps.nfMap.get(norm(r.nf));origem='ORC_NF_DEV'}
+    r.segmento_final=seg||'SEM CLASSIFICAÇÃO'; r.segmento_origem=origem||'SEM VÍNCULO';
+    r.ano=Number((r.data||'').slice(0,4)); r.mes=Number((r.data||'').slice(5,7));
+    return r;
+  });
+}
+
+function isFat(r){return ['NF FATURADAS','NF SERVICO','SUCATA'].includes(norm(r.tipo)) && r.vl_faturado>0}
+function isDev(r){return ['EMISSAO DEVOLUCAO','ENTRADA'].includes(norm(r.tipo))}
+function isCancel(r){return ['CANCELADA','INUTILIZADA'].includes(norm(r.status)) || norm(r.tipo)==='NF INUT/CANC'}
+function sum(arr,fn){return arr.reduce(function(a,x){return a+num(fn(x))},0)}
+function metrics(rows){const bruto=sum(rows.filter(isFat),function(r){return r.vl_faturado});const devol=sum(rows.filter(isDev),function(r){return r.vl_nota});return {bruto:bruto,devol:devol,liquido:bruto-devol}}
+
+function optionList(el, values, allLabel){
+  const cur=el.value;
+  el.innerHTML='<option value="">'+allLabel+'</option>'+values.map(function(v){return '<option value="'+esc(v)+'">'+esc(v)+'</option>'}).join('');
+  if(values.includes(cur))el.value=cur;
+}
+function populateFilters(){
+  const years=[...new Set(notas.map(function(r){return r.ano}).filter(Boolean))].sort(function(a,b){return b-a});
+  const yearEl=document.getElementById('fAno'), current=yearEl.value, now=new Date().getFullYear();
+  yearEl.innerHTML='<option value="">Todos</option>'+years.map(function(y){return '<option value="'+y+'">'+y+'</option>'}).join('');
+  if(current&&years.includes(Number(current)))yearEl.value=current; else if(years.includes(now))yearEl.value=String(now); else if(years.length)yearEl.value=String(years[0]);
+  document.getElementById('fMes').innerHTML='<option value="">Todos</option>'+meses.map(function(m,i){return '<option value="'+(i+1)+'">'+m+'</option>'}).join('');
+  optionList(document.getElementById('fSegmento'),[...new Set(notas.map(function(r){return r.segmento_final}).filter(Boolean))].sort(),'Todos');
+  optionList(document.getElementById('fCliente'),[...new Set(notas.map(function(r){return r.cliente}).filter(Boolean))].sort(),'Todos');
+  optionList(document.getElementById('fCfop'),[...new Set(notas.map(function(r){return r.cfop}).filter(Boolean))].sort(),'Todos');
+  optionList(document.getElementById('fStatus'),[...new Set(notas.map(function(r){return r.status}).filter(Boolean))].sort(),'Todos');
+  optionList(document.getElementById('fTipo'),[...new Set(notas.map(function(r){return r.tipo}).filter(Boolean))].sort(),'Todos');
+}
+function filterChanged(){page=1;renderAll()}
+function debouncedFilter(){clearTimeout(filterTimer);filterTimer=setTimeout(function(){page=1;renderAll()},180)}
+function clearFilters(){
+  ['fAno','fMes','fSegmento','fCliente','fCfop','fStatus','fTipo'].forEach(function(id){document.getElementById(id).value=''});
+  document.getElementById('fBusca').value='';page=1;renderAll();
+}
+function filteredRows(){
+  const ano=document.getElementById('fAno').value, mes=document.getElementById('fMes').value, seg=document.getElementById('fSegmento').value;
+  const cli=document.getElementById('fCliente').value, cfop=document.getElementById('fCfop').value, status=document.getElementById('fStatus').value, tipo=document.getElementById('fTipo').value;
+  const q=norm(document.getElementById('fBusca').value);
+  return notas.filter(function(r){
+    if(ano && String(r.ano)!==ano)return false;if(mes && String(r.mes)!==mes)return false;if(seg && r.segmento_final!==seg)return false;
+    if(cli && r.cliente!==cli)return false;if(cfop && r.cfop!==cfop)return false;if(status && r.status!==status)return false;if(tipo && r.tipo!==tipo)return false;
+    if(q){const hay=norm([r.nf,r.cliente,r.cnpj,r.segmento_final,r.cfop,r.status,r.tipo,r.nf_referenciada,r.orc_dev,r.obs_nota].join(' | '));if(!hay.includes(q))return false}
+    return true;
+  });
+}
+function notasRows(){
+  let rows=filteredRows();
+  if(notasView==='faturamento')rows=rows.filter(function(r){return ['NF FATURADAS','NF SERVICO'].includes(norm(r.tipo)) && r.vl_faturado>0});
+  else if(notasView==='sucata')rows=rows.filter(function(r){return norm(r.segmento_final)==='SUCATA'});
+  else if(notasView==='devolucoes')rows=rows.filter(isDev);
+  else if(notasView==='canceladas')rows=rows.filter(isCancel);
+  return rows.sort(function(a,b){return String(b.data).localeCompare(String(a.data))||String(b.nf).localeCompare(String(a.nf),undefined,{numeric:true})});
+}
+
+function setView(v){
+  viewAtual=v;
+  document.querySelectorAll('.main-view').forEach(function(x){x.classList.add('hidden')});
+  document.getElementById('view'+v.charAt(0).toUpperCase()+v.slice(1)).classList.remove('hidden');
+  ['faturamento','comparativo','notas'].forEach(function(x){document.getElementById('tab'+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle('active',x===v)});
+  renderAll();lucide.createIcons();
+}
+function setNotasView(v){notasView=v;page=1;document.querySelectorAll('[data-nv]').forEach(function(b){b.classList.toggle('active',b.dataset.nv===v)});renderNotas()}
+function renderAll(){if(!notas.length)return;renderKpis();renderCharts();renderComparativo();renderNotas();lucide.createIcons()}
+function renderKpis(){const rows=filteredRows(),m=metrics(rows);document.getElementById('kBruto').textContent=fmtBRL(m.bruto);document.getElementById('kDevol').textContent=fmtBRL(m.devol);document.getElementById('kLiquido').textContent=fmtBRL(m.liquido);document.getElementById('kNotas').textContent=fmtInt(rows.length)}
+
+function aggregatePeriod(rows){
+  const map=new Map();
+  rows.forEach(function(r){if(!r.ano||!r.mes)return;const k=r.ano+'-'+String(r.mes).padStart(2,'0');if(!map.has(k))map.set(k,{key:k,ano:r.ano,mes:r.mes,bruto:0,devol:0});const x=map.get(k);if(isFat(r))x.bruto+=r.vl_faturado;if(isDev(r))x.devol+=r.vl_nota});
+  return [...map.values()].map(function(x){x.liquido=x.bruto-x.devol;return x}).sort(function(a,b){return a.key.localeCompare(b.key)});
+}
+function renderCharts(){
+  const rows=filteredRows(), periods=aggregatePeriod(rows), labels=periods.map(function(x){return String(x.mes).padStart(2,'0')+'/'+x.ano});
+  if(chartMensal)chartMensal.destroy();
+  chartMensal=new Chart(document.getElementById('chartMensal'),{type:'bar',data:{labels:labels,datasets:[{label:'Bruto',data:periods.map(function(x){return x.bruto})},{label:'Devoluções',data:periods.map(function(x){return x.devol})},{label:'Líquido',data:periods.map(function(x){return x.liquido})}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:function(c){return c.dataset.label+': '+fmtBRL(c.raw)}}}},scales:{y:{ticks:{callback:function(v){return 'R$ '+new Intl.NumberFormat('pt-BR',{notation:'compact'}).format(v)}}}}}});
+  const sm=new Map();rows.forEach(function(r){const s=r.segmento_final||'SEM CLASSIFICAÇÃO';if(!sm.has(s))sm.set(s,{bruto:0,devol:0});const x=sm.get(s);if(isFat(r))x.bruto+=r.vl_faturado;if(isDev(r))x.devol+=r.vl_nota});
+  const seg=[...sm.entries()].map(function(e){return {s:e[0],v:e[1].bruto-e[1].devol}}).sort(function(a,b){return b.v-a.v}).slice(0,12);
+  if(chartSegmento)chartSegmento.destroy();
+  chartSegmento=new Chart(document.getElementById('chartSegmento'),{type:'bar',data:{labels:seg.map(function(x){return x.s}),datasets:[{label:'Líquido',data:seg.map(function(x){return x.v})}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return fmtBRL(c.raw)}}}},scales:{x:{ticks:{callback:function(v){return 'R$ '+new Intl.NumberFormat('pt-BR',{notation:'compact'}).format(v)}}}}}});
+  const cm=new Map();rows.filter(isFat).forEach(function(r){cm.set(r.cliente,(cm.get(r.cliente)||0)+r.vl_faturado)});
+  const arr=[...cm.entries()].map(function(e){return {c:e[0]||'SEM CLIENTE',v:e[1]}}).sort(function(a,b){return b.v-a.v});const top=arr.slice(0,15), outros=sum(arr.slice(15),function(x){return x.v});if(outros>0)top.push({c:'Outros',v:outros});
+  if(chartClientes)chartClientes.destroy();
+  chartClientes=new Chart(document.getElementById('chartClientes'),{type:'bar',data:{labels:top.map(function(x){return x.c}),datasets:[{label:'Faturamento',data:top.map(function(x){return x.v})}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return fmtBRL(c.raw)}}}},scales:{y:{ticks:{callback:function(v){return 'R$ '+new Intl.NumberFormat('pt-BR',{notation:'compact'}).format(v)}}},x:{ticks:{maxRotation:45,minRotation:0}}}}});
+}
+function renderComparativo(){
+  const p=aggregatePeriod(filteredRows());
+  if(chartComparativo)chartComparativo.destroy();
+  chartComparativo=new Chart(document.getElementById('chartComparativo'),{type:'line',data:{labels:p.map(function(x){return String(x.mes).padStart(2,'0')+'/'+x.ano}),datasets:[{label:'Bruto',data:p.map(function(x){return x.bruto}),tension:.25},{label:'Devoluções',data:p.map(function(x){return x.devol}),tension:.25},{label:'Líquido',data:p.map(function(x){return x.liquido}),tension:.25}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:function(c){return c.dataset.label+': '+fmtBRL(c.raw)}}}},scales:{y:{ticks:{callback:function(v){return 'R$ '+new Intl.NumberFormat('pt-BR',{notation:'compact'}).format(v)}}}}}});
+  document.getElementById('comparativoTable').innerHTML='<table class="min-w-full text-xs"><thead class="bg-slate-50 text-slate-500 uppercase text-[9px]"><tr><th class="text-left p-3">Período</th><th class="text-right p-3">Bruto</th><th class="text-right p-3">Devoluções</th><th class="text-right p-3">Líquido</th><th class="text-right p-3">% Devolução</th></tr></thead><tbody>'+p.map(function(x){return '<tr class="border-t"><td class="p-3 font-bold">'+String(x.mes).padStart(2,'0')+'/'+x.ano+'</td><td class="p-3 text-right font-bold">'+fmtBRL(x.bruto)+'</td><td class="p-3 text-right font-bold text-red-600">'+fmtBRL(x.devol)+'</td><td class="p-3 text-right font-black text-emerald-700">'+fmtBRL(x.liquido)+'</td><td class="p-3 text-right">'+(x.bruto?((x.devol/x.bruto)*100).toFixed(1).replace('.',',')+'%':'-')+'</td></tr>'}).join('')+'</tbody></table>';
+}
+function renderNotas(){
+  const rows=notasRows(), totalPages=Math.max(1,Math.ceil(rows.length/pageSize));if(page>totalPages)page=totalPages;const ini=(page-1)*pageSize, vis=rows.slice(ini,ini+pageSize);
+  document.getElementById('notasCount').textContent=fmtInt(rows.length)+' registro(s)';
+  document.getElementById('notasTable').innerHTML='<table class="min-w-[1750px] w-full text-[11px]"><thead class="bg-slate-50 text-slate-500 uppercase text-[9px] sticky top-0"><tr><th class="text-left p-2.5">Data</th><th class="text-left p-2.5">NF</th><th class="text-left p-2.5">Cliente</th><th class="text-left p-2.5">Segmento</th><th class="text-left p-2.5">Tipo</th><th class="text-left p-2.5">CFOP</th><th class="text-left p-2.5">Status</th><th class="text-right p-2.5">Valor Nota</th><th class="text-right p-2.5">Faturamento</th><th class="text-right p-2.5">Frete</th><th class="text-right p-2.5">ICMS</th><th class="text-right p-2.5">PIS</th><th class="text-right p-2.5">COFINS</th><th class="text-right p-2.5">IPI</th><th class="text-right p-2.5">ISS</th><th class="text-left p-2.5">NF Ref.</th><th class="text-left p-2.5">Obs.</th></tr></thead><tbody>'+vis.map(function(r){return '<tr class="border-t hover:bg-slate-50"><td class="p-2.5 whitespace-nowrap">'+dateBR(r.data)+'</td><td class="p-2.5 font-black text-columbia-700">'+esc(r.nf)+'</td><td class="p-2.5 max-w-[260px] truncate" title="'+esc(r.cliente)+'">'+esc(r.cliente)+'</td><td class="p-2.5 font-bold">'+esc(r.segmento_final)+'</td><td class="p-2.5">'+esc(r.tipo)+'</td><td class="p-2.5">'+esc(r.cfop)+'</td><td class="p-2.5 font-bold">'+esc(r.status)+'</td><td class="p-2.5 text-right font-bold">'+fmtBRL(r.vl_nota)+'</td><td class="p-2.5 text-right font-black">'+fmtBRL(r.vl_faturado)+'</td><td class="p-2.5 text-right">'+fmtBRL(r.vl_frete)+'</td><td class="p-2.5 text-right">'+fmtBRL(r.icms)+'</td><td class="p-2.5 text-right">'+fmtBRL(r.pis)+'</td><td class="p-2.5 text-right">'+fmtBRL(r.cofins)+'</td><td class="p-2.5 text-right">'+fmtBRL(r.ipi)+'</td><td class="p-2.5 text-right">'+fmtBRL(r.iss)+'</td><td class="p-2.5">'+esc(r.nf_referenciada)+'</td><td class="p-2.5 max-w-[320px] truncate" title="'+esc(r.obs_nota)+'">'+esc(r.obs_nota)+'</td></tr>'}).join('')+'</tbody></table>';
+  document.getElementById('pager').innerHTML='<div class="text-xs text-slate-500 font-bold">Página '+page+' de '+totalPages+' · '+fmtInt(rows.length)+' registros</div><div class="flex gap-2"><button '+(page<=1?'disabled':'')+' onclick="changePage(-1)" class="border rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-40">Anterior</button><button '+(page>=totalPages?'disabled':'')+' onclick="changePage(1)" class="border rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-40">Próxima</button></div>';
+}
+function changePage(d){page+=d;renderNotas();window.scrollTo({top:0,behavior:'smooth'})}
+function exportCsv(){
+  const rows=notasRows(), cols=['data','nf','cliente','cnpj','segmento_final','tipo','cfop','status','vl_nota','vl_faturado','vl_frete','icms','pis','cofins','ipi','iss','nf_referenciada','orc_dev','obs_nota'];
+  const q=function(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"'};const body=[cols.join(';')].concat(rows.map(function(r){return cols.map(function(c){return q(r[c])}).join(';')})).join('\n');
+  const blob=new Blob(['\ufeff'+body],{type:'text/csv;charset=utf-8;'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='notas_fiscais_columbia.csv';a.click();URL.revokeObjectURL(a.href);
+}
+
+function openDb(){return new Promise(function(resolve,reject){const req=indexedDB.open(CACHE_DB,1);req.onupgradeneeded=function(){if(!req.result.objectStoreNames.contains(CACHE_STORE))req.result.createObjectStore(CACHE_STORE)};req.onsuccess=function(){resolve(req.result)};req.onerror=function(){reject(req.error)}})}
+async function cacheRead(){try{const db=await openDb();return await new Promise(function(resolve){const tx=db.transaction(CACHE_STORE,'readonly'),rq=tx.objectStore(CACHE_STORE).get(CACHE_KEY);rq.onsuccess=function(){resolve(rq.result||null)};rq.onerror=function(){resolve(null)}})}catch(e){return null}}
+async function cacheWrite(v){try{const db=await openDb();await new Promise(function(resolve,reject){const tx=db.transaction(CACHE_STORE,'readwrite');tx.objectStore(CACHE_STORE).put(v,CACHE_KEY);tx.oncomplete=resolve;tx.onerror=function(){reject(tx.error)}})}catch(e){console.warn('cache',e)}}
+async function fetchJson(url){const r=await fetch(url+'?_t='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache'}});if(!r.ok)throw new Error(url+' — HTTP '+r.status);const d=await r.json();if(!Array.isArray(d))throw new Error('Formato inválido: '+url);return d}
+async function applyPayload(p,source){
+  rawNotas=Array.isArray(p.notas)?p.notas:[];orcamentos=Array.isArray(p.orcamentos)?p.orcamentos:[];vinculos=Array.isArray(p.vinculos)?p.vinculos:[];
+  prepareData();populateFilters();renderAll();document.getElementById('syncStatus').textContent=(source==='cache'?'Cache local · ':'Atualizado · ')+new Date(p.savedAt||Date.now()).toLocaleString('pt-BR');
+}
+async function refreshAll(manual){
+  const icon=document.getElementById('refreshIcon');if(manual)icon.classList.add('animate-spin');document.getElementById('errorBox').classList.add('hidden');
+  try{
+    const data=await Promise.all([fetchJson(API_NOTAS),fetchJson(API_ORC),fetchJson(API_DEV)]);
+    const payload={notas:data[0],orcamentos:data[1],vinculos:data[2],savedAt:new Date().toISOString()};await applyPayload(payload,'api');await cacheWrite(payload);
+  }catch(e){
+    console.error(e);const box=document.getElementById('errorBox');box.textContent='Não foi possível atualizar pela API. '+e.message+(notas.length?' Mantendo os dados já carregados.':'');box.classList.remove('hidden');
+  }finally{if(manual)icon.classList.remove('animate-spin');lucide.createIcons()}
+}
+async function init(){
+  document.getElementById('loadingBox').classList.remove('hidden');const c=await cacheRead();if(c)await applyPayload(c,'cache');document.getElementById('loadingBox').classList.add('hidden');await refreshAll(false);lucide.createIcons();
+}
+document.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>
