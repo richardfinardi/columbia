@@ -36,7 +36,15 @@
     .sort-head{display:inline-flex;align-items:center;gap:4px;cursor:pointer;user-select:none}
     .sort-arrow{font-size:9px;color:#94a3b8}.sort-arrow.active{color:#003e7e;font-weight:900}
     .filter-modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.3);z-index:80;display:flex;align-items:flex-start;justify-content:center;padding:10vh 12px 20px}
-    .sticky-total{position:sticky;bottom:0;z-index:5}
+    .sticky-total{position:sticky;bottom:0;z-index:20}
+    #notasTable{max-height:calc(100vh - 275px);min-height:320px;overflow:auto;position:relative;overscroll-behavior:contain}
+    #notasTable thead{position:sticky;top:0;z-index:30}
+    #notasTable thead th{background:#f8fafc;box-shadow:0 1px 0 #cbd5e1}
+    #notasTable tfoot{position:sticky;bottom:0;z-index:25}
+    #notasTable tfoot td{background:#f1f5f9;box-shadow:0 -1px 0 #cbd5e1}
+    #comparativoTable{max-height:420px;overflow:auto;position:relative;overscroll-behavior:contain}
+    #comparativoTable thead{position:sticky;top:0;z-index:20}
+    #comparativoTable thead th{background:#fff;box-shadow:0 1px 0 #e2e8f0}
   </style>
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-800">
@@ -280,6 +288,7 @@ function baseNotasRows(){
   else if(notasView==='sucata')rows=rows.filter(function(r){return norm(r.segmento_final)==='SUCATA'});
   else if(notasView==='devolucoes')rows=rows.filter(isDev);
   else if(notasView==='canceladas')rows=rows.filter(isCancel);
+  else if(notasView==='todas')rows=rows.filter(function(r){return norm(r.tipo)!=='ENTRADA'});
   return rows;
 }
 function notasRows(){
@@ -535,11 +544,11 @@ function renderNotas(){
 
   document.getElementById('notasTable').innerHTML=
     '<table class="w-full text-[10px]" style="min-width:'+minWidth+'px">'+
-      '<thead class="sticky top-0 z-10 text-slate-600 uppercase text-[9px]">'+
+      '<thead class="text-slate-600 uppercase text-[9px]">'+
         '<tr>'+head+'</tr>'+
       '</thead>'+
       '<tbody>'+body+'</tbody>'+
-      '<tfoot class="sticky-total"><tr class="border-t-2 border-slate-300 bg-slate-100">'+foot+'</tr></tfoot>'+
+      '<tfoot><tr class="border-t-2 border-slate-300 bg-slate-100">'+foot+'</tr></tfoot>'+
     '</table>';
 
   document.getElementById('pager').innerHTML=
@@ -548,7 +557,7 @@ function renderNotas(){
     '</div><div class="flex gap-2"><button '+(page<=1?'disabled':'')+' onclick="changePage(-1)" class="border rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-40">Anterior</button><button '+(page>=totalPages?'disabled':'')+' onclick="changePage(1)" class="border rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-40">Próxima</button></div>';
   lucide.createIcons();
 }
-function changePage(d){page+=d;renderNotas();window.scrollTo({top:0,behavior:'smooth'})}
+function changePage(d){page+=d;renderNotas();const t=document.getElementById('notasTable');if(t)t.scrollTo({top:0,left:t.scrollLeft,behavior:'auto'})}
 function exportCsv(){
   const rows=notasRows(), cols=columnsForView();
   const q=function(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"'};
