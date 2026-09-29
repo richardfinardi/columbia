@@ -169,8 +169,13 @@ function prepareData(){
 }
 
 function isFat(r){return ['NF FATURADAS','NF SERVICO','SUCATA'].includes(norm(r.tipo)) && r.vl_faturado>0}
-function isDev(r){return ['EMISSAO DEVOLUCAO','ENTRADA'].includes(norm(r.tipo))}
-function devValue(r){return isDev(r)?r.vl_faturado:0}
+function isDev(r){
+  const tipo=norm(r.tipo);
+  if(tipo==='ENTRADA')return true;
+  if(tipo==='EMISSAO DEVOLUCAO')return norm(r.tp_nf)==='CLIENTE';
+  return false;
+}
+function devValue(r){return isDev(r)?r.vl_nota:0}
 function isCancel(r){return ['CANCELADA','INUTILIZADA'].includes(norm(r.status)) || norm(r.tipo)==='NF INUT/CANC'}
 function sum(arr,fn){return arr.reduce(function(a,x){return a+num(fn(x))},0)}
 function metrics(rows){const bruto=sum(rows.filter(isFat),function(r){return r.vl_faturado});const devol=sum(rows.filter(isDev),function(r){return devValue(r)});return {bruto:bruto,devol:devol,liquido:bruto-devol}}
