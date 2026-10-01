@@ -241,6 +241,7 @@ function prepareData(){
   });
 }
 
+function isSucata(r){return ['SUCATA','SUCATAS'].includes(norm(r.tipo)) || ['SUCATA','SUCATAS'].includes(norm(r.segmento_final))}
 function isFat(r){return ['NF FATURADAS','NF SERVICO','SUCATA'].includes(norm(r.tipo)) && r.vl_faturado>0}
 function isDev(r){
   const tipo=norm(r.tipo);
@@ -284,8 +285,8 @@ function filteredRows(){
 }
 function baseNotasRows(){
   let rows=filteredRows();
-  if(notasView==='faturamento')rows=rows.filter(function(r){return ['NF FATURADAS','NF SERVICO'].includes(norm(r.tipo)) && r.vl_faturado>0});
-  else if(notasView==='sucata')rows=rows.filter(function(r){return norm(r.segmento_final)==='SUCATA'});
+  if(notasView==='faturamento')rows=rows.filter(function(r){return ['NF FATURADAS','NF SERVICO'].includes(norm(r.tipo))});
+  else if(notasView==='sucata')rows=rows.filter(function(r){return isSucata(r)});
   else if(notasView==='devolucoes')rows=rows.filter(isDev);
   else if(notasView==='canceladas')rows=rows.filter(isCancel);
   else if(notasView==='todas')rows=rows.filter(function(r){return norm(r.tipo)!=='ENTRADA'});
