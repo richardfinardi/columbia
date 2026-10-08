@@ -78,7 +78,7 @@
       const lower={};
       for (const [k,v] of Object.entries(item)) lower[k.toLowerCase()]=v;
       const os=str(first(lower,["n_os","numero_os"]));
-      if (!os) continue;
+      if (!os || String(lower.u_limbo??"").trim()==="1" || lower.u_limbo===true) continue;
       const row={
         os,
         empresa:str(first(lower,["cod_empresa"])),
