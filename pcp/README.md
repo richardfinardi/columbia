@@ -112,3 +112,11 @@ A página `/columbia` apresenta **Controle de Produção** somente a quem tem `U
 
 **Limite de segurança:** JavaScript estático restringe visualização e navegação, mas **não substitui autorização em todas as rotas SQL/REST legadas**. O endpoint `/producao` também é usado por outros módulos, então não foi bloqueado globalmente para não quebrá-los. Para isolamento real de dados, é necessário aplicar a permissão `U_PCP` no backend às rotas específicas do Controle de Produção, revisando dependências de outros consumidores.
 
+
+## Arrastar e soltar no Kanban (08/10/2026)
+
+Além das setas `←/→`, os cartões da OS podem ser **arrastados para qualquer coluna de semana do mês exibido**, com mouse ou dedo (pela alça **⠿ Arrastar** no celular). Ao passar o cartão, as colunas aptas recebem borda azul pontilhada; o destino fica verde. Ao soltar, a data da OS fica na **sexta-feira da semana escolhida** e `TOS.u_reprogramado_manual=1`. O indicador visual permanece **KANBAN**.
+
+**Compatibilidade com a API atual:** não precisa instalar uma rota nova: a interface continua chamando `PATCH /producao/pcp/kanban/mover` com `direcao: +1` ou `-1`. Se a OS pular três semanas, o navegador realiza três chamadas sucessivas, **aguardando confirmação** de cada uma; isso **não é uma transação atômica**. Se a terceira chamada falhar, as duas primeiras permanecerão gravadas, e a tela avisará que o movimento foi parcial e atualizará os dados. O usuário sem `u_pcp=1` não consegue gravar pelo backend. As setas continuam funcionando como antes.
+
+Quando a sexta-feira da semana alvo cai **fora do mês selecionado** (coluna parcial na borda do mês), o sistema pede confirmação, porque a OS deixará de aparecer no mês exibido após o movimento. Soltar no mesmo período não altera a OS.
