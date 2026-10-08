@@ -54,9 +54,10 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
   <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-4">
     <div class="flex items-center justify-between gap-3 flex-wrap mb-3"><div><h2 class="font-extrabold text-sm">Filtros da carteira</h2><p class="text-[11px] text-slate-500">Pesquisa global, filtros por coluna e ordenação como na carteira PSTEC.</p></div>
       <div class="flex gap-2"><button id="clear" class="action-btn border border-slate-300 hover:bg-slate-50">Limpar filtros</button><button id="clearShare" class="action-btn border border-blue-300 text-blue-800 hover:bg-blue-50" hidden>Sair da seleção compartilhada</button></div></div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
-      <label class="lg:col-span-2"><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Pesquisar qualquer informação</span><input id="search" placeholder="OS, orçamento, item, cliente, processo..." class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50"></label>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
+      <label class="lg:col-span-2"><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Pesquisar qualquer informação</span><input id="search" placeholder="OS, orçamento, item, cliente, segmento, processo..." class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50"></label>
       <label><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Cliente</span><select id="client" class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50"><option value="">Todos os clientes</option></select></label>
+      <label><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Segmento</span><select id="segment" class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50"><option value="">Todos os segmentos</option></select></label>
       <label><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Situação</span><select id="status" class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50">
         <option value="">Todas</option><option value="overdue">Entrega vencida</option><option value="ontime">No prazo</option><option value="reneg">Com renegociação</option><option value="notreneg">Sem renegociação</option><option value="pending">Com processos pendentes</option></select></label>
       <label><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Original de</span><input id="from" type="date" class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50"></label>
@@ -69,19 +70,20 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
     <div class="px-4 py-3 flex flex-wrap justify-between items-center gap-2 border-b"><div class="text-xs font-extrabold">Relação de Ordens de Serviço <span id="countText" class="font-medium text-slate-500"></span></div>
       <div class="flex items-center gap-3 text-[11px] text-slate-500"><span id="selectedCount">0 selecionadas</span><button id="selectAll" class="font-bold text-columbia-700 hover:underline" disabled>Selecionar filtradas</button></div></div>
     <div class="table-scroll">
-      <table class="w-full min-w-[1200px] text-left border-collapse">
+      <table class="w-full min-w-[1370px] text-left border-collapse">
         <thead><tr class="text-[10px] uppercase tracking-wide text-slate-600">
           <th class="px-3 py-3 w-10"><input id="checkAll" type="checkbox" class="accent-blue-800 w-4 h-4" title="Selecionar OS exibidas" disabled></th>
           <th class="px-3 py-2" data-col="os"><button class="sort-btn font-black" data-sort="os">Nº OS <span data-arrow="os">↕</span></button><button class="filter-btn ml-2" data-filter="os" title="Filtrar coluna">⌕</button></th>
           <th class="px-3 py-2" data-col="orc"><button class="sort-btn font-black" data-sort="orc">Orçamento <span data-arrow="orc">↕</span></button><button class="filter-btn ml-2" data-filter="orc" title="Filtrar coluna">⌕</button></th>
           <th class="px-3 py-2 min-w-[220px]" data-col="item"><button class="sort-btn font-black" data-sort="item">Item <span data-arrow="item">↕</span></button><button class="filter-btn ml-2" data-filter="item" title="Filtrar coluna">⌕</button></th>
           <th class="px-3 py-2 min-w-[160px]" data-col="cliente"><button class="sort-btn font-black" data-sort="cliente">Cliente <span data-arrow="cliente">↕</span></button><button class="filter-btn ml-2" data-filter="cliente" title="Filtrar coluna">⌕</button></th>
+          <th class="px-3 py-2 min-w-[120px]" data-col="segmento"><button class="sort-btn font-black" data-sort="segmento">Segmento <span data-arrow="segmento">↕</span></button><button class="filter-btn ml-2" data-filter="segmento" title="Filtrar coluna">⌕</button></th>
           <th class="px-3 py-2" data-col="original"><button class="sort-btn font-black" data-sort="original">Prev. original OS <span data-arrow="original">↕</span></button><button class="filter-btn ml-2" data-filter="original" title="Filtrar coluna">⌕</button></th>
           <th class="px-3 py-2" data-col="reneg"><button class="sort-btn font-black" data-sort="reneg">Renegociada <span data-arrow="reneg">↕</span></button><button class="filter-btn ml-2" data-filter="reneg" title="Filtrar coluna">⌕</button></th>
           <th class="px-3 py-2 text-right" data-col="valor"><button class="sort-btn font-black" data-sort="valor">Valor <span data-arrow="valor">↕</span></button><button class="filter-btn ml-2" data-filter="valor" title="Filtrar coluna">⌕</button></th>
           <th class="px-3 py-2 min-w-[200px]" data-col="pend"><button class="sort-btn font-black" data-sort="pend">Processos pendentes <span data-arrow="pend">↕</span></button><button class="filter-btn ml-2" data-filter="pend" title="Filtrar coluna">⌕</button></th>
         </tr></thead>
-        <tbody id="rows"><tr><td colspan="9" class="p-12 text-center text-sm text-slate-500">Aguardando validação de acesso...</td></tr></tbody>
+        <tbody id="rows"><tr><td colspan="10" class="p-12 text-center text-sm text-slate-500">Aguardando validação de acesso...</td></tr></tbody>
       </table>
     </div>
     <div class="p-3 border-t flex flex-wrap items-center justify-between gap-2"><p id="pagingInfo" class="text-xs text-slate-500">—</p><button id="more" class="action-btn border border-slate-200 bg-slate-50" hidden>Mostrar mais 100</button></div>
