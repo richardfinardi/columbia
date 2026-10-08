@@ -322,7 +322,7 @@
     else $("rows").innerHTML=visible.map(r=>{
       const overdueClass=isOverdue(r)?"text-red-700 font-extrabold":"text-slate-700";
       const selected=store.selected.has(r.os);
-      return weekHeader+'<tr class="hover:bg-blue-50/40">'+
+      return '<tr class="hover:bg-blue-50/40">'+
         '<td class="cell"><input class="os-check w-4 h-4 accent-blue-800" type="checkbox" data-os="'+esc(r.os)+'" '+(selected?"checked":"")+'></td>'+
         '<td class="cell font-mono font-black text-columbia-700">'+esc(r.os)+'</td>'+
         '<td class="cell font-semibold">'+esc(r.orc||"—")+'</td>'+
