@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Favicon (Ícone da Aba do Navegador) -->
+    <link rel="icon" type="image/png" href="../LOGO MINIMALISTA.png">
+    <link rel="apple-touch-icon" href="../LOGO MINIMALISTA.png">
+
+    <!-- Meta Tags para Prévia no WhatsApp / Redes Sociais (Open Graph) -->
+    <meta property="og:title" content="Controle Semanal de Produção | Consultoria RF">
+    <meta property="og:description" content="Dashboard de acompanhamento e controle de produção.">
+    <meta property="og:image" content="https://consultoriarf.net/columbia/LOGO MINIMALISTA.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="500">
+    <meta property="og:image:height" content="500">
+    <meta property="og:url" content="https://consultoriarf.net/columbia/producao/">
+    <meta property="og:type" content="website">
+    
+    <title>Programação de Produção - Columbia V7.6.7</title>
+
+    <!-- Autorização U_PCP validada online antes de carregar ./controle.js -->
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        columbia: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#1d72b8',
+                            600: '#155b96',
+                            700: '#003e7e',
+                            800: '#002e61',
+                            900: '#001e40',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background-color: #f8fafc; color: #0f172a; }
+        .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-100 text-slate-800" style="visibility:hidden">
+
+    <!-- HEADER -->
+    <header class="bg-columbia-700 text-white sticky top-0 z-50 shadow-md">
+        <div class="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex flex-wrap justify-between items-center gap-2 sm:gap-4">
+            
+            <!-- Título & Logo Columbia -->
+            <div class="flex items-center gap-2.5 sm:gap-4">
+                <div class="flex items-center justify-center p-1 sm:p-1.5 bg-white rounded-xl shadow-sm cursor-pointer shrink-0" onclick="setAbaAtiva('dashboard')">
+                    <img src="../logo.png" alt="Columbia Machine" class="h-7 sm:h-9 max-h-10 w-auto object-contain" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="hidden p-1.5 bg-columbia-700 rounded-lg text-white font-bold items-center justify-center">
+                        <i data-lucide="factory" class="w-5 h-5 sm:w-6 sm:h-6"></i>
+                    </div>
+                </div>
+                <div>
+                    <h1 class="text-base sm:text-xl font-extrabold tracking-wide text-white leading-tight">Columbia Machine Brasil</h1>
+                    <p class="text-[10px] sm:text-xs text-columbia-100">Controle de Produção V7.6.7</p>
+                </div>
+            </div>
+
+            <!-- Botões de Ação do Topo -->
+            <div class="flex items-center gap-1.5 sm:gap-2 overflow-x-auto custom-scroll w-full lg:w-auto py-1">
+                <!-- Identificação do Usuário Logado -->
+                <div class="flex items-center gap-1 px-2.5 py-1.5 bg-columbia-800 border border-columbia-600 rounded-xl text-[11px] sm:text-xs font-bold text-slate-200 shrink-0">
+                    <i data-lucide="user-check" class="w-3.5 h-3.5 text-emerald-400"></i>
+                    <span id="userDisplayName">Usuário</span>
+                </div>
+
+                <!-- ABAS DE NAVEGAÇÃO INTERNA NO HEADER -->
+                <button id="btnAbaDashboard" onclick="setAbaAtiva('dashboard')" class="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-columbia-900 text-white font-extrabold rounded-xl text-[11px] sm:text-xs transition shadow-md border border-columbia-500 shrink-0">
+                    <i data-lucide="calendar" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
+                    <span>Produção</span>
+                </button>
+
+                <!-- ABA FATURAMENTO -->
+                <button id="btnAbaFaturamento" onclick="setAbaAtiva('faturamento')" class="hidden flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl text-[11px] sm:text-xs transition shadow-md shrink-0">
+                    <i data-lucide="package-check" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
+                    <span>Faturamento</span>
+                </button>
+
+                <!-- ABA CONFERÊNCIA APONTAMENTOS -->
+                <button id="btnAbaConferencia" onclick="setAbaAtiva('conferencia')" class="hidden flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl text-[11px] sm:text-xs transition shadow-md shrink-0">
+                    <i data-lucide="clipboard-check" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
+                    <span class="truncate">Conferência</span>
+                </button>
+
+                <!-- ABA LIBERAR ANEXOS (Exclusiva para u_anexo = 1) -->
+                <button id="btnAbaAnexos" onclick="setAbaAtiva('anexos')" class="hidden flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-teal-600 hover:bg-teal-700 text-white font-extrabold rounded-xl text-[11px] sm:text-xs transition shadow-md shrink-0">
+                    <i data-lucide="paperclip" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
+                    <span>Liberar Anexos</span>
+                </button>
+
+                <!-- BOTÃO OS'S NO LIMBO -->
+                <button id="btnVerLimbo" onclick="setAbaAtiva('limbo')" class="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-[11px] sm:text-xs transition shadow-md shrink-0">
+                    <i data-lucide="ghost" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
+                    <span id="txtBtnLimbo">Limbo (0)</span>
+                </button>
+
+                <!-- Botão Trava / Exibir Valores -->
+                <button id="btnToggleValues" onclick="handleValueVisibility()" class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-columbia-800 hover:bg-columbia-900 border border-columbia-600 text-white rounded-xl font-bold text-[11px] sm:text-xs transition shadow shrink-0">
+                    <i data-lucide="eye-off" class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" id="iconValueVisibility"></i>
+                    <span id="txtValueVisibility" class="hidden sm:inline">Exibir Valores</span>
+                </button>
+
+                <!-- Botão Atualizar Manual -->
+                <button id="btnRefresh" onclick="fetchData(false)" class="flex items-center gap-1 px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-[11px] sm:text-xs transition-all shadow shrink-0" title="Atualizar Dados">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5 sm:w-4 sm:h-4" id="refreshIcon"></i>
+                </button>
+
+                <!-- Voltar ao menu principal /columbia -->
+                <a href="../" class="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-columbia-800 border border-blue-400 hover:bg-columbia-900 rounded-xl text-white font-bold text-[11px] sm:text-xs shrink-0" title="Voltar ao menu Columbia">
+                    <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                    <span>Menu</span>
+                </a>
+
+                <!-- Botão Sair / Logout -->
+                <button onclick="efetuarLogout()" class="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-[11px] sm:text-xs transition shadow shrink-0" title="Sair do Sistema">
+                    <i data-lucide="log-out" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
+                    <span class="hidden sm:inline">Sair</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- METRICS BAR -->
+    <div id="metricsBar" class="bg-white border-b border-slate-200 text-slate-800 shadow-sm">
+        <div class="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+            <div class="bg-slate-50 p-2.5 sm:p-3 rounded-xl border border-slate-200">
+                <span class="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase block">Total de OS</span>
+                <span id="metricTotalOS" class="text-base sm:text-xl font-extrabold text-columbia-700">0</span>
+            </div>
+            <div class="bg-slate-50 p-2.5 sm:p-3 rounded-xl border border-slate-200">
+                <span class="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase block">OS Atrasadas</span>
+                <span id="metricAtrasadas" class="text-base sm:text-xl font-extrabold text-red-600">0</span>
+            </div>
+            <div class="bg-slate-50 p-2.5 sm:p-3 rounded-xl border border-slate-200">
+                <span class="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase block">Valor Geral Total</span>
+                <span id="metricValorTotal" class="text-base sm:text-xl font-extrabold text-emerald-600">R$ *****</span>
+            </div>
+            <div class="bg-slate-50 p-2.5 sm:p-3 rounded-xl border border-slate-200">
+                <span class="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase block">Sem Orçamento</span>
+                <span id="metricSemOrcamento" class="text-xl font-extrabold text-amber-600">0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTROLES E FILTROS -->
+    <main class="max-w-7xl w-full mx-auto p-2.5 sm:p-4 flex flex-col gap-3 sm:gap-4 flex-1">
+        
+        <div id="filtersBar" class="bg-white p-2.5 sm:p-3.5 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-2 sm:gap-3 shadow-sm">
+            
+            <!-- Busca Geral Universal com Trava Anti-Autofill -->
+            <div class="flex items-center gap-2 flex-1 min-w-[180px] sm:min-w-[200px] bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                <i data-lucide="search" class="w-4 h-4 text-slate-400 shrink-0"></i>
+                <input type="search" 
+                       id="searchInput" 
+                       name="columbia_search_query"
+                       oninput="renderView()" 
+                       placeholder="Pesquisar (OS, Título, Cliente, Origem, NF, Cod. Interno, Orçamento...)" 
+                       autocomplete="new-password"
+                       autocorrect="off"
+                       autocapitalize="none"
+                       spellcheck="false"
+                       role="searchbox"
+                       class="w-full text-xs bg-transparent text-slate-800 focus:outline-none placeholder-slate-400 font-medium">
+            </div>
+
+            <!-- FILTRO DE OS ATRASADAS -->
+            <div id="atrasadaContainer" class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 w-full sm:w-auto">
+                <i data-lucide="alert-triangle" class="w-4 h-4 text-slate-400 shrink-0"></i>
+                <select id="atrasadaFilter" onchange="renderView()" class="text-xs bg-transparent text-slate-700 focus:outline-none cursor-pointer w-full sm:max-w-[140px] font-bold">
+                    <option value="">Atrasadas (Todas)</option>
+                    <option value="sim">🔴 Somente Atrasadas (Sim)</option>
+                    <option value="nao">🟢 Somente No Prazo (Não)</option>
+                </select>
+            </div>
+
+            <!-- FILTRO DE APONTAMENTO ABERTO -->
+            <div id="apontamentoContainer" class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 w-full sm:w-auto">
+                <i data-lucide="cog" class="w-4 h-4 text-slate-400 shrink-0"></i>
+                <select id="apontamentoAbertoFilter" onchange="renderView()" class="text-xs bg-transparent text-slate-700 focus:outline-none cursor-pointer w-full sm:max-w-[170px] font-bold">
+                    <option value="">Apontamento Aberto (Todos)</option>
+                    <option value="sim">🟢 Com Apontamento Aberto</option>
+                    <option value="nao">🔴 Sem Apontamento Aberto</option>
+                </select>
+            </div>
+
+            <!-- Filtro por Segmento -->
+            <div id="segmentoContainer" class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 w-full sm:w-auto">
+                <i data-lucide="layers" class="w-4 h-4 text-slate-400 shrink-0"></i>
+                <select id="segmentoFilter" onchange="renderView()" class="text-xs bg-transparent text-slate-700 focus:outline-none cursor-pointer w-full sm:max-w-[130px] font-medium">
+                    <option value="">Segmento (Todos)</option>
+                </select>
+            </div>
+
+            <!-- Filtro por Status Produção -->
+            <div id="producaoContainer" class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 w-full sm:w-auto">
+                <i data-lucide="activity" class="w-4 h-4 text-slate-400 shrink-0"></i>
+                <select id="producaoFilter" onchange="renderView()" class="text-xs bg-transparent text-slate-700 focus:outline-none cursor-pointer w-full sm:max-w-[140px] font-medium">
+                    <option value="">Produção (Todos)</option>
+                    <option value="finalizado">Finalizado (100%)</option>
+                    <option value="nao_finalizado">Não Finalizado (&lt;100%)</option>
+                </select>
+            </div>
+
+            <!-- Filtro por Cliente -->
+            <div id="clienteContainer" class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 w-full sm:w-auto">
+                <i data-lucide="user" class="w-4 h-4 text-slate-400 shrink-0"></i>
+                <select id="clientFilter" onchange="renderView()" class="text-xs bg-transparent text-slate-700 focus:outline-none cursor-pointer w-full sm:max-w-[130px] font-medium">
+                    <option value="">Todos os Clientes</option>
+                </select>
+            </div>
+
+            <!-- Filtro por Engenharia -->
+            <div id="engenhariaContainer" class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 w-full sm:w-auto">
+                <i data-lucide="cpu" class="w-4 h-4 text-slate-400 shrink-0"></i>
+                <select id="engenhariaFilter" onchange="renderView()" class="text-xs bg-transparent text-slate-700 focus:outline-none cursor-pointer w-full sm:max-w-[130px] font-medium">
+                    <option value="">Engenharia (Todos)</option>
+                </select>
+            </div>
+
+            <!-- Filtro por Status Compras -->
+            <div id="comprasContainer" class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 w-full sm:w-auto">
+                <i data-lucide="shopping-cart" class="w-4 h-4 text-slate-400 shrink-0"></i>
+                <select id="comprasFilter" onchange="renderView()" class="text-xs bg-transparent text-slate-700 focus:outline-none cursor-pointer w-full sm:max-w-[130px] font-medium">
+                    <option value="">Compras (Todos)</option>
+                </select>
+            </div>
+
+            <!-- Filtro por Status Terceiros -->
+            <div id="terceirosContainer" class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 w-full sm:w-auto">
+                <i data-lucide="truck" class="w-4 h-4 text-slate-400 shrink-0"></i>
+                <select id="terceirosFilter" onchange="renderView()" class="text-xs bg-transparent text-slate-700 focus:outline-none cursor-pointer w-full sm:max-w-[130px] font-medium">
+                    <option value="">Terceiros (Todos)</option>
+                </select>
+            </div>
+
+            <!-- BOTÕES DE FILTRO SEPARADOS -->
+            <div id="extraButtonsContainer" class="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+                <button id="btnToggleConcluidas" onclick="toggleConcluidasFilter()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
+                    <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-columbia-600"></i>
+                    <span id="txtToggleConcluidas">Exibir OS Concluída</span>
+                </button>
+
+                <button id="btnToggleOrcamento" onclick="toggleOrcamentoFilter()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
+                    <i data-lucide="dollar-sign" class="w-3.5 h-3.5 text-emerald-600"></i>
+                    <span id="txtToggleOrcamento">Exibir somente com Orçamentos</span>
+                </button>
+
+                <!-- BOTÃO LIMPAR FILTROS -->
+                <button onclick="clearAllFilters()" title="Limpar todos os filtros acionados" class="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                    <i data-lucide="filter-x" class="w-3.5 h-3.5 text-red-600"></i>
+                    <span>Limpar Filtros</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- BARRA NAVEGADORA DE DATA -->
+        <div id="navigationBar" class="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-2.5 shadow-sm">
+            
+            <!-- Navegação de Data -->
+            <div class="flex items-center bg-columbia-700 text-white rounded-xl px-2 py-1 shadow-sm w-full sm:w-auto justify-between sm:justify-start">
+                <button onclick="navigateDate(-1)" class="p-1 hover:bg-columbia-800 rounded-lg text-columbia-100 hover:text-white transition">
+                    <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                </button>
+                
+                <div class="flex items-center gap-2 px-2 sm:px-3">
+                    <i data-lucide="calendar" class="w-4 h-4 text-columbia-100"></i>
+                    <span id="currentDateLabel" class="font-bold text-xs capitalize tracking-wide min-w-[140px] sm:min-w-[160px] text-center">
+                        Carregando...
+                    </span>
+                </div>
+
+                <button onclick="navigateDate(1)" class="p-1 hover:bg-columbia-800 rounded-lg text-columbia-100 hover:text-white transition">
+                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                </button>
+
+                <button onclick="resetToToday()" class="ml-2 px-2.5 py-0.5 bg-white hover:bg-slate-100 rounded-lg text-xs font-bold text-columbia-800 transition shadow-sm">
+                    Hoje
+                </button>
+            </div>
+        </div>
+
+        <!-- ÁREA PRINCIPAL DO CALENDÁRIO / PAINEL DA ABA SELECIONADA -->
+        <div id="calendarGrid" class="w-full">
+            <!-- Renderizado via JS conforme a aba selecionada -->
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-8">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+            <div class="flex items-center gap-2 font-medium">
+                <i data-lucide="code-2" class="w-4 h-4 text-columbia-600"></i>
+                <span>© 2026 Columbia Machine Brasil — Sistema de Gestão de Produção V7.6.7</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- MODAL CUSTOMIZADO DE SENHA DE VALORES -->
+    <div id="passwordModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-3 sm:p-4 z-50">
+        <div class="bg-white text-slate-800 rounded-2xl shadow-2xl max-w-[95vw] sm:max-w-sm w-full overflow-hidden border border-slate-200">
+            <div class="bg-columbia-700 px-4 sm:px-5 py-3.5 flex justify-between items-center text-white">
+                <div class="flex items-center gap-2 font-bold text-sm">
+                    <i data-lucide="lock" class="w-4 h-4 text-amber-400"></i>
+                    <span>Acesso Restrito</span>
+                </div>
+                <button onclick="closePasswordModal()" class="text-columbia-100 hover:text-white p-1"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+            
+            <div class="p-4 sm:p-5 space-y-4 text-xs">
+                <p class="text-slate-600 font-medium">Digite a senha para exibir os valores de orçamento e totais:</p>
+                
+                <div class="relative">
+                    <input type="password" id="inputPassword" onkeydown="checkPasswordKey(event)" placeholder="Digite a senha..." 
+                           autocomplete="new-password"
+                           class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 pr-10 text-slate-800 text-xs focus:outline-none focus:border-columbia-700 font-medium">
+                    <button type="button" onclick="togglePasswordVisibility()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none">
+                        <i data-lucide="eye" id="eyeIcon" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <p id="passwordError" class="text-red-600 text-[11px] font-bold hidden">Senha incorreta. Tente novamente.</p>
+            </div>
+
+            <div class="bg-slate-50 px-4 sm:px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
+                <button onclick="closePasswordModal()" class="px-3.5 py-1.5 bg-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-300 transition">Cancelar</button>
+                <button onclick="validatePassword()" class="px-4 py-1.5 bg-columbia-700 text-white rounded-xl font-bold hover:bg-columbia-800 shadow-sm transition">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL FORMULÁRIO DE EDICÃO DA DATA RENEGOCIADA & JUSTIFICATIVA -->
+    <div id="altRenegociationFormModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-3 sm:p-4 z-[70]">
+        <div class="bg-white text-slate-800 rounded-2xl shadow-2xl max-w-[95vw] sm:max-w-md w-full overflow-hidden border border-slate-200">
+            <div class="bg-purple-800 px-4 sm:px-5 py-3.5 flex justify-between items-center text-white">
+                <div class="flex items-center gap-2 font-bold text-sm">
+                    <i data-lucide="calendar-clock" class="w-4 h-4 text-purple-300"></i>
+                    <span id="altRenHeaderTitle" class="truncate max-w-[260px] sm:max-w-none">Alterar Data Renegociada</span>
+                </div>
+                <button onclick="closeAltRenegociationFormModal()" class="text-purple-200 hover:text-white p-1"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+            
+            <div class="p-4 sm:p-5 space-y-4 text-xs">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Nova Data de Renegociação:</label>
+                    <input type="date" id="inputNewRenegociationDate" 
+                           class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-purple-600 font-semibold">
+                    <span class="text-[10px] text-slate-400 italic">Deixe limpo para remover a data renegociada.</span>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Justificativa da Alteração <span class="text-red-500">*</span>:</label>
+                    <textarea id="textareaJustification" rows="3" placeholder="Digite o motivo da alteração (obrigatório)..." 
+                              class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-800 focus:outline-none focus:border-purple-600 font-medium custom-scroll"></textarea>
+                </div>
+
+                <p id="altRenegociationFormError" class="text-red-600 text-[11px] font-bold hidden"></p>
+            </div>
+
+            <div class="bg-slate-50 px-4 sm:px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
+                <button onclick="closeAltRenegociationFormModal()" class="px-3.5 py-1.5 bg-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-300 transition">Cancelar</button>
+                <button id="btnSaveRenegociation" onclick="submitAltRenegociation()" class="px-4 py-1.5 bg-purple-700 text-white rounded-xl font-bold hover:bg-purple-800 shadow-sm transition flex items-center gap-1.5">
+                    <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                    <span>Salvar Alteração</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE DETALHES DA OS -->
+    <div id="osModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-2.5 sm:p-4 z-50">
+        <div class="bg-white text-slate-800 rounded-2xl shadow-2xl max-w-[95vw] sm:max-w-lg w-full flex flex-col max-h-[90vh] overflow-hidden border border-slate-200">
+            <!-- CABEÇALHO DO MODAL (FIXO) -->
+            <div class="bg-columbia-700 px-4 sm:px-6 py-3 flex justify-between items-center text-white shrink-0">
+                <div class="min-w-0 pr-2">
+                    <span id="mOS" class="text-[10px] sm:text-xs font-bold bg-columbia-900 text-white px-2 py-0.5 rounded uppercase"></span>
+                    <h3 id="mTitulo" class="font-bold text-xs sm:text-sm mt-1 text-white truncate"></h3>
+                </div>
+                <button onclick="closeModal()" class="text-columbia-100 hover:text-white p-1 shrink-0"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            
+            <!-- CORPO DO MODAL -->
+            <div class="p-3.5 sm:p-5 space-y-3 text-xs overflow-y-auto custom-scroll flex-1">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-2.5 sm:p-3 rounded-xl border border-slate-200">
+                    <div><span class="text-slate-500 block font-semibold">Nº Pedido</span><span id="mPedido" class="font-bold text-slate-800"></span></div>
+                    <div><span class="text-slate-500 block font-semibold">Cliente</span><span id="mCliente" class="font-bold text-slate-800"></span></div>
+                    <div><span class="text-slate-500 block font-semibold">Segmento</span><span id="mSegmento" class="font-bold text-columbia-700"></span></div>
+                    <div><span class="text-slate-500 block font-semibold">Código Interno</span><span id="mCodInterno" class="font-bold text-slate-800 font-mono"></span></div>
+                    <div><span class="text-slate-500 block font-semibold">Origem</span><span id="mOrigem" class="font-bold text-slate-800"></span></div>
+                    <div><span class="text-slate-500 block font-semibold">Engenharia Status</span><span id="mEngenhariaStatus" class="font-bold text-slate-800"></span></div>
+                    <div><span class="text-slate-500 block font-semibold">OS Filhos (Quais)</span><span id="mOsFilhosQuais" class="font-bold text-columbia-700 font-mono"></span></div>
+                    <div><span class="text-slate-500 block font-semibold">Possui Orçamento</span><span id="mPossuiOrcamento" class="font-bold text-slate-800"></span></div>
+                    <div><span class="text-slate-500 block font-semibold">Preço Geral / Valor</span><span id="mPreco" class="font-bold text-emerald-600"></span></div>
+                    <div><span class="text-slate-500 block font-semibold">Nº do Orçamento</span><span id="mNumOrcamento" class="font-bold text-columbia-700"></span></div>
+                </div>
+
+                <!-- SEÇÃO DE ANEXOS / DESENHOS TÉCNICOS NO MODAL -->
+                <div id="mAnexosContainer" class="space-y-1.5 pt-1 hidden">
+                    <h4 class="font-bold text-blue-800 uppercase tracking-wider text-[10px]">Anexos / Desenhos Técnicos (PDF)</h4>
+                    <div id="mAnexosList" class="flex flex-wrap gap-2 bg-blue-50/60 p-2.5 rounded-xl border border-blue-200">
+                        <!-- Botões de download injetados via JS -->
+                    </div>
+                </div>
+
+                <!-- PROCESSOS PENDENTES (PP PENDENTES) -->
+                <div class="space-y-1 pt-1">
+                    <h4 class="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Processos Pendentes (PP Pendentes)</h4>
+                    <div class="bg-amber-50/60 border border-amber-200/80 p-2.5 rounded-xl font-medium text-slate-700 leading-relaxed text-[11px]" id="mPpPendentes">
+                        -
+                    </div>
+                </div>
+
+                <!-- SEMÁFORO E DETALHES DE APONTAMENTO ABERTO NO MODAL -->
+                <div class="space-y-1 pt-1">
+                    <h4 class="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Apontamento em Andamento</h4>
+                    <div id="mApontamentoContainer" class="p-2.5 sm:p-3 rounded-xl border flex flex-col gap-1.5">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-xs" id="mApontamentoStatusTitle">Status</span>
+                            <span id="mApontamentoBadge"></span>
+                        </div>
+                        <p class="text-[11px] font-mono leading-relaxed" id="mApontamentoDetalheText">-</p>
+                    </div>
+                </div>
+
+                <!-- DATAS MAPEADAS COM FORMATO LIMPO -->
+                <div class="space-y-1.5 pt-2 border-t border-slate-200">
+                    <h4 class="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Datas do Processo</h4>
+                    <div class="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-[11px]">
+                        <div><span class="text-slate-500 block">Abertura OS:</span> <span id="mAbertura" class="font-semibold text-slate-700"></span></div>
+                        <div><span class="text-slate-500 block">Data Renegociada:</span> <span id="mDtRenegociada" class="font-bold text-purple-700"></span></div>
+                        <div><span class="text-slate-500 block">Prev. Entrega Orçamento:</span> <span id="mPrevEntregaOrcamento" class="font-semibold text-columbia-700"></span></div>
+                        <div><span class="text-slate-500 block">Prev. Entrega OS:</span> <span id="mPrevEntregaOS" class="font-semibold text-columbia-700"></span></div>
+                        <div><span class="text-slate-500 block">Último Apontamento:</span> <span id="mApontamento" class="font-semibold text-slate-700"></span></div>
+                        <div><span class="text-slate-500 block">Entrega Normalizada:</span> <span id="mEntregaNorm" class="font-bold text-amber-600"></span></div>
+                    </div>
+                </div>
+
+                <!-- CAMPO JUSTIFICATIVA EXIBIDO ABAIXO DAS DATAS NO MODAL -->
+                <div class="space-y-1.5 pt-2 border-t border-slate-200">
+                    <h4 class="font-bold text-purple-800 uppercase tracking-wider text-[10px]">Justificativa da Renegociação</h4>
+                    <div class="bg-purple-50/70 border border-purple-200 p-2.5 rounded-xl font-mono text-[11px] text-purple-900 leading-relaxed" id="mJustificativa">
+                        -
+                    </div>
+                </div>
+            </div>
+
+            <!-- RODAPÉ DO MODAL -->
+            <div class="bg-slate-50 px-3.5 sm:px-5 py-2.5 sm:py-3 border-t border-slate-200 flex flex-wrap justify-between items-center gap-2 shrink-0">
+                <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+                    <button onclick="openAltRenegociationFormModal()" class="px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white rounded-xl font-bold text-xs transition shadow-sm flex items-center gap-1">
+                        <i data-lucide="calendar-cog" class="w-3.5 h-3.5"></i>
+                        <span>Alterar Renegociação</span>
+                    </button>
+
+                    <!-- BOTÃO DINÂMICO PARA NAVEGAÇÃO DE LIMBO -->
+                    <button id="btnEnviarLimbo" onclick="executarAcaoLimbo()" class="px-3 py-1.5 rounded-xl font-bold text-xs transition shadow-sm flex items-center gap-1">
+                        <i data-lucide="ghost" class="w-3.5 h-3.5"></i>
+                        <span id="txtLabelBtnLimbo">Enviar ao Limbo</span>
+                    </button>
+                </div>
+
+                <button onclick="closeModal()" class="w-full sm:w-auto px-4 py-1.5 bg-columbia-700 text-white rounded-xl font-semibold hover:bg-columbia-800 shadow-sm transition text-center">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- O antigo controle de produção executa somente DEPOIS de validar U_PCP=1.
+         O script principal é carregado dinamicamente; a validação não depende do localStorage. -->
+    <script>
+    (async function validarControleProducao() {
+        const base='https://columbia.consultoriarf.net/producao';
+        const token=localStorage.getItem('columbia_analista_token');
+        if (!token) {
+            try{sessionStorage.setItem('columbia_login_next',location.href);}catch(e){}
+            window.location.replace('../login.html');
+            return;
+        }
+        function bloquear(texto) {
+            document.body.innerHTML='<main style="font-family:system-ui,sans-serif;max-width:640px;margin:11vh auto;padding:30px;'
+              +'background:white;border-radius:18px;border:1px solid #dbeafe;text-align:center">'
+              +'<h1 style="color:#003e7e">Controle de Produção</h1>'
+              +'<p id="avisoAcesso" style="color:#475569"></p>'
+              +'<a style="display:inline-block;margin-top:15px;color:#003e7e;font-weight:bold" href="../">Voltar ao menu Columbia</a></main>';
+            document.getElementById('avisoAcesso').textContent=texto;
+            document.body.style.visibility='visible';
+        }
+        try {
+            const response=await fetch(base+'/portal/me',{
+                cache:'no-store',headers:{Authorization:'Bearer '+token}
+            });
+            if(response.status===401){
+                try{sessionStorage.setItem('columbia_login_next',location.href);}catch(e){}
+                window.location.replace('../login.html');
+                return;
+            }
+            if(!response.ok){
+                bloquear('Não foi possível validar seu acesso no servidor (HTTP '+response.status+').');
+                return;
+            }
+            const permissoes=await response.json();
+            if(Number(permissoes.u_pcp)!==1){
+                bloquear('Acesso restrito a usuários com permissão U_PCP = 1.');
+                return;
+            }
+            window.__COL_PROD_PERMISSIONS=permissoes;
+            document.body.style.visibility='visible';
+            const controle=document.createElement('script');
+            controle.src='./controle.js?v=7.6.8';
+            controle.onload=()=>{
+                if(typeof inicializarProducao==='function')inicializarProducao();
+                else bloquear('O Controle de Produção não pôde ser inicializado.');
+            };
+            controle.onerror=()=>bloquear('Falha ao carregar a aplicação de produção. Atualize a página.');
+            document.body.appendChild(controle);
+        }catch(error){
+            bloquear('Falha na validação online de acesso: '+(error?.message||'erro de rede'));
+        }
+    })();
+    </script>
+</body>
+</html>
