@@ -224,7 +224,31 @@
     $("segment").value=segments.includes(selectedSegment)?selectedSegment:"";
     store.savedSelections=null;
   }
-  function isOverdue(r) {return !!(r.reneg||r.original) && (r.reneg||r.original)<localToday();}
+  function deliveryDate(r) {return r.reneg||r.original||"";}
+  function isoDate(d) {return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");}
+  // Semana de entrega: segunda a domingo, sempre pela data renegociada quando existir.
+  function deliveryWeek(r) {
+    const dt=deliveryDate(r);
+    if(!dt || !isCalendarDate(dt))return {key:"9999-12-31",label:"Sem data de entrega"};
+    const start=new Date(dt+"T12:00:00");
+    start.setDate(start.getDate()-((start.getDay()+6)%7));
+    const end=new Date(start);
+    end.setDate(end.getDate()+6);
+    const initial=isoDate(start);
+    return {key:initial,label:"Semana de "+dateBR(initial)+" a "+dateBR(isoDate(end))};
+  }
+  function groupByDeliveryWeek(rows) {
+    const map=new Map();
+    for(const r of rows){
+      const week=deliveryWeek(r);
+      if(!map.has(week.key))map.set(week.key,{...week,rows:[],value:0});
+      const group=map.get(week.key);
+      group.rows.push(r);
+      group.value+=r.valor||0;
+    }
+    return [...map.values()].sort((a,b)=>a.key.localeCompare(b.key));
+  }
+  function isOverdue(r) {return !!deliveryDate(r) && deliveryDate(r)<localToday();}
   function passBase(r) {
     if (store.shareIds && !store.shareIds.has(r.os)) return false;
     const q=clean($("search").value);
@@ -271,12 +295,25 @@
     $("kpiValue").textContent=money(value);
     $("countText").textContent="· "+countFormatter.format(count)+" de "+countFormatter.format(store.rows.length);
     $("selectedCount").textContent=countFormatter.format(store.selected.size)+" selecionadas";
-    const visible=store.filtered.slice(0,store.shown);
+    const groups=store.shareIds?groupByDeliveryWeek(store.filtered):[];
+    const ordered=store.shareIds?groups.flatMap(g=>g.rows.sort((a,b)=>(deliveryDate(a)||"9999").localeCompare(deliveryDate(b)||"9999")||a.os.localeCompare(b.os,"pt-BR",{numeric:true}))):store.filtered;
+    const visible=ordered.slice(0,store.shown);
+    let previousWeek="";
+    const groupMap=new Map(groups.map(g=>[g.key,g]));
     if (!visible.length) $("rows").innerHTML='<tr><td colspan="11" class="p-12 text-center text-slate-500 text-sm">Nenhuma OS encontrada com os filtros atuais.</td></tr>';
     else $("rows").innerHTML=visible.map(r=>{
+      let weekHeader="";
+      if(store.shareIds){
+        const week=deliveryWeek(r);
+        if(week.key!==previousWeek){
+          previousWeek=week.key;
+          const group=groupMap.get(week.key);
+          weekHeader='<tr class="bg-blue-50 border-y border-blue-200"><td colspan="11" class="p-3"><div class="flex flex-wrap justify-between items-center gap-3"><strong class="text-columbia-700 font-black text-xs">'+esc(week.label)+'</strong><span class="text-xs font-bold text-slate-600">'+countFormatter.format(group.rows.length)+' OS · '+esc(money(group.value))+'</span></div></td></tr>';
+        }
+      }
       const overdueClass=isOverdue(r)?"text-red-700 font-extrabold":"text-slate-700";
       const selected=store.selected.has(r.os);
-      return '<tr class="hover:bg-blue-50/40">'+
+      return weekHeader+'<tr class="hover:bg-blue-50/40">'+
         '<td class="cell"><input class="os-check w-4 h-4 accent-blue-800" type="checkbox" data-os="'+esc(r.os)+'" '+(selected?"checked":"")+'></td>'+
         '<td class="cell font-mono font-black text-columbia-700">'+esc(r.os)+'</td>'+
         '<td class="cell font-semibold">'+esc(r.orc||"—")+'</td>'+
@@ -477,33 +514,72 @@
     $("filterQty").textContent=countFormatter.format(store.filtered.length);
     $("selectedQty").textContent=countFormatter.format(store.selected.size);
     document.querySelector('input[name="shareScope"][value="filtered"]').checked=true;
-    $("shareResult").hidden=true;$("shareError").hidden=true;
+    $("weeklyLinks").hidden=true;
+    $("weeklyLinks").innerHTML="";
+    $("copyAllWeeks").hidden=true;
+    $("shareError").hidden=true;
     $("shareModal").hidden=false;
   }
   function shareError(msg) {$("shareError").textContent=msg;$("shareError").hidden=false;}
-  function generateShare() {
-    $("shareError").hidden=true;
-    const scope=document.querySelector('input[name="shareScope"]:checked')?.value;
-    const ids=[...new Set(scope==="selected"?[...store.selected]:store.filtered.map(r=>r.os))];
-    if (!ids.length) return shareError("Não existem OS nesta seleção.");
-    if (ids.length>700) return shareError("Esta seleção possui muitas OS para um link direto. Reduza com os filtros.");
-    const url=new URL(location.href);
-    url.search="";url.hash="";
-    url.searchParams.set("os",ids.join(","));
-    if (url.href.length>7000) return shareError("O link ficou muito longo. Refine os filtros e gere novamente.");
-    $("shareURL").value=url.href;
-    $("shareResult").hidden=false;
-    $("shareURL").select();
+  function buildWeekLink(rows){
+    if(!rows.length||rows.length>700)return null;
+    const url=new URL(location.href);url.search="";url.hash="";
+    url.searchParams.set("os",rows.map(r=>r.os).join(","));
+    return url.href.length<=7000?url.href:null;
   }
-  async function copyShare() {
-    try {
-      await navigator.clipboard.writeText($("shareURL").value);
-    } catch(e) {
-      $("shareURL").select();
-      try {document.execCommand("copy");}catch(err) {return shareError("Selecione e copie o link manualmente.");}
+  function generateShare(){
+    $("shareError").hidden=true;
+    const selected=document.querySelector('input[name="shareScope"]:checked')?.value==="selected";
+    const candidates=selected
+      ?store.rows.filter(r=>store.selected.has(r.os)&&(!store.shareIds||store.shareIds.has(r.os)))
+      :store.filtered;
+    if(!candidates.length)return shareError("Não existem OS nessa seleção.");
+    const groups=groupByDeliveryWeek(candidates);
+    store.weekLinks=groups.map(g=>({...g,url:buildWeekLink(g.rows)}));
+    const valid=store.weekLinks.filter(g=>!!g.url);
+    $("weeklyLinks").innerHTML='<div class="text-xs bg-blue-50 text-columbia-700 font-extrabold border border-blue-200 p-3 rounded-xl">'+
+      countFormatter.format(groups.length)+' semana(s) · '+countFormatter.format(candidates.length)+' OS · '+esc(money(candidates.reduce((s,r)=>s+(r.valor||0),0)))+'</div>'+
+      store.weekLinks.map((g,i)=>'<div class="border rounded-xl bg-white p-3">'+
+        '<div class="flex justify-between items-center flex-wrap gap-2 mb-2"><strong class="text-columbia-700 text-xs">'+esc(g.label)+'</strong>'+
+        '<span class="text-[11px] text-slate-600 font-bold">'+countFormatter.format(g.rows.length)+' OS · '+esc(money(g.value))+'</span></div>'+
+        (g.url?'<div class="flex flex-wrap items-center gap-2"><input readonly class="week-url flex-1 min-w-0 rounded-lg border bg-slate-50 p-2 text-[11px]" value="'+esc(g.url)+'" aria-label="'+esc(g.label)+'">'+
+           '<button data-copy-week="'+i+'" class="action-btn text-white bg-emerald-600 hover:bg-emerald-700">Copiar</button>'+
+           '<button data-open-week="'+i+'" class="action-btn bg-blue-100 text-columbia-700 hover:bg-blue-200">Abrir</button></div>':
+           '<p class="text-xs text-red-700 font-bold">Há OS demais para um link direto nesta semana (máx. 700 OS ou 7.000 caracteres). Refine os filtros.</p>')+'</div>').join("");
+    $("weeklyLinks").hidden=false;
+    $("copyAllWeeks").hidden=!valid.length;
+    if(valid.length!==groups.length)shareError("Uma ou mais semanas ultrapassaram o limite de tamanho do link. Confira os avisos.");
+  }
+  async function copyText(value){
+    try{await navigator.clipboard.writeText(value);return true;}
+    catch(e){
+      const temp=document.createElement("textarea");
+      temp.value=value;
+      temp.style.position="fixed";
+      temp.style.opacity="0";
+      document.body.appendChild(temp);
+      temp.select();
+      const ok=document.execCommand("copy");
+      temp.remove();
+      return !!ok;
     }
-    $("copyShare").textContent="Copiado!";
-    setTimeout(()=>$("copyShare").textContent="Copiar",1600);
+  }
+  async function copyWeek(index,button){
+    const g=store.weekLinks[index];
+    if(!g?.url)return;
+    if(!await copyText(g.url))return shareError("Falha ao copiar o link. Selecione e copie-o manualmente.");
+    const label=button.textContent;
+    button.textContent="Copiado!";
+    setTimeout(()=>{button.textContent=label;},1400);
+  }
+  async function copyAllWeeks(){
+    const groups=store.weekLinks.filter(g=>!!g.url);
+    if(!groups.length)return;
+    const textValue=groups.map(g=>g.label+" | "+g.rows.length+" OS | "+money(g.value)+"\n"+g.url).join("\n\n");
+    if(!await copyText(textValue))return shareError("Não foi possível copiar todos os links.");
+    const button=$("copyAllWeeks");
+    button.textContent="Links copiados!";
+    setTimeout(()=>button.textContent="Copiar todos os links",1700);
   }
   function exportExcel() {
     if (!store.filtered.length) return alert("Nenhuma OS filtrada para exportar.");
@@ -524,7 +600,16 @@
     $("export").addEventListener("click",exportExcel);
     $("share").addEventListener("click",openShare);
     $("generateShare").addEventListener("click",generateShare);
-    $("copyShare").addEventListener("click",copyShare);
+    $("copyAllWeeks").addEventListener("click",copyAllWeeks);
+    $("weeklyLinks").addEventListener("click",e=>{
+      const copy=e.target.closest("[data-copy-week]");
+      const open=e.target.closest("[data-open-week]");
+      if(copy){copyWeek(Number(copy.dataset.copyWeek),copy);return;}
+      if(open){
+        const url=store.weekLinks[Number(open.dataset.openWeek)]?.url;
+        if(url)window.open(url,"_blank","noopener,noreferrer");
+      }
+    });
     $("logout").addEventListener("click",()=>{
       [TOKEN_KEY,PERM_KEY,"columbia_analista_usuario","columbia_analista_cod_responsavel"].forEach(k=>localStorage.removeItem(k));
       location.href="../login.html";
