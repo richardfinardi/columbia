@@ -36,10 +36,30 @@ O frontend valida \`GET /producao/portal/me\` com o token Bearer e **nega acesso
 ## Interface interna: planilha direta
 A tela do usuário PCP **não exibe resumo por semana e não agrupa OS na tabela**. Mostra uma única planilha com filtros, ordenação, pesquisa, seleção, anexos, edição de data e botão para criar link de visualização.
 
-O filtro **Entrega de / Entrega até** considera uma única data vigente para cada OS: **reprogramada, quando informada; caso contrário, original**. Se a data original é 13/10/2026 e a reprogramada é 01/12/2026, esta OS **não aparece** no período de outubro, somente no período de dezembro. Os limites do intervalo são inclusivos. A tela exibe ambas as datas nas colunas, mas não utiliza a original para passar no filtro quando há reprogramação. O agrupamento da visualização pública segue a mesma prioridade. A interface mantém o nome **Reprogramada**, enquanto o banco utiliza `u_data_renegociacao` e a rota de atualização é `alterar-renegociacao`.
+O filtro **Entrega de / Entrega até** considera uma única data vigente para cada OS: **manual ativa, se houver; senão, reprogramada do GRV; caso contrário, original**. Se a data original é 13/10/2026 e a reprogramada é 01/12/2026, esta OS **não aparece** no período de outubro, somente no período de dezembro. Os limites do intervalo são inclusivos. A tela exibe ambas as datas nas colunas, mas não utiliza a original para passar no filtro quando há reprogramação. O agrupamento da visualização pública segue a mesma prioridade. A interface mantém o nome **Reprogramada**, enquanto o banco utiliza `u_data_renegociacao` e a rota de atualização é `alterar-renegociacao`.
 
 ## Visualização pública: cronograma semanal
 **Somente `pcp/portal.html`** tem agrupamento por semana de entrega. Não há mais uma parede de cartões repetidos: o portal mostra a lista de semanas em **cabeçalhos expansíveis**, com status da semana, quantidade de OS, atrasadas, datas e valores quando liberados. A semana atual (ou a mais relevante) vem aberta, as demais começam recolhidas. O usuário pode expandir/recolher cada uma ou todas. Semanas atuais e futuras vêm primeiro e o histórico vencido fica depois, ordenado da mais recente para a mais antiga. Filtros e pesquisa mostram automaticamente as OS correspondentes. A data de agrupamento prioriza a **reprogramada**, recorrendo à previsão original quando não existe reprogramação.
+
+## Planilha e Kanban — data unica do PCP (08/10/2026)
+
+A pagina `/columbia/pcp` possui dois modos: **Planilha** e **Kanban**. Nos dois modos e no link publico a **data vigente** e calculada assim:
+
+1. `TOS.u_dt_rep_manual` quando `TOS.u_reprogramado_manual = 1` **e** existe data manual valida.
+2. Caso contrario, `TOS.u_data_renegociacao` (JSON `dt_renegociada`).
+3. Por ultimo, `TOS.dt_prevista` (JSON `prev_entrega_os`).
+
+A Planilha apresenta **Entrega vigente** com a origem (MANUAL/GRV/ORIGINAL), e **Original (referencia)** visualmente. Os filtros de periodo, indicadores de atraso e Excel utilizam a data vigente. A coluna original e somente referencia.
+
+O Kanban filtra obrigatoriamente **um mes**, iniciando no mes atual e usando setas para navegar. Mostra uma coluna para cada semana de calendario que intersecta o mes, inclusive quando houver seis. Cada OS aparece na semana da data vigente, e as setas do cartao acionam:
+
+`PATCH /producao/pcp/kanban/mover` com `{"cod_empresa":1,"cod_os":1234,"direcao":1}` ou `direcao:-1`.
+
+No servidor o endpoint valida `u_pcp=1`, usa chave interna `TOS.COD_EMPRESA+TOS.CODIGO`, bloqueia OS concluida/cancelada, escolhe a sexta da semana seguinte/anterior e grava `TOS.U_DT_REP_MANUAL` + `TOS.U_REPROGRAMADO_MANUAL = 1`. A escrita ajusta o cache local. **Nao grava DT_PREVISTA nem U_DATA_RENEGOCIACAO.**
+
+O servidor precisa instalar a API Python atualizada (arquivo `api.py` e `pcp_portal_routes.py`) **e** a consulta `sql/producao_base.sql` precisa incluir as duas novas colunas no CTE `os_ativas` e no `SELECT` final. Apenas commitar GitHub Pages **nao publica** rotas novas no Windows. O pacote completo foi entregue na conversa, nao esta implantado automaticamente.
+
+---
 
 ## Segmento
 A coluna e o filtro Segmento usam o campo `segmento` no JSON de produção e seus aliases `segmento_cliente`, `u_segmento` e `classificacao_segmento`. Quando faltar o campo na OS, a tela busca o mesmo JSON `/faturamento_prod` do módulo Produção Columbia e procura correspondência por número da OS; na ausência, por nome de cliente **somente quando houver um único segmento inequívoco**. Valores realmente indisponíveis são apresentados como `Sem segmento` e ficam selecionáveis no filtro. Não criar nomes de segmentos fictícios.
