@@ -216,6 +216,7 @@
     store.authorized=false;store.ready=false;store.rows=[];store.filtered=[];
     ["refresh","export","share","selectAll","checkAll"].forEach(id=>$(id).disabled=true);
     $("sync").textContent="ACESSO BLOQUEADO";
+    updateKanbanLoadStatus(msg);
     setMessage(msg,true);
     $("rows").innerHTML='<tr><td colspan="11" class="p-12 text-center text-red-700 font-bold text-sm">'+esc(msg)+'</td></tr>';
   }
@@ -238,16 +239,10 @@
     return true;
   }
   function updateClientOptions() {
-    const selected=$("client").value || store.savedSelections?.client || "";
-    const opts=[...new Set(store.rows.map(x=>x.cliente).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
-    $("client").innerHTML='<option value="">Todos os clientes</option>'+opts.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join("");
-    $("client").value=opts.includes(selected)?selected:"";
-    const selectedSegment=$("segment").value || store.savedSelections?.segment || "";
-    const segments=[...new Set(store.rows.map(x=>x.segmento||SEGMENT_EMPTY))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
-    $("segment").innerHTML='<option value="">Todos os segmentos</option>'+segments.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join("");
-    $("segment").value=segments.includes(selectedSegment)?selectedSegment:"";
-    store.savedSelections=null;
+    // Uma única fonte de opções: os dados reais da carteira, e não o HTML oculto da outra aba.
+    // Preenche os dois selects juntos para nunca deixar o Kanban somente com a opção "Todos".
     syncKanbanFilters();
+    if(store.rows.length)store.savedSelections=null;
   }
   function deliveryDate(r) {return (r.manualFlag&&r.manual)?r.manual:(r.reneg||r.original||"");}
   function deliverySource(r) {return (r.manualFlag&&r.manual)?"manual":r.reneg?"grv":r.original?"original":"sem_data";}
@@ -317,15 +312,42 @@
 
   const syncedFilters = {search:"kbSearch",client:"kbClient",segment:"kbSegment",status:"kbStatus"};
   function syncKanbanFilters(){
-    // A Planilha mantém os valores centrais e sua persistência em localStorage.
-    // No Kanban não copiamos os filtros from/to: o mês das setas é independente.
-    for(const [sheet,kanban] of Object.entries(syncedFilters)){
+    // A Planilha guarda o valor canônico, mas os dois menus são gerados diretamente
+    // de store.rows. Copiar innerHTML do select escondido podia deixar o Kanban sem opções.
+    for(const [sheet,kanban,field,prefix] of [
+      ["client","kbClient","cliente","Todos os clientes"],
+      ["segment","kbSegment","segmento","Todos os segmentos"]
+    ]){
+      if(!store.rows.length)continue; // Aguarda a API, preservando filtros salvos.
       const source=$(sheet),target=$(kanban);
-      if(source.tagName==="SELECT"){
-        target.innerHTML=source.innerHTML;
-      }
-      target.value=source.value;
+      const current=source.value||store.savedSelections?.[sheet]||"";
+      const options=[...new Set(store.rows.map(r=>field==="segmento"?(r.segmento||SEGMENT_EMPTY):r.cliente).filter(Boolean))]
+        .sort((a,b)=>a.localeCompare(b,"pt-BR",{numeric:true}));
+      const optionHTML='<option value="">'+prefix+'</option>'+
+        options.map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join("");
+      source.innerHTML=optionHTML;
+      target.innerHTML=optionHTML;
+      const selected=options.includes(current)?current:"";
+      source.value=selected;target.value=selected;
     }
+    $("kbSearch").value=$("search").value;
+    $("kbStatus").value=$("status").value;
+    updateKanbanLoadStatus();
+  }
+  function updateKanbanLoadStatus(error){
+    const node=$("kbDataStatus");
+    if(error){node.textContent="Falha ao carregar a carteira: "+error;node.className="text-[11px] mt-2 font-bold text-red-700";return;}
+    if(!store.ready){
+      node.textContent="Aguardando dados da API de produção para preencher os filtros...";
+      node.className="text-[11px] mt-2 text-amber-700";return;
+    }
+    const segments=[...new Set(store.rows.map(r=>r.segmento||SEGMENT_EMPTY))];
+    const clients=[...new Set(store.rows.map(r=>r.cliente).filter(Boolean))];
+    const missing=store.rows.filter(r=>!r.segmento).length;
+    node.textContent=countFormatter.format(store.rows.length)+" OS carregadas · "+
+      clients.length+" clientes · "+segments.length+" segmentos"+
+      (missing?" · "+missing+" OS sem segmento cadastrado":"");
+    node.className="text-[11px] mt-2 text-slate-500";
   }
   function changeKanbanFilter(kanbanId){
     const entry=Object.entries(syncedFilters).find(([,id])=>id===kanbanId);
@@ -334,6 +356,7 @@
     $(sheetId).value=$(kanbanId).value;
     store.shown=100;
     saveFilters();
+    syncKanbanFilters();
     renderKanban();
   }
   function resetKanbanFilters(){
@@ -390,6 +413,10 @@
       group.rows.push(row);group.value+=row.valor||0;count++;
     }
     $("kbCount").textContent=countFormatter.format(count)+" OS · "+keys.length+" semanas";
+    if(!store.ready && !store.authorized){
+      $("kbBoard").innerHTML='<p class="kb-empty">Aguardando autorização e dados da carteira PCP.</p>';
+      return;
+    }
     const activeColumns=Object.entries(store.filters)
       .filter(([key,values])=>!dateFields.has(key)&&values?.size)
       .map(([key])=>labels[key]||key);
@@ -509,6 +536,8 @@
       store.rows=normalizeRows(data);
       store.selected=new Set([...store.selected].filter(id=>store.rows.some(r=>r.os===id)));
       store.ready=true;
+      updateKanbanLoadStatus();
+      store.ready=true;
       updateClientOptions();
       render();
       $("sync").textContent="ATUALIZADO "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
@@ -525,6 +554,7 @@
     } catch(e) {
       $("sync").textContent=store.ready?"DADOS ANTERIORES":"FALHA NA ATUALIZAÇÃO";
       setMessage("Não foi possível atualizar: "+e.message+(store.ready?". Mantendo dados em memória.":""),true);
+      updateKanbanLoadStatus(e.message);
       if (!store.ready) $("rows").innerHTML='<tr><td colspan="11" class="p-12 text-center text-red-700">'+esc(e.message)+'</td></tr>';
     } finally {$("refresh").disabled=false;}
   }
