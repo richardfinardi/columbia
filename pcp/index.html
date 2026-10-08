@@ -63,14 +63,14 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
       <label><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Original de</span><input id="from" type="date" class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50"></label>
       <label><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Original até</span><input id="to" type="date" class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50"></label>
     </div>
-    <div id="sharedBadge" class="mt-3 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-xl p-2.5" hidden>Você está visualizando somente as OS incluídas no link compartilhado. Os filtros abaixo podem restringir ainda mais esse conjunto.</div>
+    <div id="sharedBadge" class="mt-3 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-xl p-2.5" hidden>Esta seleção de OS foi compartilhada por semana de entrega: renegociada ou, na ausência dela, original. Os filtros abaixo podem restringir o conjunto.</div>
     <div id="message" class="mt-3 bg-slate-50 border rounded-xl px-3 py-2 text-xs text-slate-600">Validando usuário e permissões...</div>
   </section>
   <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
     <div class="px-4 py-3 flex flex-wrap justify-between items-center gap-2 border-b"><div class="text-xs font-extrabold">Relação de Ordens de Serviço <span id="countText" class="font-medium text-slate-500"></span></div>
       <div class="flex items-center gap-3 text-[11px] text-slate-500"><span id="selectedCount">0 selecionadas</span><button id="selectAll" class="font-bold text-columbia-700 hover:underline" disabled>Selecionar filtradas</button></div></div>
     <div class="table-scroll">
-      <table class="w-full min-w-[1370px] text-left border-collapse">
+      <table class="w-full min-w-[1480px] text-left border-collapse">
         <thead><tr class="text-[10px] uppercase tracking-wide text-slate-600">
           <th class="px-3 py-3 w-10"><input id="checkAll" type="checkbox" class="accent-blue-800 w-4 h-4" title="Selecionar OS exibidas" disabled></th>
           <th class="px-3 py-2" data-col="os"><button class="sort-btn font-black" data-sort="os">Nº OS <span data-arrow="os">↕</span></button><button class="filter-btn ml-2" data-filter="os" title="Filtrar coluna">⌕</button></th>
@@ -82,8 +82,9 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
           <th class="px-3 py-2" data-col="reneg"><button class="sort-btn font-black" data-sort="reneg">Renegociada <span data-arrow="reneg">↕</span></button><button class="filter-btn ml-2" data-filter="reneg" title="Filtrar coluna">⌕</button></th>
           <th class="px-3 py-2 text-right" data-col="valor"><button class="sort-btn font-black" data-sort="valor">Valor <span data-arrow="valor">↕</span></button><button class="filter-btn ml-2" data-filter="valor" title="Filtrar coluna">⌕</button></th>
           <th class="px-3 py-2 min-w-[200px]" data-col="pend"><button class="sort-btn font-black" data-sort="pend">Processos pendentes <span data-arrow="pend">↕</span></button><button class="filter-btn ml-2" data-filter="pend" title="Filtrar coluna">⌕</button></th>
+          <th class="px-3 py-2 text-center min-w-[120px]">Anexos</th>
         </tr></thead>
-        <tbody id="rows"><tr><td colspan="10" class="p-12 text-center text-sm text-slate-500">Aguardando validação de acesso...</td></tr></tbody>
+        <tbody id="rows"><tr><td colspan="11" class="p-12 text-center text-sm text-slate-500">Aguardando validação de acesso...</td></tr></tbody>
       </table>
     </div>
     <div class="p-3 border-t flex flex-wrap items-center justify-between gap-2"><p id="pagingInfo" class="text-xs text-slate-500">—</p><button id="more" class="action-btn border border-slate-200 bg-slate-50" hidden>Mostrar mais 100</button></div>
@@ -110,17 +111,28 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
     <div class="bg-slate-50 border-t p-4 flex justify-end gap-2"><button data-close="editModal" class="action-btn bg-white border">Cancelar</button><button id="saveEdit" class="action-btn bg-columbia-700 text-white">Salvar no sistema</button></div>
   </div>
 </div>
+<div id="attachmentsModal" class="modal-bg" hidden>
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[94vh] overflow-hidden flex flex-col">
+    <div class="bg-columbia-700 text-white p-4 flex items-center justify-between gap-2"><div><h3 class="font-extrabold text-base">Anexos da ordem de serviço</h3><p id="attachmentOS" class="text-xs text-blue-100"></p></div><button data-close="attachmentsModal" class="text-2xl" aria-label="Fechar">×</button></div>
+    <div class="p-4 space-y-3 overflow-y-auto">
+      <div id="attachmentList" class="flex flex-wrap gap-2"></div>
+      <div id="attachmentError" class="text-xs font-bold text-red-700 bg-red-50 border border-red-200 p-3 rounded-xl" hidden></div>
+      <div id="attachmentPreview" hidden><div class="flex justify-between flex-wrap items-center gap-2 mb-2"><p id="attachmentTitle" class="text-xs font-black text-columbia-700"></p><a id="attachmentNewTab" target="_blank" rel="noopener noreferrer" class="action-btn bg-blue-100 text-columbia-700 cursor-pointer">Abrir PDF em nova guia</a></div><iframe id="attachmentFrame" title="Visualização do desenho técnico" class="w-full border rounded-xl bg-slate-50 h-[min(65vh,700px)]"></iframe></div>
+    </div>
+    <div class="border-t bg-slate-50 p-3 flex justify-end"><button data-close="attachmentsModal" class="action-btn border bg-white">Fechar</button></div>
+  </div>
+</div>
 <div id="shareModal" class="modal-bg" hidden>
-  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-    <div class="bg-columbia-700 text-white p-4 flex justify-between items-center"><h3 class="font-extrabold">Gerar link das OS</h3><button data-close="shareModal" class="text-2xl leading-none">×</button></div>
-    <div class="p-5 space-y-4">
-      <p class="text-xs text-slate-600">Cria um link que abre exatamente a seleção de OS. Os dados são atualizados ao abrir. <b>Por segurança, quem recebe precisa entrar com usuário que tenha U_PCP = 1.</b></p>
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col">
+    <div class="bg-columbia-700 text-white p-4 flex justify-between items-center"><h3 class="font-extrabold">Gerar links por semana de entrega</h3><button data-close="shareModal" class="text-2xl leading-none">×</button></div>
+    <div class="p-5 space-y-4 overflow-y-auto">
+      <p class="text-xs text-slate-600">Gera <b>um link para cada semana (segunda a domingo)</b> com as OS filtradas. A data de entrega considera <b>primeiro a renegociada</b> e, quando não houver, a <b>previsão original</b>. O destinatário precisa de usuário com <b>U_PCP = 1</b>.</p>
       <label class="flex items-center gap-2 text-xs font-bold"><input name="shareScope" type="radio" value="filtered" checked> Todas as OS filtradas (<span id="filterQty">0</span>)</label>
       <label class="flex items-center gap-2 text-xs font-bold"><input name="shareScope" type="radio" value="selected"> Apenas as OS marcadas (<span id="selectedQty">0</span>)</label>
       <div id="shareError" class="text-xs text-red-600 font-bold" hidden></div>
-      <div id="shareResult" hidden><label class="text-[10px] font-black text-slate-500 uppercase">Link gerado</label><div class="flex gap-2 mt-1"><input id="shareURL" readonly class="flex-1 min-w-0 border rounded-lg p-2 text-xs"><button id="copyShare" class="action-btn bg-emerald-600 text-white">Copiar</button></div></div>
+      <div id="weeklyLinks" class="space-y-2" hidden aria-live="polite"></div>
     </div>
-    <div class="bg-slate-50 border-t p-4 flex justify-end gap-2"><button data-close="shareModal" class="action-btn bg-white border">Fechar</button><button id="generateShare" class="action-btn bg-cyan-600 text-white">Gerar link</button></div>
+    <div class="bg-slate-50 border-t p-4 flex flex-wrap justify-end gap-2"><button data-close="shareModal" class="action-btn bg-white border">Fechar</button><button id="copyAllWeeks" class="action-btn bg-emerald-600 text-white" hidden>Copiar todos os links</button><button id="generateShare" class="action-btn bg-cyan-600 text-white">Gerar links por semana</button></div>
   </div>
 </div>
 <script src="./app.js"></script>
