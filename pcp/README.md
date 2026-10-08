@@ -94,3 +94,7 @@ Os endpoints de criação, consulta de links e reativação só aceitam usuário
 5. Garantir via API a rejeição com HTTP 403 de leituras e escritas PCP por token sem a permissão.
 
 Validação realizada na edição: sintaxe JavaScript verificada. Sem conexão com a API privada neste ambiente, a integração real e as permissões no backend precisam ser testadas na infraestrutura Columbia.
+
+### Correção dos filtros do Kanban (08/10/2026)
+
+Os menus de **Cliente** e **Segmento** das duas abas são populados diretamente do mesmo `store.rows` (dados do JSON `/producao`, mais complemento de segmento, quando disponível), em vez de copiar as opções HTML do select oculto da Planilha. A pesquisa e a situação usam os valores canônicos da Planilha e são sincronizadas ao trocar de aba ou aplicar filtros no Kanban. Um contador abaixo dos filtros do Kanban indica quantas OS, clientes e segmentos foram efetivamente carregados; erros de autorização/consulta ficam visíveis no próprio Kanban. O mês permanece o único período aplicado ao Kanban e os filtros por coluna que não sejam de data continuam sincronizados.
