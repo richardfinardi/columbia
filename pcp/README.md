@@ -39,12 +39,18 @@ A coluna e o filtro Segmento usam o campo `segmento` no JSON de produção e seu
 ## Desenhos técnicos anexos
 A coluna **Anexos** aparece em cada OS quando o JSON retorna `anexos[]` com `cod_empresa`, `cod_os` e `cod_os_aux`. O botão abre um modal com os PDFs daquela OS, carregando cada arquivo no visualizador interno. A leitura reutiliza a rota de produção `GET /producao/desenho-anexo?cod_empresa=...&cod_os=...&cod_os_aux=...`, que devolve `pdf_base64`. Quem visualizar o link compartilhado deverá se autenticar e ter a permissão `u_pcp=1`. Validação de permissão e propriedade da OS deve ocorrer no backend.
 
-## Gerar links semanais das OS filtradas
-**Um link por semana de entrega**, considerando semanas **segunda-feira a domingo**. Para cada OS a data de referência é a **renegociada** (`dt_renegociada` ou `u_data_renegociacao`), ou **previsão original** (`prev_entrega_os` / fallback `dt_previsao_entrega`) quando não existir renegociada. OS sem nenhuma dessas datas ficam em um grupo `Sem data de entrega`.
+## Link único para substituir o planejamento semanal em Excel
+O botão **Gerar link** publica em **uma única URL** a seleção de OS filtradas ou marcadas. A tela desse link mantém todas as semanas de entrega em um mesmo planejamento, com:
+- cartões semanais com período (segunda a domingo), quantidade de OS e total dos valores;
+- cabeçalho separando cada semana na relação de OS, com as respectivas somas;
+- as colunas OS, orçamento, item, cliente, segmento, previsão original, data renegociada, valor, processos pendentes e anexos;
+- pesquisa, filtros, alteração justificada da renegociação, visualização de desenhos técnicos e exportação em Excel.
 
-Ao clicar **Gerar links por semana**, o app agrupa as OS atualmente filtradas (ou marcadas) e entrega cartões separados com período, quantidade de OS, soma de valores, botão de copiar e botão de abrir, além de **Copiar todos os links**. Um link guarda a lista de OS daquela semana em `?os=...`. Ao abrir, o sistema atualiza os dados e mostra um cabeçalho com semana, quantidade e valor, agrupando novamente pela data mais atual. As OS escolhidas no link continuam as mesmas mesmo se a data renegociada mudar, mas serão exibidas sob a semana atual. Não existe publicação anônima: os links exigem login válido com `u_pcp=1`.
+A semana é determinada pela data **renegociada**, caso exista, ou pela **previsão original da OS** quando não existe renegociação. OS sem previsão são agrupadas em "Sem data de entrega". O acesso ao link exige login com autorização PCP, não permite consulta pública.
 
-Cada link direto suporta no máximo 700 OS e 7.000 caracteres. Caso uma semana exceda o limite, o app mostra um aviso para refinar os filtros. Isso não é um portal público de clientes como na PSTEC, não disponibiliza validade ou revogação individual e não reutiliza o backend da PSTEC.
+Os números de OS são transmitidos na URL em forma compacta (`?osv=1....`) quando todos são inteiros, economizando espaço. Links antigos com `?os=...` continuam sendo aceitos. O limite atual é de 5.000 OS e 8.000 caracteres no link; para casos acima disso é necessário guardar a seleção no servidor. O link mantém o conjunto das OS; as datas são consultadas novamente, portanto uma OS renegociada pode mudar automaticamente de semana ao reabrir.
+
+A interface usa linguagem de planejamento, sem termos técnicos como JSON ou API nas orientações e mensagens destinadas ao usuário. Esses detalhes ficam reservados ao código e à documentação.
 
 ## Verificações sugeridas para implantação
 
