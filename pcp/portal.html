@@ -73,7 +73,7 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
     </section>
     <section class="bg-white border rounded-2xl overflow-hidden shadow-sm">
       <div class="px-4 py-4 border-b flex flex-wrap justify-between items-center gap-3">
-        <div><h3 class="font-black text-sm text-columbia-700">Cronograma de entregas por semana</h3><p class="text-[11px] text-slate-500 mt-1">Semanas atuais e futuras primeiro · Clique na semana para visualizar suas OS.</p></div>
+        <div><h3 class="font-black text-sm text-columbia-700">Cronograma de entregas por semana</h3><p class="text-[11px] text-slate-500 mt-1">Semanas atrasadas primeiro · Depois semana atual e entregas futuras · Clique para expandir.</p></div>
         <div class="flex flex-wrap gap-2 items-center"><span id="count" class="text-xs text-slate-500 font-semibold mr-2"></span>
           <button id="openAllWeeks" type="button" class="px-3 py-2 rounded-xl text-[11px] font-extrabold bg-blue-50 hover:bg-blue-100 text-columbia-700 border border-blue-100">Expandir todas</button>
           <button id="closeAllWeeks" type="button" class="px-3 py-2 rounded-xl text-[11px] font-extrabold bg-white hover:bg-slate-50 text-slate-700 border">Recolher todas</button>
@@ -98,6 +98,8 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
   const currency=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
   const dateBR=s=>s&&/^\d{4}-\d{2}-\d{2}$/.test(String(s).slice(0,10))?String(s).slice(8,10)+'/'+String(s).slice(5,7)+'/'+String(s).slice(0,4):'—';
   const dt=s=>s?new Date(s).toLocaleString('pt-BR'):'Sem vencimento';
+  const hasValue=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v));
+  const currencyOrUnknown=v=>hasValue(v)?currency.format(Number(v)):'—';
   const view={portal:null,rows:[],filtered:[],sort:'original',asc:true,id:'',token:'',expanded:new Set(),initializedWeeks:false,manualWeekToggle:false};
   function delivery(r){return r.reneg||r.original||'';}
   function weekOf(r){
@@ -123,15 +125,23 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
     const groups=new Map();
     for(const r of rows){
       const w=weekOf(r);
-      if(!groups.has(w.key))groups.set(w.key,{...w,rows:[],total:0});
-      const g=groups.get(w.key);g.rows.push(r);g.total+=Number(r.valor)||0;
+      if(!groups.has(w.key))groups.set(w.key,{...w,rows:[],total:0,knownValues:0});
+      const g=groups.get(w.key);
+      g.rows.push(r);
+      if(r.valor!==null && r.valor!==undefined && Number.isFinite(Number(r.valor))){
+        g.total+=Number(r.valor);
+        g.knownValues+=1;
+      }
     }
     const current=startWeekDate();
     return [...groups.values()].sort((a,b)=>{
-      // O que vence agora/próximas semanas aparece primeiro; histórico no fim, mais recente antes.
-      const cat=k=>k==='9999-12-31'?2:k>=current?0:1;
-      const ca=cat(a.key),cb=cat(b.key);
-      return ca!==cb?ca-cb:ca===1?b.key.localeCompare(a.key):a.key.localeCompare(b.key);
+      // Atrasos vêm sempre no TOPO; depois a semana atual e próximas entregas.
+      // Histórico atrasado: da semana mais recente para a mais antiga.
+      // Futuras: da semana mais próxima para a mais distante; sem data por último.
+      const category=k=>k==='9999-12-31'?3:k<current?0:k===current?1:2;
+      const ca=category(a.key),cb=category(b.key);
+      if(ca!==cb)return ca-cb;
+      return ca===0?b.key.localeCompare(a.key):a.key.localeCompare(b.key);
     });
   }
   function showError(msg){
@@ -162,7 +172,13 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
     $('kpiWeeks').textContent=grouped.length.toLocaleString('pt-BR');
     const today=new Date();const todayIso=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
     $('kpiLate').textContent=view.filtered.filter(r=>delivery(r)&&delivery(r)<todayIso).length.toLocaleString('pt-BR');
-    if(view.portal?.mostrar_valores)$('kpiValue').textContent=currency.format(view.filtered.reduce((s,r)=>s+(Number(r.valor)||0),0));
+    if(view.portal?.mostrar_valores){
+      const available=view.filtered.filter(r=>hasValue(r.valor));
+      $('kpiValue').textContent=available.length?currency.format(available.reduce((s,r)=>s+Number(r.valor),0)):'—';
+      $('kpiValue').title=available.length<view.filtered.length
+        ?available.length+' de '+view.filtered.length+' OS têm valores informados. Totais parciais.'
+        :'Valor total das OS filtradas';
+    }
     $('count').textContent=grouped.length+' semanas · '+view.filtered.length+' OS';
     const currentWeek=startWeekDate(),searching=!!(q||cli||seg||wk);
     if(!view.initializedWeeks){
@@ -180,7 +196,7 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
       const cls=late?'is-late':isCurrent?'is-current':'';
       const active=searching?true:view.expanded.has(g.key);
       const chevron=active?'▾':'▸';
-      const value=view.portal?.mostrar_valores?'<span class="font-black text-emerald-800 text-sm whitespace-nowrap">'+esc(currency.format(g.total))+'</span>':'';
+      const value=view.portal?.mostrar_valores?'<span class="font-black text-emerald-800 text-sm whitespace-nowrap" title="'+(g.knownValues<count?'Total parcial: '+g.knownValues+' OS com valor':'Valor total da semana')+'">'+(g.knownValues?esc(currency.format(g.total)):'Valor não informado')+'</span>':'';
       const lateCount=g.rows.filter(r=>delivery(r)&&delivery(r)<todayIso).length;
       const lateBadge=lateCount?'<span class="pill late">'+lateCount+' vencida(s)</span>':'';
       body+='<tr class="week-title"><td colspan="'+(view.portal?.mostrar_valores?10:9)+'">'+
@@ -209,7 +225,7 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
           '<td class="wrap">'+esc(r.cliente||'—')+'</td>'+
           '<td>'+esc(r.segmento||'Sem segmento')+'</td>'+
           '<td>'+dateBR(r.original)+'</td><td>'+dateBR(r.reneg)+'</td>'+
-          (view.portal?.mostrar_valores?'<td class="font-bold text-emerald-700 whitespace-nowrap">'+esc(currency.format(Number(r.valor)||0))+'</td>':'')+
+          (view.portal?.mostrar_valores?'<td class="font-bold text-emerald-700 whitespace-nowrap">'+esc(currencyOrUnknown(r.valor))+'</td>':'')+
           '<td class="wrap">'+esc(r.pend||'—')+'</td>'+
           '<td class="whitespace-nowrap"><div class="flex flex-wrap gap-1">'+(links.join('')||'<span class="text-slate-400">—</span>')+'</div></td></tr>';
       }
@@ -222,7 +238,7 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
     if(!view.portal?.permitir_excel||!window.XLSX)return;
     const out=view.filtered.map(r=>{
       const o={Semana:weekOf(r).label,'Nº OS':r.os,'Orçamento':r.orc,Item:r.item,Cliente:r.cliente,Segmento:r.segmento||'Sem segmento','Previsão original':dateBR(r.original),'Reprogramada':dateBR(r.reneg),'Processos pendentes':r.pend};
-      if(view.portal?.mostrar_valores)o.Valor=r.valor;
+      if(view.portal?.mostrar_valores)o.Valor=hasValue(r.valor)?Number(r.valor):null;
       return o;
     });
     const book=XLSX.utils.book_new(),sheet=XLSX.utils.json_to_sheet(out);
@@ -241,7 +257,7 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
       if(!response.ok)throw Error(response.status===410?'A validade deste link terminou ou ele foi desativado.':response.status===404?'Este planejamento não foi encontrado.':data.detail||'Não foi possível consultar este planejamento.');
       const portal=data.portal||{};
       const rows=Array.isArray(data.dados)?data.dados:[];
-      view.portal=portal;view.rows=rows.map(r=>({os:String(r.os||''),orc:String(r.orc||''),item:String(r.item||''),cliente:String(r.cliente||''),segmento:String(r.segmento||''),original:String(r.original||'').slice(0,10),reneg:String(r.reneg||'').slice(0,10),valor:portal.mostrar_valores?Number(r.valor)||0:null,pend:String(r.pend||''),anexos:Array.isArray(r.anexos)?r.anexos:[]}));
+      view.portal=portal;view.rows=rows.map(r=>({os:String(r.os||''),orc:String(r.orc||''),item:String(r.item||''),cliente:String(r.cliente||''),segmento:String(r.segmento||''),original:String(r.original||'').slice(0,10),reneg:String(r.reneg||'').slice(0,10),valor:portal.mostrar_valores&&hasValue(r.valor)?Number(r.valor):null,pend:String(r.pend||''),anexos:Array.isArray(r.anexos)?r.anexos:[]}));
       $('title').textContent=portal.nome||'Planejamento de Entregas';
       $('expiry').textContent=portal.validade_ate?'Disponível até '+dt(portal.validade_ate):'Link sem vencimento';
       $('updated').textContent='Atualizado em '+dt(data.atualizado_em||new Date().toISOString());
