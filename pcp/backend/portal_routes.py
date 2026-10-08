@@ -21,6 +21,7 @@ import os
 import re
 import secrets
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -157,10 +158,15 @@ def normalize(source: Any, include_value: bool) -> dict | None:
     return item
 
 
+@contextmanager
 def open_db(db_path: str):
     con = sqlite3.connect(db_path, timeout=20)
     con.row_factory = sqlite3.Row
-    return con
+    try:
+        with con:
+            yield con
+    finally:
+        con.close()
 
 
 def setup_db(db_path: str):
@@ -328,7 +334,7 @@ def build_pcp_router(
     async def portal_attachment(id: str, token: str, os: str, aux: str):
         portal = lookup(id, token)
         allowed_os = set(json.loads(portal["os_json"]))
-        if os not in allowed_os or not aux.isdecimal():
+        if os not in allowed_os or not re.fullmatch(r"[0-9]{1,12}", aux):
             raise HTTPException(404, "Desenho técnico não encontrado.")
         raw = await resolved(rows_provider)
         match = None
