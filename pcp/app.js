@@ -8,7 +8,7 @@
   const SEGMENT_EMPTY = "Sem segmento";
   const moneyFormatter = new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"});
   const countFormatter = new Intl.NumberFormat("pt-BR");
-  const labels = {os:"Nº OS",orc:"Orçamento",item:"Item",cliente:"Cliente",segmento:"Segmento",original:"Previsão original OS",reneg:"Data reprogramada",valor:"Valor",pend:"Processos pendentes"};
+  const labels = {os:"Nº OS",orc:"Orçamento",item:"Item",cliente:"Cliente",segmento:"Segmento",entrega:"Entrega vigente",original:"Original (referência)",valor:"Valor",pend:"Processos pendentes"};
   const cols = Object.keys(labels);
   const $ = id => document.getElementById(id);
   const str = v => v == null ? "" : String(v).trim();
@@ -16,9 +16,9 @@
   const esc = v => String(v == null ? "" : v).replace(/[&<>"']/g, x => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[x]));
   const localToday = () => { const d = new Date(); return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-"); };
   const money = v => v == null ? "—" : moneyFormatter.format(v);
-  const store = {rows:[],filtered:[],selected:new Set(),authorized:false,ready:false,editOS:null,pageSize:100,shown:100,sortKey:"original",sortAsc:true,shareIds:null,filters:{},popupKey:null,popupChoices:null,attachmentOS:null,attachmentBlobUrl:null,weekLinks:[]};
+  const store = {rows:[],filtered:[],selected:new Set(),authorized:false,ready:false,editOS:null,pageSize:100,shown:100,sortKey:"entrega",sortAsc:true,shareIds:null,filters:{},popupKey:null,popupChoices:null,attachmentOS:null,attachmentBlobUrl:null,weekLinks:[],view:"planilha",month:new Date(new Date().getFullYear(),new Date().getMonth(),1),movingOS:new Set()};
   const numberFields = new Set(["valor"]);
-  const dateFields = new Set(["original","reneg"]);
+  const dateFields = new Set(["original","entrega"]);
 
   function normalizeDate(v) {
     if (blank(v)) return "";
@@ -81,19 +81,26 @@
       if (!os) continue;
       const row={
         os,
+        empresa:str(first(lower,["cod_empresa"])),
+        codOS:str(first(lower,["cod_os"])),
         orc:str(first(lower,["n_orcamento","orcamento","numero_orcamento"])),
         item:str(first(lower,["titulo","descricao","cod_interno","tiposervico"])),
         cliente:str(first(lower,["cliente","nome_cliente"])),
         segmento:str(first(lower,["segmento","segmento_cliente","u_segmento","classificacao_segmento"])),
         original:normalizeDate(first(lower,["prev_entrega_os","dt_previsao_entrega","dt_prevista"])),
         reneg:normalizeDate(first(lower,["dt_renegociada","u_data_renegociacao"])),
+        manual:normalizeDate(first(lower,["u_dt_rep_manual"])),
+        manualFlag:Number(first(lower,["u_reprogramado_manual"]))===1,
         valor:parseMoney(first(lower,["preco_geral_a_vista","valor","vl_a_faturar"])),
         pend:proc(first(lower,["pp_pendentes","processos_pendentes"])),
         anexos:normalizeAttachments(lower)
       };
+      row.entrega=deliveryDate(row);row.fonte=deliverySource(row);
       if (!seen.has(os)) {seen.set(os,row);continue;}
       const old=seen.get(os);
-      for (const f of ["orc","item","cliente","segmento","original","reneg"]) if (!old[f] && row[f]) old[f]=row[f];
+      for (const f of ["empresa","codOS","orc","item","cliente","segmento","original","reneg","manual"]) if (!old[f] && row[f]) old[f]=row[f];
+      if(!old.manualFlag && row.manualFlag)old.manualFlag=true;
+      old.entrega=deliveryDate(old);old.fonte=deliverySource(old);
       if (old.valor==null && row.valor!=null) old.valor=row.valor;
       old.anexos=mergeAttachments(old.anexos,row.anexos);
       if (hasPend(row) && !old.pend.includes(row.pend)) old.pend=hasPend(old) ? old.pend+" | "+row.pend : row.pend;
@@ -241,7 +248,8 @@
     $("segment").value=segments.includes(selectedSegment)?selectedSegment:"";
     store.savedSelections=null;
   }
-  function deliveryDate(r) {return r.reneg||r.original||"";}
+  function deliveryDate(r) {return (r.manualFlag&&r.manual)?r.manual:(r.reneg||r.original||"");}
+  function deliverySource(r) {return (r.manualFlag&&r.manual)?"manual":r.reneg?"grv":r.original?"original":"sem_data";}
   function isoDate(d) {return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");}
   // Semana de entrega: segunda a domingo, sempre pela data reprogramada quando existir.
   function deliveryWeek(r) {
@@ -269,7 +277,7 @@
   function passBase(r) {
     if (store.shareIds && !store.shareIds.has(r.os)) return false;
     const q=clean($("search").value);
-    if (q && ![r.os,r.orc,r.item,r.cliente,r.segmento||SEGMENT_EMPTY,dateBR(r.original),dateBR(r.reneg),money(r.valor),r.pend].some(v=>clean(v).includes(q))) return false;
+    if (q && ![r.os,r.orc,r.item,r.cliente,r.segmento||SEGMENT_EMPTY,dateBR(r.original),dateBR(deliveryDate(r)),money(r.valor),r.pend].some(v=>clean(v).includes(q))) return false;
     if ($("client").value && r.cliente!==$("client").value) return false;
     if ($("segment").value && (r.segmento||SEGMENT_EMPTY)!==$("segment").value) return false;
     // Filtra pela data de entrega vigente: reprogramada primeiro; original só se não houver reprogramação.
@@ -282,8 +290,8 @@
     const s=$("status").value;
     if (s==="overdue"&&!isOverdue(r)) return false;
     if (s==="ontime"&&(isOverdue(r)||!(r.reneg||r.original))) return false;
-    if (s==="reneg"&&!r.reneg) return false;
-    if (s==="notreneg"&&r.reneg) return false;
+    if (s==="reneg"&&!(r.reneg||(r.manualFlag&&r.manual))) return false;
+    if (s==="notreneg"&&(r.reneg||(r.manualFlag&&r.manual))) return false;
     if (s==="pending"&&!hasPend(r)) return false;
     return true;
   }
@@ -304,12 +312,105 @@
     });
     return list;
   }
+
+  function setView(target){
+    if(target!=="planilha"&&target!=="kanban")return;
+    store.view=target;
+    $("sheetView").hidden=target!=="planilha";
+    $("kanbanView").hidden=target!=="kanban";
+    $("share").hidden=target==="kanban";
+    $("export").hidden=target==="kanban";
+    $("sheetTab").className="action-btn px-5 py-2.5 "+(target==="planilha"?"bg-columbia-700 text-white":"bg-white text-columbia-700 border border-blue-200");
+    $("kanbanTab").className="action-btn px-5 py-2.5 "+(target==="kanban"?"bg-columbia-700 text-white":"bg-white text-columbia-700 border border-blue-200");
+    $("sheetTab").setAttribute("aria-pressed",String(target==="planilha"));
+    $("kanbanTab").setAttribute("aria-pressed",String(target==="kanban"));
+    $("tabHint").textContent=target==="kanban"?"Movimentação semanal com registro na TOS.":"Carteira completa com pesquisa e filtros.";
+    if(store.ready)render();
+  }
+  function shiftMonth(direction){
+    store.month=new Date(store.month.getFullYear(),store.month.getMonth()+direction,1);
+    if(store.view==="kanban")renderKanban();
+  }
+  function renderKanban(){
+    const y=store.month.getFullYear(),m=store.month.getMonth();
+    const monthPrefix=y+"-"+String(m+1).padStart(2,"0");
+    $("kbMonth").textContent=store.month.toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+    const first=new Date(y,m,1,12),last=new Date(y,m+1,0,12),cursor=new Date(first);
+    cursor.setDate(cursor.getDate()-((cursor.getDay()+6)%7));
+    const keys=[];
+    while(cursor<=last){
+      const monday=isoDate(cursor),sunday=new Date(cursor);
+      sunday.setDate(sunday.getDate()+6);
+      keys.push({start:monday,end:isoDate(sunday),rows:[],value:0});
+      cursor.setDate(cursor.getDate()+7);
+    }
+    const byWeek=new Map(keys.map(w=>[w.start,w]));
+    let count=0;
+    for(const row of store.rows){
+      const dt=deliveryDate(row);
+      if(!dt.startsWith(monthPrefix))continue; // obrigatório filtrar UM mês de entrega vigente.
+      const group=byWeek.get(deliveryWeek(row).key);
+      if(!group)continue;
+      group.rows.push(row);group.value+=row.valor||0;count++;
+    }
+    $("kbCount").textContent=countFormatter.format(count)+" OS · "+keys.length+" semanas";
+    $("kbBoard").innerHTML=keys.map((g,index)=>{
+      g.rows.sort((a,b)=>(deliveryDate(a)||"").localeCompare(deliveryDate(b)||"")||a.os.localeCompare(b.os,"pt-BR",{numeric:true}));
+      const cards=g.rows.map(r=>{
+        const busy=store.movingOS.has(r.os),hasID=/^\d+$/.test(r.empresa)&&/^\d+$/.test(r.codOS);
+        return '<article class="kb-card">'+
+          '<div class="flex items-center justify-between gap-2 mb-2"><strong class="text-columbia-700 text-sm font-black">OS '+esc(r.os)+'</strong>'+
+          '<span class="kb-badge">'+(r.fonte==="manual"?"MANUAL":r.fonte==="grv"?"GRV":"ORIGINAL")+'</span></div>'+
+          '<p class="text-xs font-bold text-slate-800 break-words">'+esc(r.item||"Sem descrição")+'</p>'+
+          '<p class="text-[11px] text-slate-600 mt-1 break-words">'+esc(r.cliente||"Cliente não informado")+'</p>'+
+          '<div class="mt-2 text-[10px] text-slate-500">Entrega <strong class="text-columbia-700">'+esc(dateBR(deliveryDate(r)))+'</strong> · Orig. '+esc(dateBR(r.original))+'</div>'+
+          '<div class="mt-1 text-[11px] font-black text-emerald-800">'+esc(money(r.valor))+'</div>'+
+          '<div class="flex items-center justify-between gap-2 mt-3 border-t pt-2">'+
+           '<button data-kb-os="'+esc(r.os)+'" data-dir="-1" class="kb-move" title="Voltar uma semana" '+(busy||!hasID?"disabled":"")+'>←</button>'+
+           '<span class="text-[10px] font-semibold text-slate-500">'+(busy?"Salvando...":hasID?"Mover semana":"ID da OS ausente")+'</span>'+
+           '<button data-kb-os="'+esc(r.os)+'" data-dir="1" class="kb-move" title="Avançar uma semana" '+(busy||!hasID?"disabled":"")+'>→</button>'+
+          '</div></article>';
+      }).join("");
+      return '<section class="kb-col"><header class="kb-head"><div class="flex flex-wrap justify-between gap-2"><strong class="text-xs">Semana '+(index+1)+'</strong><span class="text-[10px]">'+g.rows.length+' OS</span></div>'+
+        '<p class="font-bold text-xs mt-1">'+esc(dateBR(g.start))+' a '+esc(dateBR(g.end))+'</p>'+
+        '<p class="text-xs text-blue-100 mt-1">'+esc(money(g.value))+'</p></header>'+
+        '<div class="kb-cards">'+(cards||'<p class="kb-empty">Nenhuma OS nesta semana</p>')+'</div></section>';
+    }).join("");
+  }
+  async function moveKanban(os,dir){
+    const row=store.rows.find(r=>r.os===os);
+    if(!row||store.movingOS.has(os)||![1,-1].includes(dir))return;
+    if(!/^\d+$/.test(row.empresa)||!/^\d+$/.test(row.codOS))return;
+    store.movingOS.add(os);
+    $("kbMessage").textContent="Gravando a movimentação da OS "+os+" no GRV...";
+    renderKanban();
+    try{
+      const response=await fetch(API+"/pcp/kanban/mover",{
+        method:"PATCH",cache:"no-store",
+        headers:{"Content-Type":"application/json",Authorization:"Bearer "+localStorage.getItem(TOKEN_KEY)},
+        body:JSON.stringify({cod_empresa:Number(row.empresa),cod_os:Number(row.codOS),direcao:dir})
+      });
+      if(response.status===401){loginRedirect();return;}
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw Error(data.detail||("Falha ao reprogramar a OS (HTTP "+response.status+")."));
+      row.manual=normalizeDate(data.u_dt_rep_manual);
+      row.manualFlag=true;row.entrega=deliveryDate(row);row.fonte="manual";
+      $("kbMessage").textContent="OS "+os+" reprogramada para sexta-feira "+dateBR(row.manual)+". Campo u_reprogramado_manual = 1.";
+      renderKanban();
+      // A API ja corrige o cache, refresh preserva a visao e o mes selecionado.
+      await refresh();
+    }catch(e){
+      $("kbMessage").textContent="Não foi possível mover a OS "+os+": "+(e.message||"Erro na API");
+      renderKanban();
+    }finally{store.movingOS.delete(os);renderKanban();}
+  }
   function render() {
     if (!store.ready || !store.authorized) return;
+    if(store.view==="kanban"){renderKanban();return;}
     store.filtered=computeFiltered();
     const count=store.filtered.length;
     const overdue=store.filtered.filter(isOverdue).length;
-    const reneg=store.filtered.filter(x=>!!x.reneg).length;
+    const reneg=store.filtered.filter(x=>!!x.reneg||(x.manualFlag&&x.manual)).length;
     const value=store.filtered.reduce((sum,x)=>sum+(x.valor||0),0);
     $("kpiCount").textContent=countFormatter.format(count);
     $("kpiOverdue").textContent=countFormatter.format(overdue);
@@ -329,8 +430,10 @@
         '<td class="cell max-w-[350px] whitespace-normal">'+esc(r.item||"—")+'</td>'+
         '<td class="cell whitespace-normal">'+esc(r.cliente||"—")+'</td>'+
         '<td class="cell whitespace-normal">'+(r.segmento?esc(r.segmento):'<span class="inline-block bg-amber-50 text-amber-700 rounded-lg px-2 py-1 text-[11px] font-bold">Sem segmento</span>')+'</td>'+
-        '<td class="cell whitespace-nowrap '+overdueClass+'">'+esc(dateBR(r.original))+'</td>'+
-        '<td class="cell whitespace-nowrap"><button class="edit-date text-purple-700 font-bold hover:bg-purple-50 rounded-lg px-2 py-1 border border-transparent hover:border-purple-200" data-edit="'+esc(r.os)+'" title="Alterar data reprogramada">'+esc(dateBR(r.reneg))+' ✎</button></td>'+
+        '<td class="cell whitespace-nowrap '+overdueClass+'"><div class="font-black">'+esc(dateBR(deliveryDate(r)))+'</div>'+
+          '<span class="kb-badge">'+(r.fonte==="manual"?"MANUAL":r.fonte==="grv"?"GRV":"ORIGINAL")+'</span>'+
+          (r.fonte!=="manual"?'<button class="text-[10px] text-purple-700 underline ml-1" data-edit="'+esc(r.os)+'" title="Alterar reprogramação GRV">Editar GRV</button>':'')+'</td>'+
+        '<td class="cell whitespace-nowrap text-slate-500">'+esc(dateBR(r.original))+'</td>'+
         '<td class="cell text-right whitespace-nowrap font-semibold text-emerald-800">'+esc(money(r.valor))+'</td>'+
         '<td class="cell max-w-[450px] whitespace-normal text-slate-600" title="'+esc(r.pend)+'"><div class="process-clamp">'+esc(r.pend||"—")+'</div></td>'+
         '<td class="cell text-center whitespace-nowrap">'+
@@ -385,7 +488,7 @@
   }
   function resetFilters() {
     for (const id of ["search","client","segment","status","from","to"]) $(id).value="";
-    store.filters={};store.sortKey="original";store.sortAsc=true;store.shown=100;
+    store.filters={};store.sortKey="entrega";store.sortAsc=true;store.shown=100;
     saveFilters();render();
   }
   function optionsFor(key) {
@@ -659,8 +762,8 @@
     if (!window.XLSX) return alert("Não foi possível preparar a planilha. Atualize a página e tente novamente.");
     const records=store.filtered.map(r=>({
       "Nº OS":r.os,"Orçamento":r.orc,"Item":r.item,"Cliente":r.cliente,"Segmento":r.segmento||SEGMENT_EMPTY,
-      "Semana de entrega":deliveryWeek(r).label,"Data considerada":dateBR(deliveryDate(r)),
-      "Previsão original OS":dateBR(r.original),"Data reprogramada":dateBR(r.reneg),
+      "Semana de entrega":deliveryWeek(r).label,"Entrega vigente":dateBR(deliveryDate(r)),
+      "Fonte da data":r.fonte,"Original (referência)":dateBR(r.original),
       "Valor":r.valor,"Processos pendentes":r.pend
     }));
     const sheet=XLSX.utils.json_to_sheet(records);
@@ -670,6 +773,14 @@
     XLSX.writeFile(book,"Carteira_PCP_Columbia_"+localToday()+".xlsx");
   }
   function bind() {
+    $("sheetTab").addEventListener("click",()=>setView("planilha"));
+    $("kanbanTab").addEventListener("click",()=>setView("kanban"));
+    $("kbPrev").addEventListener("click",()=>shiftMonth(-1));
+    $("kbNext").addEventListener("click",()=>shiftMonth(1));
+    $("kbBoard").addEventListener("click",e=>{
+      const b=e.target.closest("[data-kb-os]");
+      if(b)moveKanban(b.dataset.kbOs,Number(b.dataset.dir));
+    });
     $("refresh").addEventListener("click",refresh);
     $("export").addEventListener("click",exportExcel);
     $("share").addEventListener("click",openShare);
