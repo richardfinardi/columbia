@@ -33,6 +33,13 @@ O frontend valida \`GET /producao/portal/me\` com o token Bearer e **nega acesso
 
 **Atenção: página estática não é barreira de segurança de dados.** Para que o acesso seja efetivamente restrito, a API da Columbia precisa verificar o token e \`u_pcp=1\` no servidor também nos endpoints usados pelo PCP — inclusive \`GET /producao\` e \`PATCH /producao/{n_os}/alterar-renegociacao\` (ou equivalentes exclusivos de PCP). Como a API de produção é usada por outros módulos, não bloquear indiscriminadamente usuários legados; se necessário, crie rotas \`/producao/pcp/...\` exclusivas. **Esses controles de servidor não são implementados neste repositório de páginas estáticas.**
 
+## Interface: planejamento recolhido e filtro de datas
+O resumo de planejamento por semana e as linhas de OS dentro de cada semana iniciam **recolhidos**; os cabeçalhos de cada semana continuam mostrando quantidade e valor. O botão **Mostrar resumo semanal** expande/recolhe os cards. Cada semana pode ser expandida individualmente, ou todas juntas pelos botões **Expandir todas as semanas** e **Recolher todas**.
+
+O filtro **Entrega de / Entrega até** inclui a OS se a **data original OU a reprogramada** pertencer ao período (ambas consideradas, limites inclusivos). Se as duas datas estiverem preenchidas, basta uma coincidir; a outra pode estar fora. Isso só altera o filtro: **para o agrupamento semanal**, a data reprogramada continua prioritária.
+
+A interface utiliza o termo **Reprogramada** (inclusive no Excel e no portal público); no servidor GRV e no JSON, o nome técnico do campo continua sendo `u_data_renegociacao`/`dt_renegociada` e o endpoint de gravação permanece `alterar-renegociacao`.
+
 ## Segmento
 A coluna e o filtro Segmento usam o campo `segmento` no JSON de produção e seus aliases `segmento_cliente`, `u_segmento` e `classificacao_segmento`. Quando faltar o campo na OS, a tela busca o mesmo JSON `/faturamento_prod` do módulo Produção Columbia e procura correspondência por número da OS; na ausência, por nome de cliente **somente quando houver um único segmento inequívoco**. Valores realmente indisponíveis são apresentados como `Sem segmento` e ficam selecionáveis no filtro. Não criar nomes de segmentos fictícios.
 
@@ -47,7 +54,7 @@ A pessoa que recebe o endereço **não precisa de usuário nem senha**. Ela aces
 
 O botão **Gerenciar links** no módulo interno lista os planejamentos gerados e oferece copiar, desativar ou reativar. O link é verificado no **servidor a cada consulta e a cada abertura de PDF**. Links vencidos e desativados retornam HTTP 410, sem entregar dados.
 
-A data da semana é sempre a renegociada, caso exista; senão, a original da OS. Os valores e dados são consultados novamente ao abrir o portal, portanto o planejamento reflete alterações posteriores às datas ou processos, mas inclui somente as OS selecionadas na criação. OS sem data ficam em uma semana especial.
+A data da semana é sempre a reprogramada, caso exista; senão, a original da OS. Os valores e dados são consultados novamente ao abrir o portal, portanto o planejamento reflete alterações posteriores às datas ou processos, mas inclui somente as OS selecionadas na criação. OS sem data ficam em uma semana especial.
 
 ### Instalação obrigatória no servidor Columbia
 
@@ -62,7 +69,7 @@ Os endpoints de criação, consulta de links e reativação só aceitam usuário
 1. Entrar com usuário \`u_pcp=0\` e confirmar que o módulo não abre nem por URL direta.
 2. Entrar com \`u_pcp=1\` e conferir algumas OS entre a produção e a nova carteira, inclusive campos nulos e renegociações.
 3. Modificar e remover uma data com justificativa, verificar banco de dados e log do GRV.
-4. Filtrar OS, gerar link, abrir em outro navegador deslogado, efetuar login e conferir a seleção exata.
+4. Filtrar OS por original ou reprogramada, conferir que o planejamento começa recolhido, e testar a expansão. Após instalar o backend, gerar link e conferir consulta externa sem login.
 5. Garantir via API a rejeição com HTTP 403 de leituras e escritas PCP por token sem a permissão.
 
 Validação realizada na edição: sintaxe JavaScript verificada. Sem conexão com a API privada neste ambiente, a integração real e as permissões no backend precisam ser testadas na infraestrutura Columbia.
