@@ -16,7 +16,24 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
 .table-scroll{overflow:auto;max-height:74vh}
 .table-scroll::-webkit-scrollbar{height:8px;width:8px}.table-scroll::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:8px}
 #resultTable td{font-size:12px}#resultTable td.wrap{white-space:normal;max-width:330px}
-.week-title td{background:#dbeafe;border-bottom:1px solid #93c5fd;font-weight:900!important;padding:11px!important;color:#003e7e!important}
+.week-title td{padding:0!important;border-bottom:0!important;background:transparent!important}
+.week-card{border-radius:14px;background:linear-gradient(104deg,#f0f7ff,#fff);border:1px solid #cbdff3;box-shadow:0 3px 10px #102b5210;overflow:hidden;margin:7px 8px}
+.week-card.is-late{background:linear-gradient(104deg,#fff4f1,#fff);border-color:#ffd4ca}
+.week-card.is-current{background:linear-gradient(104deg,#e8f8f2,#fff);border-color:#a1dec8}
+.week-toggle{width:100%;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;text-align:left;gap:20px;cursor:pointer}
+.week-toggle:focus-visible{outline:3px solid #2563eb;outline-offset:-4px}
+.week-toggle:hover{background:#dbeafe70}
+.week-chip{border-radius:8px;font-size:10px;font-weight:900;padding:4px 9px;background:#daeafa;color:#104378;letter-spacing:.03em;white-space:nowrap}
+.week-card.is-late .week-chip{background:#fee2e2;color:#991b1b}
+.week-card.is-current .week-chip{background:#c9f1de;color:#166534}
+.week-chevron{font-size:20px;font-weight:900;color:#003e7e;line-height:1}
+.week-card.is-late .week-chevron{color:#b91c1c}
+.week-row td{background:#fff;border-color:#e8edf4;font-size:12px!important}
+.week-row:hover td{background:#f0f7ff}
+.pill{display:inline-flex;border-radius:20px;font-size:10px;line-height:16px;padding:3px 9px;font-weight:800;background:#eff6ff;color:#1d4ed8}
+.pill.late{background:#fee2e2;color:#991b1b}
+.pill.today{background:#d1fae5;color:#065f46}
+@media(max-width:720px){.week-toggle{padding:12px;align-items:flex-start}.week-card{margin:6px 4px}.week-stats{flex-direction:column;align-items:flex-end;gap:4px}}
 .badge{font-size:10px;border-radius:8px;padding:3px 7px;font-weight:800}
 </style>
 </head>
@@ -54,9 +71,14 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
       </div>
       <button id="clear" class="text-xs font-extrabold text-columbia-700">Limpar filtros</button>
     </section>
-    <section><h3 class="font-extrabold mb-2">Resumo semanal</h3><div id="weekCards" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2.5"></div></section>
     <section class="bg-white border rounded-2xl overflow-hidden shadow-sm">
-      <div class="p-3 border-b flex justify-between items-center"><h3 class="font-black text-sm">Ordens de serviço por semana</h3><span id="count" class="text-xs text-slate-500"></span></div>
+      <div class="px-4 py-4 border-b flex flex-wrap justify-between items-center gap-3">
+        <div><h3 class="font-black text-sm text-columbia-700">Cronograma de entregas por semana</h3><p class="text-[11px] text-slate-500 mt-1">Semanas atuais e futuras primeiro · Clique na semana para visualizar suas OS.</p></div>
+        <div class="flex flex-wrap gap-2 items-center"><span id="count" class="text-xs text-slate-500 font-semibold mr-2"></span>
+          <button id="openAllWeeks" type="button" class="px-3 py-2 rounded-xl text-[11px] font-extrabold bg-blue-50 hover:bg-blue-100 text-columbia-700 border border-blue-100">Expandir todas</button>
+          <button id="closeAllWeeks" type="button" class="px-3 py-2 rounded-xl text-[11px] font-extrabold bg-white hover:bg-slate-50 text-slate-700 border">Recolher todas</button>
+        </div>
+      </div>
       <div class="table-scroll"><table id="resultTable" class="w-full min-w-[1120px] text-left border-collapse">
         <thead><tr>
           <th data-sort="os">OS ↕</th><th data-sort="orc">Orçamento ↕</th><th data-sort="item">Item ↕</th><th data-sort="cliente">Cliente ↕</th><th data-sort="segmento">Segmento ↕</th>
@@ -76,7 +98,7 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
   const currency=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
   const dateBR=s=>s&&/^\d{4}-\d{2}-\d{2}$/.test(String(s).slice(0,10))?String(s).slice(8,10)+'/'+String(s).slice(5,7)+'/'+String(s).slice(0,4):'—';
   const dt=s=>s?new Date(s).toLocaleString('pt-BR'):'Sem vencimento';
-  const view={portal:null,rows:[],filtered:[],sort:'original',asc:true,id:'',token:''};
+  const view={portal:null,rows:[],filtered:[],sort:'original',asc:true,id:'',token:'',expanded:new Set(),initializedWeeks:false,manualWeekToggle:false};
   function delivery(r){return r.reneg||r.original||'';}
   function weekOf(r){
     const str=delivery(r);
@@ -87,6 +109,16 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
     const iso=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
     return{key:iso(start),label:'Semana de '+dateBR(iso(start))+' a '+dateBR(iso(end))};
   }
+  function startWeekDate(){
+    const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));
+    return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+  }
+  function weekNumber(str){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(str))return'—';
+    const d=new Date(str+'T12:00:00');d.setDate(d.getDate()+4-(d.getDay()||7));
+    const start=new Date(d.getFullYear(),0,1,12);
+    return String(Math.ceil(((d-start)/86400000+1)/7)).padStart(2,'0');
+  }
   function weeks(rows){
     const groups=new Map();
     for(const r of rows){
@@ -94,7 +126,13 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
       if(!groups.has(w.key))groups.set(w.key,{...w,rows:[],total:0});
       const g=groups.get(w.key);g.rows.push(r);g.total+=Number(r.valor)||0;
     }
-    return[...groups.values()].sort((a,b)=>a.key.localeCompare(b.key));
+    const current=startWeekDate();
+    return [...groups.values()].sort((a,b)=>{
+      // O que vence agora/próximas semanas aparece primeiro; histórico no fim, mais recente antes.
+      const cat=k=>k==='9999-12-31'?2:k>=current?0:1;
+      const ca=cat(a.key),cb=cat(b.key);
+      return ca!==cb?ca-cb:ca===1?b.key.localeCompare(a.key):a.key.localeCompare(b.key);
+    });
   }
   function showError(msg){
     $('loading').hidden=true;$('content').hidden=true;$('error').hidden=false;
@@ -125,11 +163,37 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
     const today=new Date();const todayIso=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
     $('kpiLate').textContent=view.filtered.filter(r=>delivery(r)&&delivery(r)<todayIso).length.toLocaleString('pt-BR');
     if(view.portal?.mostrar_valores)$('kpiValue').textContent=currency.format(view.filtered.reduce((s,r)=>s+(Number(r.valor)||0),0));
-    $('count').textContent=view.filtered.length+' OS';
-    $('weekCards').innerHTML=grouped.map(g=>'<div class="bg-white border rounded-2xl p-3"><strong class="text-columbia-700 text-xs">'+esc(g.label)+'</strong><p class="text-xs text-slate-500 font-semibold mt-2">'+g.rows.length+' OS</p>'+(view.portal?.mostrar_valores?'<p class="font-black text-emerald-700 text-sm mt-1">'+esc(currency.format(g.total))+'</p>':'')+'</div>').join('')||'<div class="text-sm text-slate-500">Nenhuma semana encontrada.</div>';
+    $('count').textContent=grouped.length+' semanas · '+view.filtered.length+' OS';
+    const currentWeek=startWeekDate(),searching=!!(q||cli||seg||wk);
+    if(!view.initializedWeeks){
+      // Primeira abertura: somente a semana mais relevante aparece expandida.
+      if(grouped.length)view.expanded.add(grouped[0].key);
+      view.initializedWeeks=true;
+    }
     let body='';
     for(const g of grouped){
-      body+='<tr class="week-title"><td colspan="'+(view.portal?.mostrar_valores?10:9)+'"><div class="flex flex-wrap justify-between gap-2"><strong>'+esc(g.label)+'</strong><span>'+g.rows.length+' OS'+(view.portal?.mostrar_valores?' · '+esc(currency.format(g.total)):'')+'</span></div></td></tr>';
+      const count=g.rows.length;
+      const isCurrent=g.key===currentWeek;
+      const late=g.key<currentWeek;
+      const noDate=g.key==='9999-12-31';
+      const status=noDate?'Sem previsão':isCurrent?'Semana atual':late?'Em atraso':'Próximas entregas';
+      const cls=late?'is-late':isCurrent?'is-current':'';
+      const active=searching?true:view.expanded.has(g.key);
+      const chevron=active?'▾':'▸';
+      const value=view.portal?.mostrar_valores?'<span class="font-black text-emerald-800 text-sm whitespace-nowrap">'+esc(currency.format(g.total))+'</span>':'';
+      const lateCount=g.rows.filter(r=>delivery(r)&&delivery(r)<todayIso).length;
+      const lateBadge=lateCount?'<span class="pill late">'+lateCount+' vencida(s)</span>':'';
+      body+='<tr class="week-title"><td colspan="'+(view.portal?.mostrar_valores?10:9)+'">'+
+        '<div class="week-card '+cls+'"><button type="button" class="week-toggle" data-week-toggle="'+esc(g.key)+'" aria-expanded="'+active+'" aria-label="'+esc((active?'Recolher':'Expandir')+' '+g.label)+'">'+
+        '<div class="flex flex-wrap items-center gap-3">'+
+        '<span class="week-chevron" aria-hidden="true">'+chevron+'</span>'+
+        '<div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><span class="week-chip">'+(noDate?'SEM DATA':'SEMANA '+weekNumber(g.key))+'</span>'+
+        '<span class="text-[10px] font-extrabold tracking-wide text-slate-500 uppercase">'+status+'</span></div>'+
+        '<strong class="block text-columbia-800 text-[13px] sm:text-[15px] font-black mt-1">'+esc(g.label)+'</strong></div></div>'+
+        '<div class="week-stats flex flex-wrap items-center justify-end gap-3">'+lateBadge+
+        '<span class="pill">'+count+' OS</span>'+value+'</div>'+
+        '</button></div></td></tr>';
+      if(!active)continue;
       for(const r of g.rows){
         const att=Array.isArray(r.anexos)?r.anexos:[];
         const links=att.map((ax,i)=>{
@@ -138,7 +202,7 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
           const url=API+'/'+encodeURIComponent(view.id)+'/anexo?'+query;
           return '<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" class="inline-flex rounded-lg bg-blue-50 text-columbia-700 border border-blue-200 text-[10px] font-bold px-2 py-1.5 hover:bg-blue-100">PDF '+(i+1)+'</a>';
         }).filter(Boolean);
-        body+='<tr class="hover:bg-blue-50/30">'+
+        body+='<tr class="week-row">'+
           '<td class="font-mono font-black text-columbia-700">'+esc(r.os)+'</td>'+
           '<td>'+esc(r.orc||'—')+'</td>'+
           '<td class="wrap">'+esc(r.item||'—')+'</td>'+
@@ -151,6 +215,8 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
       }
     }
     $('rows').innerHTML=body||'<tr><td colspan="10" class="text-center text-slate-500 p-10">Nenhuma OS encontrada.</td></tr>';
+    $('openAllWeeks').disabled=searching||!grouped.length;
+    $('closeAllWeeks').disabled=searching||!grouped.length;
   }
   function excel(){
     if(!view.portal?.permitir_excel||!window.XLSX)return;
@@ -200,6 +266,15 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
   document.addEventListener('DOMContentLoaded',()=>{
     $('refresh').addEventListener('click',load);
     $('export').addEventListener('click',excel);
+    $('openAllWeeks').addEventListener('click',()=>{view.expanded=new Set(weeks(view.filtered).map(g=>g.key));render();});
+    $('closeAllWeeks').addEventListener('click',()=>{view.expanded.clear();render();});
+    $('rows').addEventListener('click',e=>{
+      const toggle=e.target.closest('[data-week-toggle]');
+      if(!toggle)return;
+      const key=toggle.dataset.weekToggle;
+      if(view.expanded.has(key))view.expanded.delete(key);else view.expanded.add(key);
+      render();
+    });
     for(const id of ['search','client','segment','week'])$(id).addEventListener(id==='search'?'input':'change',render);
     $('clear').addEventListener('click',()=>{for(const id of ['search','client','segment','week'])$(id).value='';render();});
     document.querySelectorAll('[data-sort]').forEach(th=>th.addEventListener('click',()=>{if(view.sort===th.dataset.sort)view.asc=!view.asc;else{view.sort=th.dataset.sort;view.asc=true;}render();}));
