@@ -45,6 +45,10 @@
         <div class="w-12 h-12 rounded-2xl bg-cyan-50 text-cyan-700 flex items-center justify-center mb-5"><i data-lucide="calendar-range" class="w-6 h-6"></i></div>
         <div class="flex items-start justify-between gap-3"><div><h3 class="text-xl font-black text-slate-900">Carteira PCP</h3><p class="text-sm text-slate-500 mt-2 leading-relaxed">Ordens de serviço, datas de entrega, processos pendentes, renegociações e compartilhamento de filtros.</p></div><i data-lucide="arrow-right" class="w-5 h-5 text-slate-400 group-hover:text-cyan-700 shrink-0 mt-1"></i></div>
       </a>
+      <a id="cardProducao" href="producao/" class="group hidden bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition p-6 sm:p-7">
+        <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center mb-5"><i data-lucide="factory" class="w-6 h-6"></i></div>
+        <div class="flex items-start justify-between gap-3"><div><h3 class="text-xl font-black text-slate-900">Controle de Produção</h3><p class="text-sm text-slate-500 mt-2 leading-relaxed">Programação semanal, acompanhamento de OS, processos e gestão das OS arquivadas no limbo.</p></div><i data-lucide="arrow-right" class="w-5 h-5 text-slate-400 group-hover:text-indigo-700 shrink-0 mt-1"></i></div>
+      </a>
     </section>
   </main>
   <script>
@@ -62,6 +66,7 @@
           document.getElementById('cardNotas').classList.toggle('hidden',Number(p.u_notas||0)!==1);
           document.getElementById('cardCustos').classList.toggle('hidden',Number(p.u_custos||0)!==1);
           document.getElementById('cardPCP').classList.toggle('hidden',Number(p.u_pcp||0)!==1);
+          document.getElementById('cardProducao').classList.toggle('hidden',Number(p.u_pcp||0)!==1);
           return;
         }
         if(r.status===401)return logout();
@@ -74,12 +79,14 @@
         document.getElementById('cardNotas').classList.toggle('hidden',Number(p.u_notas||0)!==1);
         document.getElementById('cardCustos').classList.toggle('hidden',Number(p.u_custos||0)!==1);
           document.getElementById('cardPCP').classList.toggle('hidden',Number(p.u_pcp||0)!==1);
+          document.getElementById('cardProducao').classList.toggle('hidden',Number(p.u_pcp||0)!==1);
       }catch(e){
         const p=JSON.parse(localStorage.getItem(PERMISSIONS_KEY)||'{}');
         document.getElementById('cardConferencia').classList.toggle('hidden',Number(p.u_analista_cadastro||0)!==1);
         document.getElementById('cardNotas').classList.toggle('hidden',Number(p.u_notas||0)!==1);
         document.getElementById('cardCustos').classList.toggle('hidden',Number(p.u_custos||0)!==1);
           document.getElementById('cardPCP').classList.toggle('hidden',Number(p.u_pcp||0)!==1);
+          document.getElementById('cardProducao').classList.toggle('hidden',Number(p.u_pcp||0)!==1);
       }
     }
     function logout(){localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(PERMISSIONS_KEY);localStorage.removeItem('columbia_analista_usuario');localStorage.removeItem('columbia_analista_cod_responsavel');window.location.href='login.html'}
