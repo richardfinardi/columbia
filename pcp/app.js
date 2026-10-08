@@ -429,7 +429,7 @@
         const busy=store.movingOS.has(r.os),hasID=/^\d+$/.test(r.empresa)&&/^\d+$/.test(r.codOS);
         return '<article class="kb-card">'+
           '<div class="flex items-center justify-between gap-2 mb-2"><strong class="text-columbia-700 text-sm font-black">OS '+esc(r.os)+'</strong>'+
-          '<span class="kb-badge">'+(r.fonte==="manual"?"MANUAL":r.fonte==="grv"?"GRV":"ORIGINAL")+'</span></div>'+
+          '<span class="kb-badge">'+(r.fonte==="manual"?"KANBAN":r.fonte==="grv"?"GRV":"ORIGINAL")+'</span></div>'+
           '<p class="text-xs font-bold text-slate-800 break-words">'+esc(r.item||"Sem descrição")+'</p>'+
           '<p class="text-[11px] text-slate-600 mt-1 break-words">'+esc(r.cliente||"Cliente não informado")+'</p>'+
           '<div class="mt-2 text-[10px] text-slate-500">Entrega <strong class="text-columbia-700">'+esc(dateBR(deliveryDate(r)))+'</strong> · Orig. '+esc(dateBR(r.original))+'</div>'+
@@ -500,8 +500,9 @@
         '<td class="cell whitespace-normal">'+esc(r.cliente||"—")+'</td>'+
         '<td class="cell whitespace-normal">'+(r.segmento?esc(r.segmento):'<span class="inline-block bg-amber-50 text-amber-700 rounded-lg px-2 py-1 text-[11px] font-bold">Sem segmento</span>')+'</td>'+
         '<td class="cell whitespace-nowrap '+overdueClass+'"><div class="font-black">'+esc(dateBR(deliveryDate(r)))+'</div>'+
-          '<span class="kb-badge">'+(r.fonte==="manual"?"MANUAL":r.fonte==="grv"?"GRV":"ORIGINAL")+'</span>'+
-          (r.fonte!=="manual"?'<button class="text-[10px] text-purple-700 underline ml-1" data-edit="'+esc(r.os)+'" title="Alterar reprogramação GRV">Editar GRV</button>':'')+'</td>'+
+          '<span class="kb-badge">'+(r.fonte==="manual"?"KANBAN":r.fonte==="grv"?"GRV":"ORIGINAL")+'</span>'+
+          '<button class="text-[10px] text-purple-700 font-bold underline ml-1" data-edit="'+esc(r.os)+'" title="Editar data de reprogramação no GRV, mesmo com Kanban ativo">✎ Editar GRV</button>'+
+          (r.fonte==="manual"?'<span class="block mt-1 text-[10px] text-slate-500">Reprog. GRV: '+esc(dateBR(r.reneg))+'</span>':'')+'</td>'+
         '<td class="cell whitespace-nowrap text-slate-500">'+esc(dateBR(r.original))+'</td>'+
         '<td class="cell text-right whitespace-nowrap font-semibold text-emerald-800">'+esc(money(r.valor))+'</td>'+
         '<td class="cell max-w-[450px] whitespace-normal text-slate-600" title="'+esc(r.pend)+'"><div class="process-clamp">'+esc(r.pend||"—")+'</div></td>'+
@@ -601,6 +602,13 @@
     if (!r) return;
     store.editOS=os;
     $("editOS").textContent="OS "+os+" · "+r.cliente+" · Original: "+dateBR(r.original);
+    const kanbanActive=r.manualFlag&&!!r.manual;
+    $("editKanbanInfo").hidden=!kanbanActive;
+    $("editKanbanInfo").textContent=kanbanActive
+      ?"Esta OS está planejada pelo KANBAN para "+dateBR(r.manual)+
+       ". Você pode alterar a data reprogramada do GRV, mas a entrega vigente continuará em "+
+       dateBR(r.manual)+" enquanto o Kanban estiver ativo."
+      :"";
     $("newDate").value=r.reneg||"";
     $("justification").value="";
     $("editError").hidden=true;
@@ -632,7 +640,9 @@
       if (!response.ok) throw new Error(body.detail||body.message||"Não foi possível salvar a nova data (código "+response.status+").");
       r.reneg=date;r.entrega=deliveryDate(r);r.fonte=deliverySource(r);
       $("editModal").hidden=true; store.editOS=null;render();
-      setMessage("Data reprogramada da OS "+os+" gravada com justificativa. Atualizando dados...");
+      setMessage("Reprogramação do GRV gravada para a OS "+os+
+        ((r.manualFlag&&r.manual)?". A entrega vigente continua no KANBAN ("+dateBR(r.manual)+").":".")+
+        " Atualizando dados...");
       await refresh();
     } catch(e) {showEditError(e.message||"Erro ao salvar a reprogramação.");}
     finally {$("saveEdit").disabled=false;$("saveEdit").textContent="Salvar no sistema";}
@@ -836,7 +846,7 @@
     const records=store.filtered.map(r=>({
       "Nº OS":r.os,"Orçamento":r.orc,"Item":r.item,"Cliente":r.cliente,"Segmento":r.segmento||SEGMENT_EMPTY,
       "Semana de entrega":deliveryWeek(r).label,"Entrega vigente":dateBR(deliveryDate(r)),
-      "Fonte da data":r.fonte,"Original (referência)":dateBR(r.original),
+      "Fonte da data":r.fonte==="manual"?"KANBAN":r.fonte==="grv"?"GRV":"ORIGINAL","Original (referência)":dateBR(r.original),
       "Valor":r.valor,"Processos pendentes":r.pend
     }));
     const sheet=XLSX.utils.json_to_sheet(records);
