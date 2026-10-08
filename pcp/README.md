@@ -11,6 +11,7 @@ Utiliza o JSON já empregado em \`producao_columbia\`:
 - Orçamento: \`n_orcamento\` ou \`orcamento\`
 - Item: \`titulo\`, \`descricao\` ou \`cod_interno\`
 - Cliente: \`cliente\`
+- Segmento: \`segmento\` (fallback \`segmento_cliente\` ou \`classificacao_segmento\`)
 - Previsão original: \`prev_entrega_os\`, com \`dt_previsao_entrega\` como fallback
 - Renegociada: \`dt_renegociada\` ou \`u_data_renegociacao\`
 - Valor: \`preco_geral_a_vista\`; fallback para \`valor\` ou \`vl_a_faturar\`
