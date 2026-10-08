@@ -119,6 +119,31 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
       </div>
       <div class="text-xs font-bold text-slate-500" id="kbCount">—</div>
     </div>
+    <section class="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 mb-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <div><h3 class="text-sm font-extrabold text-columbia-700">Filtros do Kanban</h3>
+          <p class="text-[11px] text-slate-500 mt-1">Sincronizados com a Planilha. O período de entrega aqui é somente o mês selecionado acima.</p></div>
+        <button id="kbClear" type="button" class="action-btn border border-slate-300 bg-white hover:bg-slate-50 text-slate-700">Limpar filtros</button>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <label class="lg:col-span-2"><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Pesquisar qualquer informação</span>
+          <input id="kbSearch" type="search" placeholder="OS, orçamento, item, cliente, segmento, processo..." class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50"></label>
+        <label><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Cliente</span>
+          <select id="kbClient" class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50"><option value="">Todos os clientes</option></select></label>
+        <label><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Segmento</span>
+          <select id="kbSegment" class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50"><option value="">Todos os segmentos</option></select></label>
+        <label><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Situação</span>
+          <select id="kbStatus" class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50">
+            <option value="">Todas</option>
+            <option value="overdue">Entrega vencida</option>
+            <option value="ontime">No prazo</option>
+            <option value="reneg">Com reprogramação</option>
+            <option value="notreneg">Sem reprogramação</option>
+            <option value="pending">Com processos pendentes</option>
+          </select></label>
+      </div>
+      <p id="kbFilterInfo" class="text-[11px] text-slate-500 mt-2">Os filtros por coluna da Planilha também são respeitados, exceto os de data.</p>
+    </section>
     <div id="kbMessage" class="text-xs text-slate-500 mb-3" role="status">As movimentações exigem permissão U_PCP = 1.</div>
     <div id="kbBoard" class="kb-board"></div>
   </section>
@@ -192,6 +217,6 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
     <div class="border-t bg-slate-50 p-3 text-right"><button data-close="managePortalModal" class="action-btn border bg-white">Fechar</button></div>
   </div>
 </div>
-<script src="./app.js?v=2.0.0"></script>
+<script src="./app.js?v=2.1.0"></script>
 </body>
 </html>
