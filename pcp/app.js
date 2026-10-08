@@ -558,7 +558,8 @@
       if (response.status===401) {loginRedirect();return;}
       const body=await response.json().catch(()=>({}));
       if (!response.ok) throw new Error(body.detail||body.message||"Não foi possível salvar a nova data (código "+response.status+").");
-      r.reneg=date; $("editModal").hidden=true; store.editOS=null;render();
+      r.reneg=date;r.entrega=deliveryDate(r);r.fonte=deliverySource(r);
+      $("editModal").hidden=true; store.editOS=null;render();
       setMessage("Data reprogramada da OS "+os+" gravada com justificativa. Atualizando dados...");
       await refresh();
     } catch(e) {showEditError(e.message||"Erro ao salvar a reprogramação.");}
