@@ -139,7 +139,7 @@
       });
       if(!response.ok)throw Error("HTTP "+response.status);
       const data=await response.json();
-      if (!Array.isArray(data))throw Error("Não foi possível completar os dados do planejamento");
+      if (!Array.isArray(data))throw Error("Não foi possível complementar os dados do planejamento");
       extra=data;
     }catch(e){console.warn("Segmentos não disponíveis no JSON complementar:",e);}
     finally {clearTimeout(timer);}
@@ -223,7 +223,7 @@
       return false;
     }
     const data=await response.json();
-    if (Number(data.u_pcp)!==1) {deny("Acesso exclusivo a usuários com U_PCP = 1 no GRV.");return false;}
+    if (Number(data.u_pcp)!==1) {deny("Seu usuário não tem acesso ao Planejamento PCP. Procure o responsável pelo sistema.");return false;}
     store.authorized=true;
     const previous=JSON.parse(localStorage.getItem(PERM_KEY)||"{}");
     localStorage.setItem(PERM_KEY,JSON.stringify({...previous,...data}));
@@ -458,7 +458,7 @@
     $("saveEdit").textContent="Salvando...";
     $("editError").hidden=true;
     try {
-      if (!await authorize()) throw new Error("Permissão não validada. Alteração bloqueada.");
+      if (!await authorize()) throw new Error("Não foi possível confirmar seu acesso. Entre novamente.");
       const user=localStorage.getItem("columbia_analista_usuario")||"PCP";
       const response=await fetch(API+"/"+encodeURIComponent(os)+"/alterar-renegociacao",{
         method:"PATCH",
@@ -468,7 +468,7 @@
       });
       if (response.status===401) {loginRedirect();return;}
       const body=await response.json().catch(()=>({}));
-      if (!response.ok) throw new Error(body.detail||body.message||"Falha ao atualizar no sistema (HTTP "+response.status+").");
+      if (!response.ok) throw new Error(body.detail||body.message||"Não foi possível salvar a nova data (código "+response.status+").");
       r.reneg=date; $("editModal").hidden=true; store.editOS=null;render();
       setMessage("Data renegociada da OS "+os+" gravada com justificativa. Atualizando dados...");
       await refresh();
@@ -516,10 +516,10 @@
       if(response.status===401){loginRedirect();return;}
       if(!response.ok){
         const error=await response.json().catch(()=>({}));
-        throw Error(error.detail||"Não foi possível buscar o PDF: HTTP "+response.status);
+        throw Error(error.detail||"Não foi possível abrir o desenho técnico (código "+response.status);
       }
       const payload=await response.json();
-      if(!payload.pdf_base64)throw Error("O servidor não retornou um PDF para este anexo.");
+      if(!payload.pdf_base64)throw Error("O desenho técnico não está disponível neste momento.");
       const chars=atob(payload.pdf_base64.replace(/^data:application\/pdf;base64,/i,""));
       const bytes=new Uint8Array(chars.length);
       for(let i=0;i<chars.length;i++)bytes[i]=chars.charCodeAt(i);
@@ -599,7 +599,7 @@
   }
   function exportExcel() {
     if (!store.filtered.length) return alert("Nenhuma OS filtrada para exportar.");
-    if (!window.XLSX) return alert("A biblioteca de Excel não carregou. Verifique a conexão.");
+    if (!window.XLSX) return alert("Não foi possível preparar a planilha. Atualize a página e tente novamente.");
     const records=store.filtered.map(r=>({
       "Nº OS":r.os,"Orçamento":r.orc,"Item":r.item,"Cliente":r.cliente,"Segmento":r.segmento||SEGMENT_EMPTY,
       "Semana de entrega":deliveryWeek(r).label,"Data considerada":dateBR(deliveryDate(r)),
