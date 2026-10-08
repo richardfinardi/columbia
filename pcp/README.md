@@ -33,13 +33,18 @@ O frontend valida \`GET /producao/portal/me\` com o token Bearer e **nega acesso
 
 **Atenção: página estática não é barreira de segurança de dados.** Para que o acesso seja efetivamente restrito, a API da Columbia precisa verificar o token e \`u_pcp=1\` no servidor também nos endpoints usados pelo PCP — inclusive \`GET /producao\` e \`PATCH /producao/{n_os}/alterar-renegociacao\` (ou equivalentes exclusivos de PCP). Como a API de produção é usada por outros módulos, não bloquear indiscriminadamente usuários legados; se necessário, crie rotas \`/producao/pcp/...\` exclusivas. **Esses controles de servidor não são implementados neste repositório de páginas estáticas.**
 
-## Gerar link das OS filtradas
+## Segmento
+A coluna e o filtro Segmento usam o campo `segmento` no JSON de produção e seus aliases `segmento_cliente`, `u_segmento` e `classificacao_segmento`. Quando faltar o campo na OS, a tela busca o mesmo JSON `/faturamento_prod` do módulo Produção Columbia e procura correspondência por número da OS; na ausência, por nome de cliente **somente quando houver um único segmento inequívoco**. Valores realmente indisponíveis são apresentados como `Sem segmento` e ficam selecionáveis no filtro. Não criar nomes de segmentos fictícios.
 
-A tela fornece \`Gerar link\` das OS filtradas (ou marcadas), incluindo os números das OS na URL com \`?os=...\`. Ao abrir, os dados são novamente lidos da API, e o destinatário precisa autenticar-se com \`u_pcp=1\`. O login do repositório preserva esse destino após a autenticação.
+## Desenhos técnicos anexos
+A coluna **Anexos** aparece em cada OS quando o JSON retorna `anexos[]` com `cod_empresa`, `cod_os` e `cod_os_aux`. O botão abre um modal com os PDFs daquela OS, carregando cada arquivo no visualizador interno. A leitura reutiliza a rota de produção `GET /producao/desenho-anexo?cod_empresa=...&cod_os=...&cod_os_aux=...`, que devolve `pdf_base64`. Quem visualizar o link compartilhado deverá se autenticar e ter a permissão `u_pcp=1`. Validação de permissão e propriedade da OS deve ocorrer no backend.
 
-Esse recurso **não é um portal público de clientes** como o da PSTEC: não publica dados anonimamente, nem tem validade/revogação individual. Para oferecer link externo sem login, são necessários endpoints de criação, persistência, revogação e leitura pública com token aleatório (sem expor os dados na URL), com autorização do gestor e escopo reduzido. Não reutilizar o endpoint da PSTEC, pois ele usa outro banco e outra autenticação.
+## Gerar links semanais das OS filtradas
+**Um link por semana de entrega**, considerando semanas **segunda-feira a domingo**. Para cada OS a data de referência é a **renegociada** (`dt_renegociada` ou `u_data_renegociacao`), ou **previsão original** (`prev_entrega_os` / fallback `dt_previsao_entrega`) quando não existir renegociada. OS sem nenhuma dessas datas ficam em um grupo `Sem data de entrega`.
 
-O link direto tem limite de 700 OS / 7.000 caracteres. Para conjuntos maiores, use os filtros para reduzir o tamanho ou implemente um serviço de links curtos no backend.
+Ao clicar **Gerar links por semana**, o app agrupa as OS atualmente filtradas (ou marcadas) e entrega cartões separados com período, quantidade de OS, soma de valores, botão de copiar e botão de abrir, além de **Copiar todos os links**. Um link guarda a lista de OS daquela semana em `?os=...`. Ao abrir, o sistema atualiza os dados e mostra um cabeçalho com semana, quantidade e valor, agrupando novamente pela data mais atual. As OS escolhidas no link continuam as mesmas mesmo se a data renegociada mudar, mas serão exibidas sob a semana atual. Não existe publicação anônima: os links exigem login válido com `u_pcp=1`.
+
+Cada link direto suporta no máximo 700 OS e 7.000 caracteres. Caso uma semana exceda o limite, o app mostra um aviso para refinar os filtros. Isso não é um portal público de clientes como na PSTEC, não disponibiliza validade ou revogação individual e não reutiliza o backend da PSTEC.
 
 ## Verificações sugeridas para implantação
 
