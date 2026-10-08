@@ -27,6 +27,16 @@ th .filter-btn.on{background:#dbeafe;color:#003e7e;border-color:#93c5fd}
 .modal-bg[hidden], [hidden]{display:none!important}
 input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset:1px}
 ::selection{background:#bfdbfe}
+.kb-board{display:flex;gap:12px;overflow-x:auto;align-items:flex-start;padding:4px 2px 16px}
+.kb-col{flex:1 0 240px;min-width:240px;max-width:400px;background:#e9f0f8;border:1px solid #cbd5e1;border-radius:15px;overflow:hidden}
+.kb-head{background:#003e7e;color:white;padding:12px 14px}
+.kb-cards{padding:10px;max-height:calc(100vh - 300px);overflow-y:auto;display:grid;align-content:start;gap:9px}
+.kb-card{background:white;border:1px solid #d1dae5;border-radius:12px;padding:11px;box-shadow:0 3px 8px #102b5210}
+.kb-move{border:1px solid #bfdbfe;background:#eff6ff;color:#003e7e;border-radius:8px;font-weight:900;padding:5px 13px;cursor:pointer}
+.kb-move:hover{background:#dbeafe}
+.kb-move:disabled{opacity:.3;cursor:not-allowed}
+.kb-badge{font-size:10px;border-radius:6px;padding:3px 7px;font-weight:800;background:#ede9fe;color:#5b21b6}
+.kb-empty{font-size:11px;text-align:center;color:#64748b;padding:22px 10px}
 </style>
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-800">
@@ -45,7 +55,13 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
     </div>
   </div>
 </header>
+<nav class="max-w-[1900px] mx-auto px-4 pt-4 flex items-center gap-2" aria-label="Visualização PCP">
+  <button id="sheetTab" type="button" aria-pressed="true" class="action-btn px-5 py-2.5 bg-columbia-700 text-white">Planilha</button>
+  <button id="kanbanTab" type="button" aria-pressed="false" class="action-btn px-5 py-2.5 bg-white text-columbia-700 border border-blue-200">Kanban</button>
+  <span id="tabHint" class="ml-2 text-[11px] text-slate-500">Carteira completa com pesquisa e filtros.</span>
+</nav>
 <main class="max-w-[1900px] mx-auto px-4 py-5">
+  <div id="sheetView">
   <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
     <div class="bg-white border rounded-2xl p-4"><p class="text-[10px] uppercase font-extrabold text-slate-500">OS filtradas</p><strong id="kpiCount" class="text-2xl font-black text-columbia-700">—</strong></div>
     <div class="bg-white border rounded-2xl p-4"><p class="text-[10px] uppercase font-extrabold text-slate-500">Entrega vencida</p><strong id="kpiOverdue" class="text-2xl font-black text-red-600">—</strong></div>
@@ -61,10 +77,10 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
       <label><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Segmento</span><select id="segment" class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50"><option value="">Todos os segmentos</option></select></label>
       <label><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Situação</span><select id="status" class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50">
         <option value="">Todas</option><option value="overdue">Entrega vencida</option><option value="ontime">No prazo</option><option value="reneg">Com reprogramação</option><option value="notreneg">Sem reprogramação</option><option value="pending">Com processos pendentes</option></select></label>
-      <label title="Data reprogramada tem prioridade. Usa a original somente se não houver reprogramação."><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Entrega de</span><input id="from" type="date" class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50"></label>
-      <label title="Data reprogramada tem prioridade. Usa a original somente se não houver reprogramação."><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Entrega até</span><input id="to" type="date" class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50"></label>
+      <label title="Manual ativa, depois reprogramada GRV e por último original."><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Entrega de</span><input id="from" type="date" class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50"></label>
+      <label title="Manual ativa, depois reprogramada GRV e por último original."><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Entrega até</span><input id="to" type="date" class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50"></label>
     </div>
-    <p class="mt-2 text-[11px] text-slate-500"><strong>Período de entrega:</strong> considera a <strong>reprogramada</strong>; na falta dela, considera a <strong>original</strong>.</p>
+    <p class="mt-2 text-[11px] text-slate-500"><strong>Entrega vigente:</strong> data manual do Kanban (quando ativa) → reprogramada do GRV → original. A coluna original é apenas referência.</p>
     <div id="sharedBadge" class="mt-3 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-xl p-2.5" hidden>Esta seleção de OS considera a data reprogramada ou, na ausência dela, a previsão original. Os filtros abaixo podem restringir o conjunto.</div>
     <div id="message" class="mt-3 bg-slate-50 border rounded-xl px-3 py-2 text-xs text-slate-600">Validando usuário e permissões...</div>
   </section>
@@ -80,8 +96,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
           <th class="px-3 py-2 min-w-[220px]" data-col="item"><button class="sort-btn font-black" data-sort="item">Item <span data-arrow="item">↕</span></button><button class="filter-btn ml-2" data-filter="item" title="Filtrar coluna">⌕</button></th>
           <th class="px-3 py-2 min-w-[160px]" data-col="cliente"><button class="sort-btn font-black" data-sort="cliente">Cliente <span data-arrow="cliente">↕</span></button><button class="filter-btn ml-2" data-filter="cliente" title="Filtrar coluna">⌕</button></th>
           <th class="px-3 py-2 min-w-[120px]" data-col="segmento"><button class="sort-btn font-black" data-sort="segmento">Segmento <span data-arrow="segmento">↕</span></button><button class="filter-btn ml-2" data-filter="segmento" title="Filtrar coluna">⌕</button></th>
-          <th class="px-3 py-2" data-col="original"><button class="sort-btn font-black" data-sort="original">Prev. original OS <span data-arrow="original">↕</span></button><button class="filter-btn ml-2" data-filter="original" title="Filtrar coluna">⌕</button></th>
-          <th class="px-3 py-2" data-col="reneg"><button class="sort-btn font-black" data-sort="reneg">Reprogramada <span data-arrow="reneg">↕</span></button><button class="filter-btn ml-2" data-filter="reneg" title="Filtrar coluna">⌕</button></th>
+          <th class="px-3 py-2" data-col="entrega"><button class="sort-btn font-black" data-sort="entrega">Entrega vigente <span data-arrow="entrega">↕</span></button><button class="filter-btn ml-2" data-filter="entrega" title="Filtrar coluna">⌕</button></th>
+          <th class="px-3 py-2" data-col="original"><button class="sort-btn font-black" data-sort="original">Original (referência) <span data-arrow="original">↕</span></button><button class="filter-btn ml-2" data-filter="original" title="Filtrar coluna">⌕</button></th>
           <th class="px-3 py-2 text-right" data-col="valor"><button class="sort-btn font-black" data-sort="valor">Valor <span data-arrow="valor">↕</span></button><button class="filter-btn ml-2" data-filter="valor" title="Filtrar coluna">⌕</button></th>
           <th class="px-3 py-2 min-w-[200px]" data-col="pend"><button class="sort-btn font-black" data-sort="pend">Processos pendentes <span data-arrow="pend">↕</span></button><button class="filter-btn ml-2" data-filter="pend" title="Filtrar coluna">⌕</button></th>
           <th class="px-3 py-2 text-center min-w-[120px]">Anexos</th>
@@ -90,6 +106,21 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
       </table>
     </div>
     <div class="p-3 border-t flex flex-wrap items-center justify-between gap-2"><p id="pagingInfo" class="text-xs text-slate-500">—</p><button id="more" class="action-btn border border-slate-200 bg-slate-50" hidden>Mostrar mais 100</button></div>
+  </section>
+  </div>
+  <section id="kanbanView" hidden>
+    <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div><h2 class="text-base font-black text-columbia-700">Planejamento semanal · Kanban</h2>
+        <p class="text-xs text-slate-600 mt-1">Um mês por vez. As setas de cada OS movimentam uma semana e gravam a sexta-feira da semana de destino no GRV.</p></div>
+      <div class="flex gap-2 items-center">
+        <button id="kbPrev" type="button" class="action-btn border bg-white text-columbia-700 px-3 py-2 text-lg" aria-label="Mês anterior">‹</button>
+        <strong id="kbMonth" class="text-sm text-columbia-700 min-w-[155px] text-center uppercase">—</strong>
+        <button id="kbNext" type="button" class="action-btn border bg-white text-columbia-700 px-3 py-2 text-lg" aria-label="Próximo mês">›</button>
+      </div>
+      <div class="text-xs font-bold text-slate-500" id="kbCount">—</div>
+    </div>
+    <div id="kbMessage" class="text-xs text-slate-500 mb-3" role="status">As movimentações exigem permissão U_PCP = 1.</div>
+    <div id="kbBoard" class="kb-board"></div>
   </section>
 </main>
 
@@ -161,6 +192,6 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
     <div class="border-t bg-slate-50 p-3 text-right"><button data-close="managePortalModal" class="action-btn border bg-white">Fechar</button></div>
   </div>
 </div>
-<script src="./app.js?v=1.8.0"></script>
+<script src="./app.js?v=2.0.0"></script>
 </body>
 </html>
