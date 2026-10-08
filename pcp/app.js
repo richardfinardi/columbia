@@ -427,9 +427,10 @@
       g.rows.sort((a,b)=>(deliveryDate(a)||"").localeCompare(deliveryDate(b)||"")||a.os.localeCompare(b.os,"pt-BR",{numeric:true}));
       const cards=g.rows.map(r=>{
         const busy=store.movingOS.has(r.os),hasID=/^\d+$/.test(r.empresa)&&/^\d+$/.test(r.codOS);
-        return '<article class="kb-card">'+
+        return '<article class="kb-card" data-drag-os="'+esc(r.os)+'" draggable="'+(!busy&&hasID)+'" title="'+(hasID?"Arraste para outra semana ou use as setas":"OS sem código interno para movimentação")+'">'+
           '<div class="flex items-center justify-between gap-2 mb-2"><strong class="text-columbia-700 text-sm font-black">OS '+esc(r.os)+'</strong>'+
           '<span class="kb-badge">'+(r.fonte==="manual"?"KANBAN":r.fonte==="grv"?"GRV":"ORIGINAL")+'</span></div>'+
+          (hasID&&!busy?'<div class="mb-2"><span class="kb-grip" data-drag-handle title="Toque e arraste para outra semana">⠿ Arrastar</span></div>':'')+
           '<p class="text-xs font-bold text-slate-800 break-words">'+esc(r.item||"Sem descrição")+'</p>'+
           '<p class="text-[11px] text-slate-600 mt-1 break-words">'+esc(r.cliente||"Cliente não informado")+'</p>'+
           '<div class="mt-2 text-[10px] text-slate-500">Entrega <strong class="text-columbia-700">'+esc(dateBR(deliveryDate(r)))+'</strong> · Orig. '+esc(dateBR(r.original))+'</div>'+
@@ -440,38 +441,192 @@
            '<button data-kb-os="'+esc(r.os)+'" data-dir="1" class="kb-move" title="Avançar uma semana" '+(busy||!hasID?"disabled":"")+'>→</button>'+
           '</div></article>';
       }).join("");
-      return '<section class="kb-col"><header class="kb-head"><div class="flex flex-wrap justify-between gap-2"><strong class="text-xs">Semana '+(index+1)+'</strong><span class="text-[10px]">'+g.rows.length+' OS</span></div>'+
+      return '<section class="kb-col" data-week-key="'+esc(g.start)+'"><header class="kb-head"><div class="flex flex-wrap justify-between gap-2"><strong class="text-xs">Semana '+(index+1)+'</strong><span class="text-[10px]">'+g.rows.length+' OS</span></div>'+
         '<p class="font-bold text-xs mt-1">'+esc(dateBR(g.start))+' a '+esc(dateBR(g.end))+'</p>'+
         '<p class="text-xs text-blue-100 mt-1">'+esc(money(g.value))+'</p></header>'+
         '<div class="kb-cards">'+(cards||'<p class="kb-empty">Nenhuma OS nesta semana</p>')+'</div></section>';
     }).join("");
   }
-  async function moveKanban(os,dir){
+
+  // A API existente recebe apenas -1 / +1: quando o cartão é solto numa semana
+  // distante, percorremos as semanas em sequência, aguardando cada confirmação.
+  // Não é necessário publicar um endpoint novo para habilitar o arrastar/soltar.
+  async function moveKanbanSteps(os,steps){
     const row=store.rows.find(r=>r.os===os);
-    if(!row||store.movingOS.has(os)||![1,-1].includes(dir))return;
+    if(!store.authorized||!store.ready||!row||store.movingOS.has(os)||!Number.isInteger(steps)||!steps||Math.abs(steps)>7)return;
     if(!/^\d+$/.test(row.empresa)||!/^\d+$/.test(row.codOS))return;
+    const total=Math.abs(steps),direcao=Math.sign(steps);
+    let completed=0,failed=null;
     store.movingOS.add(os);
-    $("kbMessage").textContent="Gravando a movimentação da OS "+os+" no GRV...";
     renderKanban();
     try{
-      const response=await fetch(API+"/pcp/kanban/mover",{
-        method:"PATCH",cache:"no-store",
-        headers:{"Content-Type":"application/json",Authorization:"Bearer "+localStorage.getItem(TOKEN_KEY)},
-        body:JSON.stringify({cod_empresa:Number(row.empresa),cod_os:Number(row.codOS),direcao:dir})
-      });
-      if(response.status===401){loginRedirect();return;}
-      const data=await response.json().catch(()=>({}));
-      if(!response.ok)throw Error(data.detail||("Falha ao reprogramar a OS (HTTP "+response.status+")."));
-      row.manual=normalizeDate(data.u_dt_rep_manual);
-      row.manualFlag=true;row.entrega=deliveryDate(row);row.fonte="manual";
-      $("kbMessage").textContent="OS "+os+" reprogramada para sexta-feira "+dateBR(row.manual)+". Campo u_reprogramado_manual = 1.";
+      for(let i=0;i<total;i++){
+        $("kbMessage").textContent="Gravando OS "+os+" no GRV: "+(i+1)+" de "+total+" semana(s)...";
+        const response=await fetch(API+"/pcp/kanban/mover",{
+          method:"PATCH",cache:"no-store",
+          headers:{"Content-Type":"application/json",Authorization:"Bearer "+localStorage.getItem(TOKEN_KEY)},
+          body:JSON.stringify({cod_empresa:Number(row.empresa),cod_os:Number(row.codOS),direcao})
+        });
+        if(response.status===401){loginRedirect();return;}
+        const data=await response.json().catch(()=>({}));
+        if(!response.ok)throw Error(data.detail||("Falha ao reprogramar a OS (HTTP "+response.status+")."));
+        const newDate=normalizeDate(data.u_dt_rep_manual);
+        if(!newDate)throw Error("A API gravou, mas não retornou a nova data. Atualize os dados.");
+        row.manual=newDate;
+        row.manualFlag=true;
+        row.entrega=deliveryDate(row);
+        row.fonte="manual";
+        completed++;
+        renderKanban();
+      }
+    }catch(error){
+      failed=error;
+    }finally{
+      store.movingOS.delete(os);
+      if(completed)await refresh(); // Reconsulta após movimentos confirmados, mesmo se parciais.
       renderKanban();
-      // A API ja corrige o cache, refresh preserva a visao e o mes selecionado.
-      await refresh();
-    }catch(e){
-      $("kbMessage").textContent="Não foi possível mover a OS "+os+": "+(e.message||"Erro na API");
-      renderKanban();
-    }finally{store.movingOS.delete(os);renderKanban();}
+    }
+    if(failed){
+      $("kbMessage").textContent=completed
+        ?"Atenção: OS "+os+" movimentada somente "+completed+" de "+total+" semana(s). Posição atual: "+dateBR(row.manual)+". "+(failed.message||"Erro ao gravar.")
+        :"Não foi possível mover a OS "+os+": "+(failed.message||"Erro na API");
+    }else{
+      $("kbMessage").textContent="OS "+os+" movida "+completed+" semana(s). Nova entrega: sexta-feira "+dateBR(row.manual)+". Reprogramação KANBAN gravada no GRV.";
+    }
+  }
+  function moveKanban(os,dir){
+    if(dir!==-1&&dir!==1)return;
+    return moveKanbanSteps(os,dir);
+  }
+  function moveKanbanToWeek(os,targetWeek){
+    const row=store.rows.find(r=>r.os===os);
+    if(!row||store.movingOS.has(os)||!isCalendarDate(targetWeek))return;
+    // Apenas destinos representados nas colunas do mês ativo.
+    if(![...$("kbBoard").querySelectorAll("[data-week-key]")].some(el=>el.dataset.weekKey===targetWeek))return;
+    const source=deliveryWeek(row).key;
+    if(!isCalendarDate(source)||source===targetWeek)return;
+    const targetMonday=new Date(targetWeek+"T12:00:00");
+    if(targetMonday.getDay()!==1)return;
+    const days=(targetMonday-new Date(source+"T12:00:00"))/86400000;
+    const steps=Math.round(days/7);
+    if(!steps||Math.abs(steps)>7||Math.abs(days-steps*7)>0.1)return;
+    const friday=new Date(targetMonday);
+    friday.setDate(friday.getDate()+4);
+    const endDate=isoDate(friday),month=isoDate(store.month).slice(0,7);
+    if(endDate.slice(0,7)!==month&&!window.confirm(
+      "A sexta-feira desta semana é "+dateBR(endDate)+", fora de "+$("kbMonth").textContent+
+      ". Ao mover, a OS sairá do mês exibido. Deseja continuar?"
+    ))return;
+    return moveKanbanSteps(os,steps);
+  }
+
+  let kanbanDraggingOS=null,kanbanTouch=null;
+  function clearKanbanDrag(){
+    $("kbBoard").classList.remove("kb-drag-active");
+    $("kbBoard").querySelectorAll(".kb-dragging,.kb-drop-ready,.kb-drop-target").forEach(el=>{
+      el.classList.remove("kb-dragging","kb-drop-ready","kb-drop-target");
+    });
+    kanbanDraggingOS=null;
+    if(kanbanTouch?.timer)clearInterval(kanbanTouch.timer);
+    kanbanTouch?.ghost?.remove();
+    kanbanTouch=null;
+  }
+  function markKanbanDropZones(os){
+    const source=deliveryWeek(store.rows.find(r=>r.os===os)||{}).key;
+    $("kbBoard").classList.add("kb-drag-active");
+    $("kbBoard").querySelectorAll("[data-week-key]").forEach(col=>{
+      col.classList.toggle("kb-drop-ready",col.dataset.weekKey!==source);
+    });
+  }
+  function highlightKanbanDrop(col){
+    $("kbBoard").querySelectorAll(".kb-drop-target").forEach(x=>x.classList.remove("kb-drop-target"));
+    const os=kanbanDraggingOS||kanbanTouch?.os;
+    const src=deliveryWeek(store.rows.find(r=>r.os===os)||{}).key;
+    if(col&&col.dataset.weekKey!==src){
+      col.classList.add("kb-drop-target");
+      if(kanbanTouch)kanbanTouch.target=col.dataset.weekKey;
+    }else if(kanbanTouch)kanbanTouch.target=null;
+  }
+  function beginKanbanDrag(event){
+    if(event.target.closest("button")){event.preventDefault();return;}
+    const card=event.target.closest('[data-drag-os][draggable="true"]');
+    const os=card?.dataset.dragOs;
+    if(!os||store.movingOS.has(os)){event.preventDefault();return;}
+    kanbanDraggingOS=os;
+    event.dataTransfer.effectAllowed="move";
+    event.dataTransfer.setData("text/plain",os);
+    card.classList.add("kb-dragging");
+    markKanbanDropZones(os);
+    $("kbMessage").textContent="Arraste a OS "+os+" para outra coluna e solte para reprogramar.";
+  }
+  function hoverKanbanDrag(event){
+    if(!kanbanDraggingOS)return;
+    const col=event.target.closest("[data-week-key]");
+    if(!col)return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect="move";
+    highlightKanbanDrop(col);
+    const board=$("kbBoard"),rect=board.getBoundingClientRect();
+    if(event.clientX>rect.right-45)board.scrollLeft+=22;
+    if(event.clientX<rect.left+45)board.scrollLeft-=22;
+  }
+  function dropKanbanCard(event){
+    if(!kanbanDraggingOS)return;
+    event.preventDefault();
+    const col=event.target.closest("[data-week-key]"),os=kanbanDraggingOS;
+    clearKanbanDrag();
+    if(col)void moveKanbanToWeek(os,col.dataset.weekKey);
+    else $("kbMessage").textContent="Solte a OS sobre uma coluna de semana válida.";
+  }
+  function beginKanbanTouch(event){
+    const grip=event.target.closest("[data-drag-handle]");
+    const card=grip?.closest('[data-drag-os][draggable="true"]');
+    const point=event.touches[0],os=card?.dataset.dragOs;
+    if(!point||!os||store.movingOS.has(os))return;
+    event.preventDefault();
+    const ghost=document.createElement("div");
+    ghost.className="kb-touch-ghost";
+    ghost.textContent="⠿ OS "+os+" · solte na semana";
+    document.body.appendChild(ghost);
+    ghost.style.left=point.clientX+"px";ghost.style.top=point.clientY+"px";
+    kanbanTouch={os,ghost,x:point.clientX,y:point.clientY,target:null,moved:false,timer:null};
+    card.classList.add("kb-dragging");
+    markKanbanDropZones(os);
+    $("kbMessage").textContent="Mova a OS "+os+" até outra semana e solte.";
+    // Rolagem horizontal ao manter o dedo nas bordas do quadro.
+    kanbanTouch.timer=setInterval(()=>{
+      if(!kanbanTouch)return;
+      const board=$("kbBoard"),rect=board.getBoundingClientRect();
+      if(kanbanTouch.x<rect.left+55)board.scrollLeft-=25;
+      else if(kanbanTouch.x>rect.right-55)board.scrollLeft+=25;
+      highlightKanbanTouch();
+    },50);
+  }
+  function highlightKanbanTouch(){
+    if(!kanbanTouch)return;
+    const at=document.elementFromPoint(kanbanTouch.x,kanbanTouch.y);
+    highlightKanbanDrop(at?.closest("[data-week-key]")||null);
+  }
+  function moveKanbanTouch(event){
+    if(!kanbanTouch)return;
+    const point=event.touches[0];
+    if(!point)return;
+    event.preventDefault();
+    if(Math.hypot(point.clientX-kanbanTouch.x,point.clientY-kanbanTouch.y)>2)kanbanTouch.moved=true;
+    kanbanTouch.x=point.clientX;kanbanTouch.y=point.clientY;
+    kanbanTouch.ghost.style.left=point.clientX+"px";
+    kanbanTouch.ghost.style.top=point.clientY+"px";
+    highlightKanbanTouch();
+  }
+  function endKanbanTouch(event){
+    if(!kanbanTouch)return;
+    event.preventDefault();
+    const point=event.changedTouches?.[0];
+    if(point){kanbanTouch.x=point.clientX;kanbanTouch.y=point.clientY;highlightKanbanTouch();}
+    const {os,target,moved}=kanbanTouch;
+    clearKanbanDrag();
+    if(moved&&target)void moveKanbanToWeek(os,target);
+    else $("kbMessage").textContent="Arraste o cartão pela alça ⠿ e solte em outra semana, ou use as setinhas.";
   }
   function render() {
     if (!store.ready || !store.authorized) return;
@@ -872,6 +1027,14 @@
       const b=e.target.closest("[data-kb-os]");
       if(b)moveKanban(b.dataset.kbOs,Number(b.dataset.dir));
     });
+    $("kbBoard").addEventListener("dragstart",beginKanbanDrag);
+    $("kbBoard").addEventListener("dragover",hoverKanbanDrag);
+    $("kbBoard").addEventListener("drop",dropKanbanCard);
+    $("kbBoard").addEventListener("dragend",clearKanbanDrag);
+    $("kbBoard").addEventListener("touchstart",beginKanbanTouch,{passive:false});
+    $("kbBoard").addEventListener("touchmove",moveKanbanTouch,{passive:false});
+    $("kbBoard").addEventListener("touchend",endKanbanTouch,{passive:false});
+    $("kbBoard").addEventListener("touchcancel",clearKanbanDrag);
     $("refresh").addEventListener("click",refresh);
     $("export").addEventListener("click",exportExcel);
     $("share").addEventListener("click",openShare);
