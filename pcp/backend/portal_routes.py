@@ -153,6 +153,17 @@ def normalize(source: Any, include_value: bool) -> dict | None:
         "pend": clean(pick(r, "pp_pendentes", "processos_pendentes")),
         "anexos": attached(r),
     }
+    manual = iso_date(pick(r, "u_dt_rep_manual"))
+    try:
+        manual_active = int(r.get("u_reprogramado_manual") or 0) == 1
+    except (ValueError, TypeError):
+        manual_active = False
+    if manual_active and manual:
+        item["entrega"], item["origem_entrega"] = manual, "manual"
+    elif item["reneg"]:
+        item["entrega"], item["origem_entrega"] = item["reneg"], "reprogramada"
+    else:
+        item["entrega"], item["origem_entrega"] = item["original"], "original" if item["original"] else "sem_data"
     if include_value:
         item["valor"] = numeric(pick(r, "preco_geral_a_vista", "valor", "vl_a_faturar"))
     return item
@@ -317,7 +328,7 @@ def build_pcp_router(
                 by_os[row["os"]] = row
             else:
                 previous = by_os[row["os"]]
-                for key in ("item","orc","cliente","segmento","original","reneg","pend"):
+                for key in ("item","orc","cliente","segmento","original","reneg","entrega","origem_entrega","pend"):
                     if not previous[key] and row[key]:
                         previous[key] = row[key]
                 existing = {a["aux"] for a in previous["anexos"]}
