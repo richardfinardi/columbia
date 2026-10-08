@@ -75,19 +75,9 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
     <div id="sharedBadge" class="mt-3 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-xl p-2.5" hidden>Esta seleção de OS considera a data reprogramada ou, na ausência dela, a previsão original. Os filtros abaixo podem restringir o conjunto.</div>
     <div id="message" class="mt-3 bg-slate-50 border rounded-xl px-3 py-2 text-xs text-slate-600">Validando usuário e permissões...</div>
   </section>
-  <section id="weekOverview" class="mb-4" hidden>
-    <div class="mb-2 flex justify-between items-center flex-wrap gap-2">
-      <div class="flex flex-wrap items-center gap-3">
-        <h2 class="font-black text-sm text-slate-800">Planejamento por semana de entrega</h2>
-        <span id="weekOverviewCount" class="text-[11px] font-bold text-slate-500"></span>
-      </div>
-      <button type="button" id="toggleWeekOverview" aria-expanded="false" aria-controls="weekCards" class="action-btn bg-white text-columbia-700 hover:bg-blue-50 border border-slate-200">Mostrar resumo semanal ▾</button>
-    </div>
-    <div id="weekCards" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2.5" hidden></div>
-  </section>
   <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
     <div class="px-4 py-3 flex flex-wrap justify-between items-center gap-2 border-b"><div class="text-xs font-extrabold">Relação de Ordens de Serviço <span id="countText" class="font-medium text-slate-500"></span></div>
-      <div class="flex items-center gap-3 text-[11px] text-slate-500"><span id="selectedCount">0 selecionadas</span><button id="expandWeeks" type="button" class="font-bold text-columbia-700 hover:underline" disabled>Expandir todas as semanas</button><button id="collapseWeeks" type="button" class="font-bold text-columbia-700 hover:underline" disabled>Recolher todas</button><button id="selectAll" class="font-bold text-columbia-700 hover:underline" disabled>Selecionar filtradas</button></div></div>
+      <div class="flex items-center gap-3 text-[11px] text-slate-500"><span id="selectedCount">0 selecionadas</span><button id="selectAll" class="font-bold text-columbia-700 hover:underline" disabled>Selecionar filtradas</button></div></div>
     <div class="table-scroll">
       <table class="w-full min-w-[1480px] text-left border-collapse">
         <thead><tr class="text-[10px] uppercase tracking-wide text-slate-600">
@@ -178,6 +168,6 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
     <div class="border-t bg-slate-50 p-3 text-right"><button data-close="managePortalModal" class="action-btn border bg-white">Fechar</button></div>
   </div>
 </div>
-<script src="./app.js?v=1.6.0"></script>
+<script src="./app.js?v=1.7.0"></script>
 </body>
 </html>
