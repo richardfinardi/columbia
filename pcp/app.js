@@ -91,6 +91,7 @@
     try {
       const s=JSON.parse(localStorage.getItem(FILTER_KEY)||"null");
       if (!s || typeof s!=="object") return;
+      store.savedSelections={client:str(s.client),segment:str(s.segment)};
       for (const id of ["search","client","segment","status","from","to"]) if (typeof s[id]==="string") $(id).value=s[id];
       if (cols.includes(s.sortKey)) store.sortKey=s.sortKey;
       store.sortAsc=!!s.sortAsc;
@@ -148,14 +149,15 @@
     return true;
   }
   function updateClientOptions() {
-    const selected=$("client").value;
+    const selected=$("client").value || store.savedSelections?.client || "";
     const opts=[...new Set(store.rows.map(x=>x.cliente).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
     $("client").innerHTML='<option value="">Todos os clientes</option>'+opts.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join("");
     $("client").value=opts.includes(selected)?selected:"";
-    const selectedSegment=$("segment").value;
+    const selectedSegment=$("segment").value || store.savedSelections?.segment || "";
     const segments=[...new Set(store.rows.map(x=>x.segmento).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
     $("segment").innerHTML='<option value="">Todos os segmentos</option>'+segments.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join("");
     $("segment").value=segments.includes(selectedSegment)?selectedSegment:"";
+    store.savedSelections=null;
   }
   function isOverdue(r) {return !!(r.reneg||r.original) && (r.reneg||r.original)<localToday();}
   function passBase(r) {
