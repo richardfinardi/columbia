@@ -7,7 +7,7 @@
   const FILTER_KEY = "columbia_pcp_filters_v1";
   const moneyFormatter = new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"});
   const countFormatter = new Intl.NumberFormat("pt-BR");
-  const labels = {os:"Nº OS",orc:"Orçamento",item:"Item",cliente:"Cliente",original:"Previsão original OS",reneg:"Data renegociada",valor:"Valor",pend:"Processos pendentes"};
+  const labels = {os:"Nº OS",orc:"Orçamento",item:"Item",cliente:"Cliente",segmento:"Segmento",original:"Previsão original OS",reneg:"Data renegociada",valor:"Valor",pend:"Processos pendentes"};
   const cols = Object.keys(labels);
   const $ = id => document.getElementById(id);
   const str = v => v == null ? "" : String(v).trim();
@@ -66,6 +66,7 @@
         orc:str(first(lower,["n_orcamento","orcamento","numero_orcamento"])),
         item:str(first(lower,["titulo","descricao","cod_interno","tiposervico"])),
         cliente:str(first(lower,["cliente","nome_cliente"])),
+        segmento:str(first(lower,["segmento","segmento_cliente","classificacao_segmento"])),
         original:normalizeDate(first(lower,["prev_entrega_os","dt_previsao_entrega","dt_prevista"])),
         reneg:normalizeDate(first(lower,["dt_renegociada","u_data_renegociacao"])),
         valor:parseMoney(first(lower,["preco_geral_a_vista","valor","vl_a_faturar"])),
@@ -73,7 +74,7 @@
       };
       if (!seen.has(os)) {seen.set(os,row);continue;}
       const old=seen.get(os);
-      for (const f of ["orc","item","cliente","original","reneg"]) if (!old[f] && row[f]) old[f]=row[f];
+      for (const f of ["orc","item","cliente","segmento","original","reneg"]) if (!old[f] && row[f]) old[f]=row[f];
       if (old.valor==null && row.valor!=null) old.valor=row.valor;
       if (hasPend(row) && !old.pend.includes(row.pend)) old.pend=hasPend(old) ? old.pend+" | "+row.pend : row.pend;
     }
@@ -90,7 +91,7 @@
     try {
       const s=JSON.parse(localStorage.getItem(FILTER_KEY)||"null");
       if (!s || typeof s!=="object") return;
-      for (const id of ["search","client","status","from","to"]) if (typeof s[id]==="string") $(id).value=s[id];
+      for (const id of ["search","client","segment","status","from","to"]) if (typeof s[id]==="string") $(id).value=s[id];
       if (cols.includes(s.sortKey)) store.sortKey=s.sortKey;
       store.sortAsc=!!s.sortAsc;
       if (s.columns && typeof s.columns==="object") for (const k of cols)
@@ -99,7 +100,7 @@
   }
   function saveFilters() {
     const data={sortKey:store.sortKey,sortAsc:store.sortAsc,columns:{}};
-    for (const id of ["search","client","status","from","to"]) data[id]=$(id).value;
+    for (const id of ["search","client","segment","status","from","to"]) data[id]=$(id).value;
     for (const k of cols) data.columns[k]=[...(store.filters[k]||[])];
     try { localStorage.setItem(FILTER_KEY,JSON.stringify(data)); } catch(e) {}
   }
@@ -126,7 +127,7 @@
     ["refresh","export","share","selectAll","checkAll"].forEach(id=>$(id).disabled=true);
     $("sync").textContent="ACESSO BLOQUEADO";
     setMessage(msg,true);
-    $("rows").innerHTML='<tr><td colspan="9" class="p-12 text-center text-red-700 font-bold text-sm">'+esc(msg)+'</td></tr>';
+    $("rows").innerHTML='<tr><td colspan="10" class="p-12 text-center text-red-700 font-bold text-sm">'+esc(msg)+'</td></tr>';
   }
   async function authorize() {
     const token=localStorage.getItem(TOKEN_KEY);
@@ -151,13 +152,18 @@
     const opts=[...new Set(store.rows.map(x=>x.cliente).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
     $("client").innerHTML='<option value="">Todos os clientes</option>'+opts.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join("");
     $("client").value=opts.includes(selected)?selected:"";
+    const selectedSegment=$("segment").value;
+    const segments=[...new Set(store.rows.map(x=>x.segmento).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+    $("segment").innerHTML='<option value="">Todos os segmentos</option>'+segments.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join("");
+    $("segment").value=segments.includes(selectedSegment)?selectedSegment:"";
   }
   function isOverdue(r) {return !!(r.reneg||r.original) && (r.reneg||r.original)<localToday();}
   function passBase(r) {
     if (store.shareIds && !store.shareIds.has(r.os)) return false;
     const q=clean($("search").value);
-    if (q && ![r.os,r.orc,r.item,r.cliente,dateBR(r.original),dateBR(r.reneg),money(r.valor),r.pend].some(v=>clean(v).includes(q))) return false;
+    if (q && ![r.os,r.orc,r.item,r.cliente,r.segmento,dateBR(r.original),dateBR(r.reneg),money(r.valor),r.pend].some(v=>clean(v).includes(q))) return false;
     if ($("client").value && r.cliente!==$("client").value) return false;
+    if ($("segment").value && r.segmento!==$("segment").value) return false;
     if ($("from").value && (!r.original || r.original<$("from").value)) return false;
     if ($("to").value && (!r.original || r.original>$("to").value)) return false;
     const s=$("status").value;
@@ -199,7 +205,7 @@
     $("countText").textContent="· "+countFormatter.format(count)+" de "+countFormatter.format(store.rows.length);
     $("selectedCount").textContent=countFormatter.format(store.selected.size)+" selecionadas";
     const visible=store.filtered.slice(0,store.shown);
-    if (!visible.length) $("rows").innerHTML='<tr><td colspan="9" class="p-12 text-center text-slate-500 text-sm">Nenhuma OS encontrada com os filtros atuais.</td></tr>';
+    if (!visible.length) $("rows").innerHTML='<tr><td colspan="10" class="p-12 text-center text-slate-500 text-sm">Nenhuma OS encontrada com os filtros atuais.</td></tr>';
     else $("rows").innerHTML=visible.map(r=>{
       const overdueClass=isOverdue(r)?"text-red-700 font-extrabold":"text-slate-700";
       const selected=store.selected.has(r.os);
@@ -209,6 +215,7 @@
         '<td class="cell font-semibold">'+esc(r.orc||"—")+'</td>'+
         '<td class="cell max-w-[350px] whitespace-normal">'+esc(r.item||"—")+'</td>'+
         '<td class="cell whitespace-normal">'+esc(r.cliente||"—")+'</td>'+
+        '<td class="cell whitespace-normal">'+esc(r.segmento||"—")+'</td>'+
         '<td class="cell whitespace-nowrap '+overdueClass+'">'+esc(dateBR(r.original))+'</td>'+
         '<td class="cell whitespace-nowrap"><button class="edit-date text-purple-700 font-bold hover:bg-purple-50 rounded-lg px-2 py-1 border border-transparent hover:border-purple-200" data-edit="'+esc(r.os)+'" title="Alterar data renegociada">'+esc(dateBR(r.reneg))+' ✎</button></td>'+
         '<td class="cell text-right whitespace-nowrap font-semibold text-emerald-800">'+esc(money(r.valor))+'</td>'+
@@ -249,11 +256,11 @@
     } catch(e) {
       $("sync").textContent=store.ready?"DADOS ANTERIORES":"ERRO NA API";
       setMessage("Não foi possível atualizar: "+e.message+(store.ready?". Mantendo dados em memória.":""),true);
-      if (!store.ready) $("rows").innerHTML='<tr><td colspan="9" class="p-12 text-center text-red-700">'+esc(e.message)+'</td></tr>';
+      if (!store.ready) $("rows").innerHTML='<tr><td colspan="10" class="p-12 text-center text-red-700">'+esc(e.message)+'</td></tr>';
     } finally {$("refresh").disabled=false;}
   }
   function resetFilters() {
-    for (const id of ["search","client","status","from","to"]) $(id).value="";
+    for (const id of ["search","client","segment","status","from","to"]) $(id).value="";
     store.filters={};store.sortKey="original";store.sortAsc=true;store.shown=100;
     saveFilters();render();
   }
@@ -366,12 +373,12 @@
     if (!store.filtered.length) return alert("Nenhuma OS filtrada para exportar.");
     if (!window.XLSX) return alert("A biblioteca de Excel não carregou. Verifique a conexão.");
     const records=store.filtered.map(r=>({
-      "Nº OS":r.os,"Orçamento":r.orc,"Item":r.item,"Cliente":r.cliente,
+      "Nº OS":r.os,"Orçamento":r.orc,"Item":r.item,"Cliente":r.cliente,"Segmento":r.segmento,
       "Previsão original OS":dateBR(r.original),"Data renegociada":dateBR(r.reneg),
       "Valor":r.valor,"Processos pendentes":r.pend
     }));
     const sheet=XLSX.utils.json_to_sheet(records);
-    sheet["!cols"]=[{wch:13},{wch:15},{wch:38},{wch:29},{wch:19},{wch:20},{wch:16},{wch:45}];
+    sheet["!cols"]=[{wch:13},{wch:15},{wch:38},{wch:29},{wch:24},{wch:19},{wch:20},{wch:16},{wch:45}];
     const book=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(book,sheet,"Carteira PCP");
     XLSX.writeFile(book,"Carteira_PCP_Columbia_"+localToday()+".xlsx");
@@ -387,7 +394,7 @@
       location.href="../login.html";
     });
     let debounce;
-    for (const id of ["search","client","status","from","to"]) {
+    for (const id of ["search","client","segment","status","from","to"]) {
       $(id).addEventListener(id==="search"?"input":"change",()=>{
         clearTimeout(debounce);
         debounce=setTimeout(()=>{store.shown=100;saveFilters();render();},id==="search"?180:0);
