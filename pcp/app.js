@@ -578,12 +578,10 @@
       // Nunca criar um link compartilhável sem token de acesso emitido pelo servidor.
       const link=publicUrl(created.id,created.token);
       $("shareURL").value=link;
-      const weeks=groupByDeliveryWeek(rows);
       $("shareWeekSummary").innerHTML='<div class="text-xs bg-blue-50 border border-blue-200 rounded-lg p-3 font-bold text-columbia-700">'+
-        'Planejamento: '+countFormatter.format(rows.length)+' OS · '+countFormatter.format(weeks.length)+' semanas · '+
+        'Planejamento: '+countFormatter.format(rows.length)+' OS · '+
         esc($("portalValues").checked?money(rows.reduce((sum,r)=>sum+(r.valor||0),0)):"valores ocultos")+
-        ' · '+(validade?validade+" dias":"sem vencimento")+'</div>'+
-        weeks.map(w=>'<div class="flex items-center justify-between gap-3 text-xs border-b py-1.5"><span class="font-bold text-slate-700">'+esc(w.label)+'</span><span class="text-slate-600 whitespace-nowrap">'+w.rows.length+' OS</span></div>').join("");
+        ' · '+(validade?validade+" dias":"sem vencimento")+'</div>';
       $("shareResult").hidden=false;
     }catch(e){shareError(e.message||"Não foi possível gerar o link.");}
     finally{btn.disabled=false;btn.textContent="Criar link público";}
