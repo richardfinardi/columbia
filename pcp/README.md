@@ -49,7 +49,9 @@ A pagina `/columbia/pcp` possui dois modos: **Planilha** e **Kanban**. Nos dois 
 2. Caso contrario, `TOS.u_data_renegociacao` (JSON `dt_renegociada`).
 3. Por ultimo, `TOS.dt_prevista` (JSON `prev_entrega_os`).
 
-A Planilha apresenta **Entrega vigente** com a origem (MANUAL/GRV/ORIGINAL), e **Original (referencia)** visualmente. Os filtros de periodo, indicadores de atraso e Excel utilizam a data vigente. A coluna original e somente referencia.
+A Planilha apresenta **Entrega vigente** com a origem (KANBAN/GRV/ORIGINAL), e **Original (referencia)** visualmente. Os filtros de periodo, indicadores de atraso e Excel utilizam a data vigente. A coluna original e somente referencia. A indicação visual **KANBAN** representa a data manual `u_dt_rep_manual` ativa; não muda o nome do campo no backend.
+
+**Mesmo quando uma OS está marcada KANBAN, o botão ✎ Editar GRV permanece disponível na Planilha.** Ele edita exclusivamente `u_data_renegociacao` pelo endpoint já existente, com justificativa, sem limpar `u_dt_rep_manual` nem `u_reprogramado_manual`. Enquanto o Kanban estiver ativo, a entrega vigente continua mostrando a data do Kanban; no modal há aviso explícito e é apresentada a data atual do GRV. O link público e o Excel mostram a mesma origem visual KANBAN quando aplicável.
 
 O Kanban filtra obrigatoriamente **um mes**, iniciando no mes atual e usando setas para navegar. **Pesquisa geral, Cliente, Segmento e Situacao sao compartilhados e sincronizados em duas vias com a Planilha**, inclusive ao atualizar a pagina (persistem em localStorage). Filtros por coluna da planilha que nao sejam de data tambem sao respeitados no Kanban. O periodo `Entrega de/ate` e filtros por colunas de data (`entrega` e `original`) **nao restringem o Kanban**: apenas o mes das setas determina o intervalo. `Limpar filtros` do Kanban remove apenas os filtros nao relacionados a datas, preservando `from/to`, filtros de colunas de datas e o mes escolhido. Mostra uma coluna para cada semana de calendario que intersecta o mes, inclusive quando houver seis. Cada OS aparece na semana da data vigente, e as setas do cartao acionam:
 
