@@ -33,12 +33,13 @@ O frontend valida \`GET /producao/portal/me\` com o token Bearer e **nega acesso
 
 **Atenção: página estática não é barreira de segurança de dados.** Para que o acesso seja efetivamente restrito, a API da Columbia precisa verificar o token e \`u_pcp=1\` no servidor também nos endpoints usados pelo PCP — inclusive \`GET /producao\` e \`PATCH /producao/{n_os}/alterar-renegociacao\` (ou equivalentes exclusivos de PCP). Como a API de produção é usada por outros módulos, não bloquear indiscriminadamente usuários legados; se necessário, crie rotas \`/producao/pcp/...\` exclusivas. **Esses controles de servidor não são implementados neste repositório de páginas estáticas.**
 
-## Interface: planejamento recolhido e filtro de datas
-O resumo de planejamento por semana e as linhas de OS dentro de cada semana iniciam **recolhidos**; os cabeçalhos de cada semana continuam mostrando quantidade e valor. O botão **Mostrar resumo semanal** expande/recolhe os cards. Cada semana pode ser expandida individualmente, ou todas juntas pelos botões **Expandir todas as semanas** e **Recolher todas**.
+## Interface interna: planilha direta
+A tela do usuário PCP **não exibe resumo por semana e não agrupa OS na tabela**. Mostra uma única planilha com filtros, ordenação, pesquisa, seleção, anexos, edição de data e botão para criar link de visualização.
 
-O filtro **Entrega de / Entrega até** inclui a OS se a **data original OU a reprogramada** pertencer ao período (ambas consideradas, limites inclusivos). Se as duas datas estiverem preenchidas, basta uma coincidir; a outra pode estar fora. Isso só altera o filtro: **para o agrupamento semanal**, a data reprogramada continua prioritária.
+O filtro **Entrega de / Entrega até** inclui uma OS quando sua data **original ou reprogramada** pertence ao período, inclusive as extremidades. Se ambas estiverem preenchidas, basta que uma coincida. A tela usa o nome **Reprogramada**, mantendo no banco o nome técnico `u_data_renegociacao` e o endpoint legado `alterar-renegociacao`.
 
-A interface utiliza o termo **Reprogramada** (inclusive no Excel e no portal público); no servidor GRV e no JSON, o nome técnico do campo continua sendo `u_data_renegociacao`/`dt_renegociada` e o endpoint de gravação permanece `alterar-renegociacao`.
+## Visualização pública: cronograma semanal
+**Somente `pcp/portal.html`** tem agrupamento por semana de entrega. Não há mais uma parede de cartões repetidos: o portal mostra a lista de semanas em **cabeçalhos expansíveis**, com status da semana, quantidade de OS, atrasadas, datas e valores quando liberados. A semana atual (ou a mais relevante) vem aberta, as demais começam recolhidas. O usuário pode expandir/recolher cada uma ou todas. Semanas atuais e futuras vêm primeiro e o histórico vencido fica depois, ordenado da mais recente para a mais antiga. Filtros e pesquisa mostram automaticamente as OS correspondentes. A data de agrupamento prioriza a **reprogramada**, recorrendo à previsão original quando não existe reprogramação.
 
 ## Segmento
 A coluna e o filtro Segmento usam o campo `segmento` no JSON de produção e seus aliases `segmento_cliente`, `u_segmento` e `classificacao_segmento`. Quando faltar o campo na OS, a tela busca o mesmo JSON `/faturamento_prod` do módulo Produção Columbia e procura correspondência por número da OS; na ausência, por nome de cliente **somente quando houver um único segmento inequívoco**. Valores realmente indisponíveis são apresentados como `Sem segmento` e ficam selecionáveis no filtro. Não criar nomes de segmentos fictícios.
@@ -69,7 +70,7 @@ Os endpoints de criação, consulta de links e reativação só aceitam usuário
 1. Entrar com usuário \`u_pcp=0\` e confirmar que o módulo não abre nem por URL direta.
 2. Entrar com \`u_pcp=1\` e conferir algumas OS entre a produção e a nova carteira, inclusive campos nulos e renegociações.
 3. Modificar e remover uma data com justificativa, verificar banco de dados e log do GRV.
-4. Filtrar OS por original ou reprogramada, conferir que o planejamento começa recolhido, e testar a expansão. Após instalar o backend, gerar link e conferir consulta externa sem login.
+4. Filtrar a planilha interna por original ou reprogramada; após instalar o backend, abrir link público e verificar o agrupamento por semanas com expandir/recolher.
 5. Garantir via API a rejeição com HTTP 403 de leituras e escritas PCP por token sem a permissão.
 
 Validação realizada na edição: sintaxe JavaScript verificada. Sem conexão com a API privada neste ambiente, a integração real e as permissões no backend precisam ser testadas na infraestrutura Columbia.
