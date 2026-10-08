@@ -5,6 +5,7 @@
   const TOKEN_KEY = "columbia_analista_token";
   const PERM_KEY = "columbia_permissoes";
   const FILTER_KEY = "columbia_pcp_filters_v1";
+  const SEGMENT_EMPTY = "Sem segmento";
   const moneyFormatter = new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"});
   const countFormatter = new Intl.NumberFormat("pt-BR");
   const labels = {os:"Nº OS",orc:"Orçamento",item:"Item",cliente:"Cliente",segmento:"Segmento",original:"Previsão original OS",reneg:"Data renegociada",valor:"Valor",pend:"Processos pendentes"};
@@ -15,7 +16,7 @@
   const esc = v => String(v == null ? "" : v).replace(/[&<>"']/g, x => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[x]));
   const localToday = () => { const d = new Date(); return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-"); };
   const money = v => v == null ? "—" : moneyFormatter.format(v);
-  const store = {rows:[],filtered:[],selected:new Set(),authorized:false,ready:false,editOS:null,pageSize:100,shown:100,sortKey:"original",sortAsc:true,shareIds:null,filters:{},popupKey:null,popupChoices:null};
+  const store = {rows:[],filtered:[],selected:new Set(),authorized:false,ready:false,editOS:null,pageSize:100,shown:100,sortKey:"original",sortAsc:true,shareIds:null,filters:{},popupKey:null,popupChoices:null,attachmentOS:null,attachmentBlobUrl:null,weekLinks:[]};
   const numberFields = new Set(["valor"]);
   const dateFields = new Set(["original","reneg"]);
 
@@ -52,6 +53,23 @@
     return blank(v) ? "" : str(v);
   }
   function hasPend(r) { return !!r.pend && !/^(nenhum|nenhuma|sem processos?|n[aã]o h[aá]|0)$/i.test(r.pend); }
+  function normalizeAttachments(item) {
+    const arr=Array.isArray(item.anexos)?item.anexos:(Array.isArray(item.anexo)?item.anexo:[]);
+    return arr.map(x=>{
+      if (!x || typeof x!=="object") return null;
+      const o=Object.fromEntries(Object.entries(x).map(([k,v])=>[k.toLowerCase(),v]));
+      const empresa=str(first(o,["cod_empresa"]))||str(item.cod_empresa);
+      const os=str(first(o,["cod_os"]))||str(item.cod_os);
+      const aux=str(first(o,["cod_os_aux","cod_aux"]));
+      if (!/^[0-9]+$/.test(empresa)|| !/^[0-9]+$/.test(os)|| !/^[0-9]+$/.test(aux))return null;
+      return {empresa,os,aux,nome:str(first(o,["nome_arquivo","titulo","descricao","codigo"]))};
+    }).filter(Boolean);
+  }
+  function mergeAttachments(into,from) {
+    const map=new Map(into.map(a=>[a.empresa+"-"+a.os+"-"+a.aux,a]));
+    for(const a of from)map.set(a.empresa+"-"+a.os+"-"+a.aux,a);
+    return [...map.values()];
+  }
   function normalizeRows(raw) {
     if (!Array.isArray(raw)) throw new Error("O JSON de produção não retornou uma lista de OS.");
     const seen=new Map();
@@ -66,24 +84,71 @@
         orc:str(first(lower,["n_orcamento","orcamento","numero_orcamento"])),
         item:str(first(lower,["titulo","descricao","cod_interno","tiposervico"])),
         cliente:str(first(lower,["cliente","nome_cliente"])),
-        segmento:str(first(lower,["segmento","segmento_cliente","classificacao_segmento"])),
+        segmento:str(first(lower,["segmento","segmento_cliente","u_segmento","classificacao_segmento"])),
         original:normalizeDate(first(lower,["prev_entrega_os","dt_previsao_entrega","dt_prevista"])),
         reneg:normalizeDate(first(lower,["dt_renegociada","u_data_renegociacao"])),
         valor:parseMoney(first(lower,["preco_geral_a_vista","valor","vl_a_faturar"])),
-        pend:proc(first(lower,["pp_pendentes","processos_pendentes"]))
+        pend:proc(first(lower,["pp_pendentes","processos_pendentes"])),
+        anexos:normalizeAttachments(lower)
       };
       if (!seen.has(os)) {seen.set(os,row);continue;}
       const old=seen.get(os);
       for (const f of ["orc","item","cliente","segmento","original","reneg"]) if (!old[f] && row[f]) old[f]=row[f];
       if (old.valor==null && row.valor!=null) old.valor=row.valor;
+      old.anexos=mergeAttachments(old.anexos,row.anexos);
       if (hasPend(row) && !old.pend.includes(row.pend)) old.pend=hasPend(old) ? old.pend+" | "+row.pend : row.pend;
     }
     return [...seen.values()];
   }
+  function applySegmentFallback(rows,extra) {
+    const byOS=new Map(),byClient=new Map();
+    // Não atribui segmento de outro cliente: nome precisa coincidir,
+    // e só aplica fallback por cliente se houver um único segmento possível.
+    const track=(cliente,segmento)=>{
+      const key=clean(cliente).replace(/\s+/g," ").trim();
+      if (!key || !segmento) return;
+      if(!byClient.has(key))byClient.set(key,new Set());
+      byClient.get(key).add(segmento);
+    };
+    for(const r of rows)track(r.cliente,r.segmento);
+    for(const raw of extra||[]) {
+      if (!raw || typeof raw!=="object") continue;
+      const a=Object.fromEntries(Object.entries(raw).map(([k,v])=>[k.toLowerCase(),v]));
+      const segmento=str(first(a,["segmento","segmento_cliente","u_segmento"]));
+      if (!segmento)continue;
+      const os=str(first(a,["n_os","numero_os"]));
+      if(os){if(!byOS.has(os))byOS.set(os,new Set());byOS.get(os).add(segmento);}
+      track(first(a,["cliente","nome_cliente"]),segmento);
+    }
+    for(const r of rows) {
+      if(r.segmento)continue;
+      const osOptions=byOS.get(r.os);
+      const clientOptions=byClient.get(clean(r.cliente).replace(/\s+/g," ").trim());
+      if(osOptions?.size===1) r.segmento=[...osOptions][0];
+      else if(clientOptions?.size===1) r.segmento=[...clientOptions][0];
+    }
+    return rows.filter(r=>!r.segmento).length;
+  }
+  async function enrichSegments(rows) {
+    if (!rows.some(r=>!r.segmento))return 0;
+    let extra=[];
+    const ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),8000);
+    try {
+      const response=await fetch("https://columbia.consultoriarf.net/faturamento_prod?_t="+Date.now(),{
+        cache:"no-store",signal:ctl.signal
+      });
+      if(!response.ok)throw Error("HTTP "+response.status);
+      const data=await response.json();
+      if (!Array.isArray(data))throw Error("O JSON complementar não contém uma lista");
+      extra=data;
+    }catch(e){console.warn("Segmentos não disponíveis no JSON complementar:",e);}
+    finally {clearTimeout(timer);}
+    return applySegmentFallback(rows,extra);
+  }
   function filterValue(r,k) {
     if (dateFields.has(k)) return r[k] ? dateBR(r[k]) : "—";
     if (k==="valor") return money(r.valor);
-    return str(r[k]) || "—";
+    return str(r[k]) || (k==="segmento"?SEGMENT_EMPTY:"—");
   }
   function clean(s) { return str(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase(); }
   function getSavedFilters() {
@@ -128,7 +193,7 @@
     ["refresh","export","share","selectAll","checkAll"].forEach(id=>$(id).disabled=true);
     $("sync").textContent="ACESSO BLOQUEADO";
     setMessage(msg,true);
-    $("rows").innerHTML='<tr><td colspan="10" class="p-12 text-center text-red-700 font-bold text-sm">'+esc(msg)+'</td></tr>';
+    $("rows").innerHTML='<tr><td colspan="11" class="p-12 text-center text-red-700 font-bold text-sm">'+esc(msg)+'</td></tr>';
   }
   async function authorize() {
     const token=localStorage.getItem(TOKEN_KEY);
@@ -154,7 +219,7 @@
     $("client").innerHTML='<option value="">Todos os clientes</option>'+opts.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join("");
     $("client").value=opts.includes(selected)?selected:"";
     const selectedSegment=$("segment").value || store.savedSelections?.segment || "";
-    const segments=[...new Set(store.rows.map(x=>x.segmento).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+    const segments=[...new Set(store.rows.map(x=>x.segmento||SEGMENT_EMPTY))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
     $("segment").innerHTML='<option value="">Todos os segmentos</option>'+segments.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join("");
     $("segment").value=segments.includes(selectedSegment)?selectedSegment:"";
     store.savedSelections=null;
@@ -163,9 +228,9 @@
   function passBase(r) {
     if (store.shareIds && !store.shareIds.has(r.os)) return false;
     const q=clean($("search").value);
-    if (q && ![r.os,r.orc,r.item,r.cliente,r.segmento,dateBR(r.original),dateBR(r.reneg),money(r.valor),r.pend].some(v=>clean(v).includes(q))) return false;
+    if (q && ![r.os,r.orc,r.item,r.cliente,r.segmento||SEGMENT_EMPTY,dateBR(r.original),dateBR(r.reneg),money(r.valor),r.pend].some(v=>clean(v).includes(q))) return false;
     if ($("client").value && r.cliente!==$("client").value) return false;
-    if ($("segment").value && r.segmento!==$("segment").value) return false;
+    if ($("segment").value && (r.segmento||SEGMENT_EMPTY)!==$("segment").value) return false;
     if ($("from").value && (!r.original || r.original<$("from").value)) return false;
     if ($("to").value && (!r.original || r.original>$("to").value)) return false;
     const s=$("status").value;
@@ -207,7 +272,7 @@
     $("countText").textContent="· "+countFormatter.format(count)+" de "+countFormatter.format(store.rows.length);
     $("selectedCount").textContent=countFormatter.format(store.selected.size)+" selecionadas";
     const visible=store.filtered.slice(0,store.shown);
-    if (!visible.length) $("rows").innerHTML='<tr><td colspan="10" class="p-12 text-center text-slate-500 text-sm">Nenhuma OS encontrada com os filtros atuais.</td></tr>';
+    if (!visible.length) $("rows").innerHTML='<tr><td colspan="11" class="p-12 text-center text-slate-500 text-sm">Nenhuma OS encontrada com os filtros atuais.</td></tr>';
     else $("rows").innerHTML=visible.map(r=>{
       const overdueClass=isOverdue(r)?"text-red-700 font-extrabold":"text-slate-700";
       const selected=store.selected.has(r.os);
@@ -217,11 +282,13 @@
         '<td class="cell font-semibold">'+esc(r.orc||"—")+'</td>'+
         '<td class="cell max-w-[350px] whitespace-normal">'+esc(r.item||"—")+'</td>'+
         '<td class="cell whitespace-normal">'+esc(r.cliente||"—")+'</td>'+
-        '<td class="cell whitespace-normal">'+esc(r.segmento||"—")+'</td>'+
+        '<td class="cell whitespace-normal">'+(r.segmento?esc(r.segmento):'<span class="inline-block bg-amber-50 text-amber-700 rounded-lg px-2 py-1 text-[11px] font-bold">Sem segmento</span>')+'</td>'+
         '<td class="cell whitespace-nowrap '+overdueClass+'">'+esc(dateBR(r.original))+'</td>'+
         '<td class="cell whitespace-nowrap"><button class="edit-date text-purple-700 font-bold hover:bg-purple-50 rounded-lg px-2 py-1 border border-transparent hover:border-purple-200" data-edit="'+esc(r.os)+'" title="Alterar data renegociada">'+esc(dateBR(r.reneg))+' ✎</button></td>'+
         '<td class="cell text-right whitespace-nowrap font-semibold text-emerald-800">'+esc(money(r.valor))+'</td>'+
         '<td class="cell max-w-[450px] whitespace-normal text-slate-600" title="'+esc(r.pend)+'">'+esc(r.pend||"—")+'</td>'+
+        '<td class="cell text-center whitespace-nowrap">'+
+          (r.anexos.length?'<button data-attachments="'+esc(r.os)+'" title="Visualizar desenhos técnicos da OS" class="action-btn border border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100">Anexos ('+r.anexos.length+')</button>':'<span class="text-slate-400">—</span>')+'</td>'+
         '</tr>';
     }).join("");
     $("pagingInfo").textContent="Exibindo "+countFormatter.format(visible.length)+" de "+countFormatter.format(count)+" OS filtradas";
@@ -254,11 +321,20 @@
       updateClientOptions();
       render();
       $("sync").textContent="ATUALIZADO "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
-      setMessage("Dados carregados do mesmo JSON da Produção Columbia. Alterações de datas são gravadas no sistema.");
+      const initialMissing=store.rows.filter(r=>!r.segmento).length;
+      let missing=initialMissing;
+      if(initialMissing) {
+        setMessage("Complementando "+countFormatter.format(initialMissing)+" segmentos ausentes usando o JSON de faturamento...");
+        missing=await enrichSegments(store.rows);
+        updateClientOptions();
+        render();
+      }
+      if(missing)setMessage("Atenção: "+countFormatter.format(missing)+" OS não têm segmento identificado nos JSONs. Elas aparecem como 'Sem segmento' e podem ser filtradas.",true);
+      else setMessage("Dados atualizados. Segmentos carregados, datas editáveis e desenhos técnicos disponíveis.");
     } catch(e) {
       $("sync").textContent=store.ready?"DADOS ANTERIORES":"ERRO NA API";
       setMessage("Não foi possível atualizar: "+e.message+(store.ready?". Mantendo dados em memória.":""),true);
-      if (!store.ready) $("rows").innerHTML='<tr><td colspan="10" class="p-12 text-center text-red-700">'+esc(e.message)+'</td></tr>';
+      if (!store.ready) $("rows").innerHTML='<tr><td colspan="11" class="p-12 text-center text-red-700">'+esc(e.message)+'</td></tr>';
     } finally {$("refresh").disabled=false;}
   }
   function resetFilters() {
@@ -339,6 +415,64 @@
     } catch(e) {showEditError(e.message||"Erro ao salvar renegociação.");}
     finally {$("saveEdit").disabled=false;$("saveEdit").textContent="Salvar no sistema";}
   }
+
+  function clearAttachmentPreview(){
+    $("attachmentPreview").hidden=true;
+    $("attachmentFrame").removeAttribute("src");
+    $("attachmentNewTab").removeAttribute("href");
+    if(store.attachmentBlobUrl){URL.revokeObjectURL(store.attachmentBlobUrl);store.attachmentBlobUrl=null;}
+  }
+  function closeAttachments(){
+    $("attachmentsModal").hidden=true;
+    store.attachmentOS=null;
+    clearAttachmentPreview();
+  }
+  function showAttachments(os){
+    const row=store.rows.find(r=>r.os===os);
+    if(!row)return;
+    store.attachmentOS=os;
+    clearAttachmentPreview();
+    $("attachmentError").hidden=true;
+    $("attachmentOS").textContent="OS "+os+" · "+row.cliente+" · "+row.anexos.length+" anexo(s)";
+    $("attachmentList").innerHTML=row.anexos.length
+      ?row.anexos.map((a,index)=>'<button data-open-anexo="'+index+'" class="action-btn border border-blue-200 text-blue-800 bg-blue-50 hover:bg-blue-100">PDF '+(index+1)+' · '+esc(a.nome||("Desenho "+a.aux))+'</button>').join("")
+      :'<p class="text-xs text-slate-500">Nenhum desenho técnico identificado para esta OS.</p>';
+    $("attachmentsModal").hidden=false;
+  }
+  function attachmentError(text){$("attachmentError").textContent=text;$("attachmentError").hidden=false;}
+  async function openAttachment(index,button){
+    const row=store.rows.find(r=>r.os===store.attachmentOS);
+    const attachment=row?.anexos[index];
+    if (!attachment)return attachmentError("Anexo não encontrado.");
+    button.disabled=true;button.textContent="Carregando PDF...";
+    $("attachmentError").hidden=true;
+    clearAttachmentPreview();
+    try{
+      const url=new URL(API+"/desenho-anexo");
+      url.searchParams.set("cod_empresa",attachment.empresa);
+      url.searchParams.set("cod_os",attachment.os);
+      url.searchParams.set("cod_os_aux",attachment.aux);
+      const response=await fetch(url.href,{cache:"no-store",headers:{Authorization:"Bearer "+localStorage.getItem(TOKEN_KEY)}});
+      if(response.status===401){loginRedirect();return;}
+      if(!response.ok){
+        const error=await response.json().catch(()=>({}));
+        throw Error(error.detail||"Não foi possível buscar o PDF: HTTP "+response.status);
+      }
+      const payload=await response.json();
+      if(!payload.pdf_base64)throw Error("O servidor não retornou um PDF para este anexo.");
+      const chars=atob(payload.pdf_base64.replace(/^data:application\/pdf;base64,/i,""));
+      const bytes=new Uint8Array(chars.length);
+      for(let i=0;i<chars.length;i++)bytes[i]=chars.charCodeAt(i);
+      // Evita mostrar anexos de outra OS quando o usuário muda o modal durante o download.
+      if(store.attachmentOS!==row.os)return;
+      store.attachmentBlobUrl=URL.createObjectURL(new Blob([bytes],{type:"application/pdf"}));
+      $("attachmentTitle").textContent="OS "+row.os+" · "+(attachment.nome||"Desenho")+" · Aux "+attachment.aux;
+      $("attachmentFrame").src=store.attachmentBlobUrl;
+      $("attachmentNewTab").href=store.attachmentBlobUrl;
+      $("attachmentPreview").hidden=false;
+    }catch(e){attachmentError(e.message||"Falha ao carregar o desenho técnico.");}
+    finally{button.disabled=false;button.textContent="PDF "+(index+1)+" · "+(attachment.nome||"Desenho "+attachment.aux);}
+  }
   function openShare() {
     $("filterQty").textContent=countFormatter.format(store.filtered.length);
     $("selectedQty").textContent=countFormatter.format(store.selected.size);
@@ -375,7 +509,7 @@
     if (!store.filtered.length) return alert("Nenhuma OS filtrada para exportar.");
     if (!window.XLSX) return alert("A biblioteca de Excel não carregou. Verifique a conexão.");
     const records=store.filtered.map(r=>({
-      "Nº OS":r.os,"Orçamento":r.orc,"Item":r.item,"Cliente":r.cliente,"Segmento":r.segmento,
+      "Nº OS":r.os,"Orçamento":r.orc,"Item":r.item,"Cliente":r.cliente,"Segmento":r.segmento||SEGMENT_EMPTY,
       "Previsão original OS":dateBR(r.original),"Data renegociada":dateBR(r.reneg),
       "Valor":r.valor,"Processos pendentes":r.pend
     }));
@@ -423,8 +557,14 @@
       render();
     });
     $("rows").addEventListener("click",e=>{
+      const anexos=e.target.closest("[data-attachments]");
+      if(anexos){showAttachments(anexos.dataset.attachments);return;}
       const b=e.target.closest("[data-edit]");
       if (b) openEdit(b.dataset.edit);
+    });
+    $("attachmentList").addEventListener("click",e=>{
+      const btn=e.target.closest("[data-open-anexo]");
+      if(btn)openAttachment(Number(btn.dataset.openAnexo),btn);
     });
     document.querySelectorAll("[data-sort]").forEach(b=>b.addEventListener("click",()=>{
       const k=b.dataset.sort;
@@ -454,10 +594,16 @@
       if (!store.popupKey)return;
       if (!e.target.closest("#colFilter")&&!e.target.closest("[data-filter]")) closePopup();
     });
-    document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>{$(b.dataset.close).hidden=true;}));
+    document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>{
+      if(b.dataset.close==="attachmentsModal")closeAttachments();
+      else $(b.dataset.close).hidden=true;
+    }));
     $("saveEdit").addEventListener("click",saveEdit);
-    for (const id of ["editModal","shareModal"]) $(id).addEventListener("click",e=>{if (e.target===$(id))$(id).hidden=true;});
-    document.addEventListener("keydown",e=>{if(e.key==="Escape"){closePopup();$("editModal").hidden=true;$("shareModal").hidden=true;}});
+    for (const id of ["editModal","shareModal","attachmentsModal"]) $(id).addEventListener("click",e=>{
+      if(e.target!==$(id))return;
+      if(id==="attachmentsModal")closeAttachments();else $(id).hidden=true;
+    });
+    document.addEventListener("keydown",e=>{if(e.key==="Escape"){closePopup();$("editModal").hidden=true;$("shareModal").hidden=true;closeAttachments();}});
   }
   async function init() {
     bind();iconize();
