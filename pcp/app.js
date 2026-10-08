@@ -272,12 +272,12 @@
     if (q && ![r.os,r.orc,r.item,r.cliente,r.segmento||SEGMENT_EMPTY,dateBR(r.original),dateBR(r.reneg),money(r.valor),r.pend].some(v=>clean(v).includes(q))) return false;
     if ($("client").value && r.cliente!==$("client").value) return false;
     if ($("segment").value && (r.segmento||SEGMENT_EMPTY)!==$("segment").value) return false;
-    // Pesquisa o período nas duas datas: a original OU a reprogramada.
-    // Cada data deve estar dentro do intervalo inteiro, inclusive as extremidades.
+    // Filtra pela data de entrega vigente: reprogramada primeiro; original só se não houver reprogramação.
+    // Manter ambas as datas na tabela não significa somá-las como alternativas de entrega.
     const start=$("from").value,end=$("to").value;
     if(start||end){
-      const matches=date=>date&&(!start||date>=start)&&(!end||date<=end);
-      if(!matches(r.original)&&!matches(r.reneg))return false;
+      const delivery=deliveryDate(r);
+      if(!delivery || (start&&delivery<start) || (end&&delivery>end))return false;
     }
     const s=$("status").value;
     if (s==="overdue"&&!isOverdue(r)) return false;
