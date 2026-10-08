@@ -226,7 +226,7 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
           '<td>'+esc(r.segmento||'Sem segmento')+'</td>'+
           '<td class="font-bold text-columbia-700 whitespace-nowrap">'+dateBR(delivery(r))+
             '<span class="block text-[10px] text-slate-400 font-medium">'+
-            (r.origem_entrega==="manual"?"MANUAL":r.origem_entrega==="reprogramada"?"GRV":"ORIGINAL")+'</span></td>'+
+            (r.origem_entrega==="manual"?"KANBAN":r.origem_entrega==="reprogramada"?"GRV":"ORIGINAL")+'</span></td>'+
           '<td class="text-slate-500 whitespace-nowrap">'+dateBR(r.original)+'</td>'+
           (view.portal?.mostrar_valores?'<td class="font-bold text-emerald-700 whitespace-nowrap">'+esc(currencyOrUnknown(r.valor))+'</td>':'')+
           '<td class="wrap">'+esc(r.pend||'—')+'</td>'+
@@ -240,7 +240,7 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
   function excel(){
     if(!view.portal?.permitir_excel||!window.XLSX)return;
     const out=view.filtered.map(r=>{
-      const o={Semana:weekOf(r).label,'Nº OS':r.os,'Orçamento':r.orc,Item:r.item,Cliente:r.cliente,Segmento:r.segmento||'Sem segmento','Entrega vigente':dateBR(delivery(r)),'Origem entrega':r.origem_entrega,'Original (referência)':dateBR(r.original),'Processos pendentes':r.pend};
+      const o={Semana:weekOf(r).label,'Nº OS':r.os,'Orçamento':r.orc,Item:r.item,Cliente:r.cliente,Segmento:r.segmento||'Sem segmento','Entrega vigente':dateBR(delivery(r)),'Origem entrega':r.origem_entrega==="manual"?"KANBAN":r.origem_entrega==="reprogramada"?"GRV":"ORIGINAL",'Original (referência)':dateBR(r.original),'Processos pendentes':r.pend};
       if(view.portal?.mostrar_valores)o.Valor=hasValue(r.valor)?Number(r.valor):null;
       return o;
     });
