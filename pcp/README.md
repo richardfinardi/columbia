@@ -100,3 +100,15 @@ Validação realizada na edição: sintaxe JavaScript verificada. Sem conexão c
 ### Correção dos filtros do Kanban (08/10/2026)
 
 Os menus de **Cliente** e **Segmento** das duas abas são populados diretamente do mesmo `store.rows` (dados do JSON `/producao`, mais complemento de segmento, quando disponível), em vez de copiar as opções HTML do select oculto da Planilha. A pesquisa e a situação usam os valores canônicos da Planilha e são sincronizadas ao trocar de aba ou aplicar filtros no Kanban. Um contador abaixo dos filtros do Kanban indica quantas OS, clientes e segmentos foram efetivamente carregados; erros de autorização/consulta ficam visíveis no próprio Kanban. O mês permanece o único período aplicado ao Kanban e os filtros por coluna que não sejam de data continuam sincronizados.
+
+
+## Migração do Controle de Produção para /columbia (08/10/2026)
+
+A aplicação V7.6.7 antes hospedada em `/producao_columbia` foi copiada integralmente para **`/columbia/producao/`** nos arquivos `producao/index.html` e `producao/controle.js`. Preserva a programação, conferência, faturamento, anexos e **aba Limbo**. Os caminhos de logo foram ajustados para o novo diretório.
+
+A página `/columbia` apresenta **Controle de Produção** somente a quem tem `U_PCP=1`; o novo módulo exige também uma validação **online** `GET /producao/portal/me` com Bearer antes de carregar a lógica original. Usa a mesma sessão e login de `/columbia/login.html`. Não utiliza mais o login legado `columbia_token`. Se não autorizado, o módulo não é inicializado. A URL antiga e seu antigo `login.html` agora exibem "Link desativado" e direcionam ao menu de `/columbia`. Não foi feita exclusão definitiva do código antigo do histórico Git.
+
+**Regra do Limbo:** a Planilha PCP e o Kanban removem `u_limbo=1` no recebimento do JSON. O backend dos links públicos, em `pcp/backend/portal_routes.py`, também não normaliza OS no limbo: para esta regra valer em links já criados, instale a atualização `pcp_portal_routes.py` no servidor Windows e reinicie o processo da API. A tela Controle de Produção continua consultando as OS no limbo na sua aba própria para permitir que sejam reativadas.
+
+**Limite de segurança:** JavaScript estático restringe visualização e navegação, mas **não substitui autorização em todas as rotas SQL/REST legadas**. O endpoint `/producao` também é usado por outros módulos, então não foi bloqueado globalmente para não quebrá-los. Para isolamento real de dados, é necessário aplicar a permissão `U_PCP` no backend às rotas específicas do Controle de Produção, revisando dependências de outros consumidores.
+
