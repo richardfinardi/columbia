@@ -125,7 +125,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
     <div class="p-4 space-y-3 overflow-y-auto">
       <div id="attachmentList" class="flex flex-wrap gap-2"></div>
       <div id="attachmentError" class="text-xs font-bold text-red-700 bg-red-50 border border-red-200 p-3 rounded-xl" hidden></div>
-      <div id="attachmentPreview" hidden><div class="flex justify-between flex-wrap items-center gap-2 mb-2"><p id="attachmentTitle" class="text-xs font-black text-columbia-700"></p><a id="attachmentNewTab" target="_blank" rel="noopener noreferrer" class="action-btn bg-blue-100 text-columbia-700 cursor-pointer">Abrir PDF em nova guia</a></div><iframe id="attachmentFrame" title="Visualização do desenho técnico" class="w-full border rounded-xl bg-slate-50 h-[min(65vh,700px)]"></iframe></div>
+      <p class="text-xs text-slate-500">Clique no arquivo para abrir o PDF diretamente em outra aba.</p>
     </div>
     <div class="border-t bg-slate-50 p-3 flex justify-end"><button data-close="attachmentsModal" class="action-btn border bg-white">Fechar</button></div>
   </div>
@@ -134,7 +134,16 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col">
     <div class="bg-columbia-700 text-white p-4 flex justify-between items-center"><h3 class="font-extrabold">Gerar link único do planejamento</h3><button data-close="shareModal" class="text-2xl leading-none">×</button></div>
     <div class="p-5 space-y-4 overflow-y-auto">
-      <p class="text-xs text-slate-600">Gera <b>um único link com todas as OS</b>, organizado por semanas de entrega (segunda a domingo), com quantidade e total de cada semana, como no Excel. A data <b>renegociada</b> tem prioridade; sem ela, vale a <b>original da OS</b>. Para abrir o planejamento, a pessoa precisa ter <b>acesso autorizado</b>.</p>
+      <p class="text-xs text-slate-600">Crie um <b>link público somente para consulta</b>, sem necessidade de usuário e senha. O link mostra todas as semanas do planejamento, com prioridade para a data renegociada, e deixa de funcionar após o prazo escolhido ou quando for desativado.</p>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <label class="text-xs font-bold text-slate-600">Nome do planejamento
+          <input id="portalName" maxlength="120" class="w-full mt-1 border rounded-xl p-2.5 text-xs bg-slate-50" placeholder="Planejamento de outubro">
+        </label>
+        <label class="text-xs font-bold text-slate-600">Validade do link
+          <select id="portalValidity" class="w-full mt-1 border rounded-xl p-2.5 text-xs bg-slate-50"><option value="7">7 dias</option><option value="30" selected>30 dias</option><option value="90">90 dias</option><option value="365">1 ano</option><option value="0">Sem vencimento</option></select>
+        </label>
+      </div>
+      <div class="flex gap-4 flex-wrap text-xs"><label class="flex items-center gap-2 font-bold"><input id="portalValues" type="checkbox" checked> Mostrar valores</label><label class="flex items-center gap-2 font-bold"><input id="portalExcel" type="checkbox"> Permitir Excel</label></div>
       <label class="flex items-center gap-2 text-xs font-bold"><input name="shareScope" type="radio" value="filtered" checked> Todas as OS filtradas (<span id="filterQty">0</span>)</label>
       <label class="flex items-center gap-2 text-xs font-bold"><input name="shareScope" type="radio" value="selected"> Apenas as OS marcadas (<span id="selectedQty">0</span>)</label>
       <div id="shareError" class="text-xs text-red-600 font-bold" hidden></div>
@@ -145,12 +154,19 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
             <button id="openShared" class="action-btn bg-blue-100 text-columbia-700">Abrir</button>
           </div>
         </div>
-        <div id="shareWeekSummary" class="space-y-2 max-h-52 overflow-auto"></div>
+        <div id="shareWeekSummary" class="space-y-2 max-h-52 overflow-auto"></div><p class="text-xs text-emerald-800 font-semibold">Link criado. Quem receber pode consultar, pesquisar e abrir os anexos, sem alterar informações.</p>
       </div>
     </div>
-    <div class="bg-slate-50 border-t p-4 flex flex-wrap justify-end gap-2"><button data-close="shareModal" class="action-btn bg-white border">Fechar</button><button id="generateShare" class="action-btn bg-cyan-600 text-white">Gerar link único</button></div>
+    <div class="bg-slate-50 border-t p-4 flex flex-wrap justify-end gap-2"><button data-close="shareModal" class="action-btn bg-white border">Fechar</button><button id="manageShare" class="action-btn border bg-white text-columbia-700">Gerenciar links</button><button id="generateShare" class="action-btn bg-cyan-600 text-white">Criar link público</button></div>
   </div>
 </div>
-<script src="./app.js?v=1.4.1"></script>
+<div id="managePortalModal" class="modal-bg" hidden>
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+    <div class="bg-columbia-700 text-white p-4 flex justify-between items-center"><h3 class="font-extrabold">Gerenciar links do planejamento</h3><button data-close="managePortalModal" class="text-2xl" aria-label="Fechar">×</button></div>
+    <div class="p-4 overflow-y-auto"><div id="managePortalList" class="text-sm text-slate-500">Carregando links...</div></div>
+    <div class="border-t bg-slate-50 p-3 text-right"><button data-close="managePortalModal" class="action-btn border bg-white">Fechar</button></div>
+  </div>
+</div>
+<script src="./app.js?v=1.5.0"></script>
 </body>
 </html>
