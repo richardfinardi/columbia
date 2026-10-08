@@ -116,6 +116,19 @@
         localStorage.setItem('columbia_analista_usuario', data.usuario || usuario);
         localStorage.setItem('columbia_analista_cod_responsavel', data.cod_responsavel ?? '');
 
+        // Preserva seleção de OS em links internos enviados a usuários ainda não autenticados.
+        const next = sessionStorage.getItem('columbia_login_next');
+        sessionStorage.removeItem('columbia_login_next');
+        if (next) {
+          try {
+            const target = new URL(next, window.location.href);
+            const base = new URL('./', window.location.href);
+            if (target.origin === window.location.origin && target.pathname.startsWith(base.pathname + 'pcp/')) {
+              window.location.href = target.href;
+              return;
+            }
+          } catch (_) {}
+        }
         window.location.href = 'index.html';
 
       } catch (error) {
