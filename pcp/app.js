@@ -247,6 +247,7 @@
     $("segment").innerHTML='<option value="">Todos os segmentos</option>'+segments.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join("");
     $("segment").value=segments.includes(selectedSegment)?selectedSegment:"";
     store.savedSelections=null;
+    syncKanbanFilters();
   }
   function deliveryDate(r) {return (r.manualFlag&&r.manual)?r.manual:(r.reneg||r.original||"");}
   function deliverySource(r) {return (r.manualFlag&&r.manual)?"manual":r.reneg?"grv":r.original?"original":"sem_data";}
@@ -274,7 +275,7 @@
     return [...map.values()].sort((a,b)=>a.key.localeCompare(b.key));
   }
   function isOverdue(r) {return !!deliveryDate(r) && deliveryDate(r)<localToday();}
-  function passBase(r) {
+  function passBase(r, ignoreDates=false) {
     if (store.shareIds && !store.shareIds.has(r.os)) return false;
     const q=clean($("search").value);
     if (q && ![r.os,r.orc,r.item,r.cliente,r.segmento||SEGMENT_EMPTY,dateBR(r.original),dateBR(deliveryDate(r)),money(r.valor),r.pend].some(v=>clean(v).includes(q))) return false;
@@ -283,27 +284,28 @@
     // Filtra pela data de entrega vigente: reprogramada primeiro; original só se não houver reprogramação.
     // Manter ambas as datas na tabela não significa somá-las como alternativas de entrega.
     const start=$("from").value,end=$("to").value;
-    if(start||end){
+    if(!ignoreDates && (start||end)){
       const delivery=deliveryDate(r);
       if(!delivery || (start&&delivery<start) || (end&&delivery>end))return false;
     }
     const s=$("status").value;
     if (s==="overdue"&&!isOverdue(r)) return false;
-    if (s==="ontime"&&(isOverdue(r)||!(r.reneg||r.original))) return false;
+    if (s==="ontime"&&(isOverdue(r)||!deliveryDate(r))) return false;
     if (s==="reneg"&&!(r.reneg||(r.manualFlag&&r.manual))) return false;
     if (s==="notreneg"&&(r.reneg||(r.manualFlag&&r.manual))) return false;
     if (s==="pending"&&!hasPend(r)) return false;
     return true;
   }
+  function passesColumnFilters(row,skipCol,ignoreDates=false){
+    for(const [key,values] of Object.entries(store.filters)){
+      if(key===skipCol || !values || !values.size)continue;
+      if(ignoreDates&&dateFields.has(key))continue;
+      if(!values.has(filterValue(row,key)))return false;
+    }
+    return true;
+  }
   function computeFiltered(skipCol) {
-    const list=store.rows.filter(r=>{
-      if (!passBase(r)) return false;
-      for (const [key,values] of Object.entries(store.filters)) {
-        if (key===skipCol || !values || !values.size) continue;
-        if (!values.has(filterValue(r,key))) return false;
-      }
-      return true;
-    });
+    const list=store.rows.filter(r=>passBase(r)&&passesColumnFilters(r,skipCol));
     const key=store.sortKey,dir=store.sortAsc?1:-1;
     list.sort((a,b)=>{
       if (key==="valor") return ((a.valor==null?Infinity:a.valor)-(b.valor==null?Infinity:b.valor))*dir;
@@ -313,9 +315,42 @@
     return list;
   }
 
+  const syncedFilters = {search:"kbSearch",client:"kbClient",segment:"kbSegment",status:"kbStatus"};
+  function syncKanbanFilters(){
+    // A Planilha mantém os valores centrais e sua persistência em localStorage.
+    // No Kanban não copiamos os filtros from/to: o mês das setas é independente.
+    for(const [sheet,kanban] of Object.entries(syncedFilters)){
+      const source=$(sheet),target=$(kanban);
+      if(source.tagName==="SELECT"){
+        target.innerHTML=source.innerHTML;
+      }
+      target.value=source.value;
+    }
+  }
+  function changeKanbanFilter(kanbanId){
+    const entry=Object.entries(syncedFilters).find(([,id])=>id===kanbanId);
+    if(!entry)return;
+    const sheetId=entry[0];
+    $(sheetId).value=$(kanbanId).value;
+    store.shown=100;
+    saveFilters();
+    renderKanban();
+  }
+  function resetKanbanFilters(){
+    // Não apaga o mês ativo, os campos from/to nem os filtros por coluna de datas.
+    for(const sheetId of Object.keys(syncedFilters))$(sheetId).value="";
+    for(const key of Object.keys(store.filters)){
+      if(!dateFields.has(key))delete store.filters[key];
+    }
+    store.shown=100;
+    syncKanbanFilters();
+    saveFilters();
+    renderKanban();
+  }
   function setView(target){
     if(target!=="planilha"&&target!=="kanban")return;
     store.view=target;
+    syncKanbanFilters();
     $("sheetView").hidden=target!=="planilha";
     $("kanbanView").hidden=target!=="kanban";
     $("share").hidden=target==="kanban";
@@ -349,11 +384,18 @@
     for(const row of store.rows){
       const dt=deliveryDate(row);
       if(!dt.startsWith(monthPrefix))continue; // obrigatório filtrar UM mês de entrega vigente.
+      if(!passBase(row,true)||!passesColumnFilters(row,undefined,true))continue;
       const group=byWeek.get(deliveryWeek(row).key);
       if(!group)continue;
       group.rows.push(row);group.value+=row.valor||0;count++;
     }
     $("kbCount").textContent=countFormatter.format(count)+" OS · "+keys.length+" semanas";
+    const activeColumns=Object.entries(store.filters)
+      .filter(([key,values])=>!dateFields.has(key)&&values?.size)
+      .map(([key])=>labels[key]||key);
+    $("kbFilterInfo").textContent=activeColumns.length
+      ?"Além dos filtros acima, aplicando "+activeColumns.length+" filtro(s) por coluna da Planilha: "+activeColumns.join(", ")+". Filtros de data são ignorados no Kanban."
+      :"Filtros sincronizados com a Planilha. Filtros de datas da Planilha não afetam o Kanban.";
     $("kbBoard").innerHTML=keys.map((g,index)=>{
       g.rows.sort((a,b)=>(deliveryDate(a)||"").localeCompare(deliveryDate(b)||"")||a.os.localeCompare(b.os,"pt-BR",{numeric:true}));
       const cards=g.rows.map(r=>{
@@ -489,7 +531,7 @@
   function resetFilters() {
     for (const id of ["search","client","segment","status","from","to"]) $(id).value="";
     store.filters={};store.sortKey="entrega";store.sortAsc=true;store.shown=100;
-    saveFilters();render();
+    syncKanbanFilters();saveFilters();render();
   }
   function optionsFor(key) {
     return [...new Set(computeFiltered(key).map(r=>filterValue(r,key)))].sort((a,b)=>a.localeCompare(b,"pt-BR",{numeric:true}));
@@ -522,7 +564,7 @@
     const all=optionsFor(store.popupKey);
     if (!choices.size || all.every(x=>choices.has(x))) delete store.filters[store.popupKey];
     else store.filters[store.popupKey]=new Set(choices);
-    store.shown=100;saveFilters();closePopup();render();
+    store.shown=100;saveFilters();syncKanbanFilters();closePopup();render();
   }
   function openEdit(os) {
     const r=store.rows.find(x=>x.os===os);
@@ -778,6 +820,14 @@
     $("kanbanTab").addEventListener("click",()=>setView("kanban"));
     $("kbPrev").addEventListener("click",()=>shiftMonth(-1));
     $("kbNext").addEventListener("click",()=>shiftMonth(1));
+    let kbDebounce;
+    for(const kanbanId of Object.values(syncedFilters)){
+      $(kanbanId).addEventListener(kanbanId==="kbSearch"?"input":"change",()=>{
+        clearTimeout(kbDebounce);
+        kbDebounce=setTimeout(()=>changeKanbanFilter(kanbanId),kanbanId==="kbSearch"?150:0);
+      });
+    }
+    $("kbClear").addEventListener("click",resetKanbanFilters);
     $("kbBoard").addEventListener("click",e=>{
       const b=e.target.closest("[data-kb-os]");
       if(b)moveKanban(b.dataset.kbOs,Number(b.dataset.dir));
@@ -798,7 +848,11 @@
     for (const id of ["search","client","segment","status","from","to"]) {
       $(id).addEventListener(id==="search"?"input":"change",()=>{
         clearTimeout(debounce);
-        debounce=setTimeout(()=>{store.shown=100;saveFilters();render();},id==="search"?180:0);
+        debounce=setTimeout(()=>{
+          store.shown=100;saveFilters();
+          if(Object.hasOwn(syncedFilters,id))syncKanbanFilters();
+          render();
+        },id==="search"?180:0);
       });
     }
     $("clear").addEventListener("click",resetFilters);
@@ -858,7 +912,7 @@
       for (const x of all) allSelected?store.popupChoices.delete(x):store.popupChoices.add(x);
       buildPopupOptions();
     });
-    $("filterReset").addEventListener("click",()=>{if (!store.popupKey)return;delete store.filters[store.popupKey];saveFilters();closePopup();render();});
+    $("filterReset").addEventListener("click",()=>{if (!store.popupKey)return;delete store.filters[store.popupKey];saveFilters();syncKanbanFilters();closePopup();render();});
     $("filterApply").addEventListener("click",saveCol);
     document.addEventListener("click",e=>{
       if (!store.popupKey)return;
