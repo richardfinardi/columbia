@@ -134,7 +134,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col">
     <div class="bg-columbia-700 text-white p-4 flex justify-between items-center"><h3 class="font-extrabold">Gerar link único do planejamento</h3><button data-close="shareModal" class="text-2xl leading-none">×</button></div>
     <div class="p-5 space-y-4 overflow-y-auto">
-      <p class="text-xs text-slate-600">Gera <b>um único link com todas as OS</b>, organizado por semanas de entrega (segunda a domingo), com quantidade e total de cada semana, como no Excel. A data <b>renegociada</b> tem prioridade; sem ela, vale a <b>original da OS</b>. Quem receber precisa de usuário com <b>U_PCP = 1</b>.</p>
+      <p class="text-xs text-slate-600">Gera <b>um único link com todas as OS</b>, organizado por semanas de entrega (segunda a domingo), com quantidade e total de cada semana, como no Excel. A data <b>renegociada</b> tem prioridade; sem ela, vale a <b>original da OS</b>. Para abrir o planejamento, a pessoa precisa ter <b>acesso autorizado</b>.</p>
       <label class="flex items-center gap-2 text-xs font-bold"><input name="shareScope" type="radio" value="filtered" checked> Todas as OS filtradas (<span id="filterQty">0</span>)</label>
       <label class="flex items-center gap-2 text-xs font-bold"><input name="shareScope" type="radio" value="selected"> Apenas as OS marcadas (<span id="selectedQty">0</span>)</label>
       <div id="shareError" class="text-xs text-red-600 font-bold" hidden></div>
