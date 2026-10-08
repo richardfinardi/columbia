@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Carteira PCP | Columbia Machine</title>
+<link rel="icon" href="../LOGO MINIMALISTA.png" type="image/png">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={theme:{extend:{colors:{columbia:{50:"#f0f7ff",100:"#e0effe",500:"#1d72b8",600:"#155b96",700:"#003e7e",800:"#002e61",900:"#001e40"}}}}};</script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+body{font-family:Segoe UI,system-ui,-apple-system,sans-serif}
+thead th{white-space:nowrap;position:sticky;top:0;z-index:5;background:#f1f5f9}
+th,td{vertical-align:middle}
+th .sort-btn{display:inline-flex;align-items:center;gap:5px;min-height:30px}
+th .filter-btn{display:inline-flex;border:1px solid #cbd5e1;border-radius:7px;padding:4px;color:#64748b}
+th .filter-btn.on{background:#dbeafe;color:#003e7e;border-color:#93c5fd}
+.table-scroll{max-height:calc(100vh - 350px);min-height:260px;overflow:auto}
+.table-scroll::-webkit-scrollbar{height:9px;width:9px}.table-scroll::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:10px}
+.cell{padding:11px 12px;border-bottom:1px solid #e2e8f0;font-size:12px}
+.action-btn{border-radius:9px;padding:7px 10px;font-size:11px;font-weight:800}
+.filter-popup{position:fixed;z-index:90;width:min(330px,calc(100vw - 24px));background:#fff;border:1px solid #cbd5e1;border-radius:15px;box-shadow:0 20px 55px #0f172a30;padding:12px}
+.modal-bg{position:fixed;inset:0;background:#0f172ab8;backdrop-filter:blur(3px);z-index:100;display:flex;align-items:center;justify-content:center;padding:14px}
+.modal-bg[hidden], [hidden]{display:none!important}
+input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset:1px}
+::selection{background:#bfdbfe}
+</style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800">
+<header class="bg-columbia-700 shadow-md text-white">
+  <div class="max-w-[1900px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex gap-3 items-center"><div class="bg-white rounded-xl p-1.5"><img src="../logo.png" alt="Columbia Machine" class="h-9"></div>
+      <div><h1 class="font-black text-lg leading-6">Carteira PCP <span class="text-blue-200 text-xs">v1.0</span></h1><p class="text-[11px] text-blue-100">Columbia Machine Brasil · Acompanhamento de OS</p></div></div>
+    <div class="flex flex-wrap items-center gap-2">
+      <span id="usuario" class="hidden sm:inline text-[11px] font-bold bg-columbia-800 rounded-lg px-3 py-2"></span>
+      <span id="sync" class="text-[10px] font-bold bg-columbia-800 rounded-lg px-2.5 py-2">VALIDANDO ACESSO...</span>
+      <a href="../" class="action-btn bg-columbia-800 hover:bg-columbia-900 flex gap-1.5 items-center"><i data-lucide="layout-grid" class="w-4 h-4"></i>Menu</a>
+      <button id="refresh" class="action-btn bg-white text-columbia-700 hover:bg-blue-50 flex gap-1.5 items-center" disabled><i data-lucide="refresh-cw" class="w-4 h-4"></i>Atualizar</button>
+      <button id="export" class="action-btn bg-emerald-600 hover:bg-emerald-700 flex gap-1.5 items-center" disabled><i data-lucide="file-spreadsheet" class="w-4 h-4"></i>Excel</button>
+      <button id="share" class="action-btn bg-cyan-600 hover:bg-cyan-700 flex gap-1.5 items-center" disabled><i data-lucide="share-2" class="w-4 h-4"></i>Gerar link</button>
+      <button id="logout" class="action-btn bg-red-600 hover:bg-red-700">Sair</button>
+    </div>
+  </div>
+</header>
+<main class="max-w-[1900px] mx-auto px-4 py-5">
+  <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+    <div class="bg-white border rounded-2xl p-4"><p class="text-[10px] uppercase font-extrabold text-slate-500">OS filtradas</p><strong id="kpiCount" class="text-2xl font-black text-columbia-700">—</strong></div>
+    <div class="bg-white border rounded-2xl p-4"><p class="text-[10px] uppercase font-extrabold text-slate-500">Entrega vencida</p><strong id="kpiOverdue" class="text-2xl font-black text-red-600">—</strong></div>
+    <div class="bg-white border rounded-2xl p-4"><p class="text-[10px] uppercase font-extrabold text-slate-500">Datas renegociadas</p><strong id="kpiReneg" class="text-2xl font-black text-purple-700">—</strong></div>
+    <div class="bg-white border rounded-2xl p-4"><p class="text-[10px] uppercase font-extrabold text-slate-500">Valor das OS filtradas</p><strong id="kpiValue" class="text-lg sm:text-xl font-black text-emerald-700">—</strong></div>
+  </section>
+  <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-4">
+    <div class="flex items-center justify-between gap-3 flex-wrap mb-3"><div><h2 class="font-extrabold text-sm">Filtros da carteira</h2><p class="text-[11px] text-slate-500">Pesquisa global, filtros por coluna e ordenação como na carteira PSTEC.</p></div>
+      <div class="flex gap-2"><button id="clear" class="action-btn border border-slate-300 hover:bg-slate-50">Limpar filtros</button><button id="clearShare" class="action-btn border border-blue-300 text-blue-800 hover:bg-blue-50" hidden>Sair da seleção compartilhada</button></div></div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+      <label class="lg:col-span-2"><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Pesquisar qualquer informação</span><input id="search" placeholder="OS, orçamento, item, cliente, processo..." class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50"></label>
+      <label><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Cliente</span><select id="client" class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50"><option value="">Todos os clientes</option></select></label>
+      <label><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Situação</span><select id="status" class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50">
+        <option value="">Todas</option><option value="overdue">Entrega vencida</option><option value="ontime">No prazo</option><option value="reneg">Com renegociação</option><option value="notreneg">Sem renegociação</option><option value="pending">Com processos pendentes</option></select></label>
+      <label><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Original de</span><input id="from" type="date" class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50"></label>
+      <label><span class="block text-[10px] font-black text-slate-500 uppercase mb-1">Original até</span><input id="to" type="date" class="w-full px-3 py-2.5 text-xs border rounded-xl bg-slate-50"></label>
+    </div>
+    <div id="sharedBadge" class="mt-3 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-xl p-2.5" hidden>Você está visualizando somente as OS incluídas no link compartilhado. Os filtros abaixo podem restringir ainda mais esse conjunto.</div>
+    <div id="message" class="mt-3 bg-slate-50 border rounded-xl px-3 py-2 text-xs text-slate-600">Validando usuário e permissões...</div>
+  </section>
+  <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="px-4 py-3 flex flex-wrap justify-between items-center gap-2 border-b"><div class="text-xs font-extrabold">Relação de Ordens de Serviço <span id="countText" class="font-medium text-slate-500"></span></div>
+      <div class="flex items-center gap-3 text-[11px] text-slate-500"><span id="selectedCount">0 selecionadas</span><button id="selectAll" class="font-bold text-columbia-700 hover:underline" disabled>Selecionar filtradas</button></div></div>
+    <div class="table-scroll">
+      <table class="w-full min-w-[1200px] text-left border-collapse">
+        <thead><tr class="text-[10px] uppercase tracking-wide text-slate-600">
+          <th class="px-3 py-3 w-10"><input id="checkAll" type="checkbox" class="accent-blue-800 w-4 h-4" title="Selecionar OS exibidas" disabled></th>
+          <th class="px-3 py-2" data-col="os"><button class="sort-btn font-black" data-sort="os">Nº OS <span data-arrow="os">↕</span></button><button class="filter-btn ml-2" data-filter="os" title="Filtrar coluna">⌕</button></th>
+          <th class="px-3 py-2" data-col="orc"><button class="sort-btn font-black" data-sort="orc">Orçamento <span data-arrow="orc">↕</span></button><button class="filter-btn ml-2" data-filter="orc" title="Filtrar coluna">⌕</button></th>
+          <th class="px-3 py-2 min-w-[220px]" data-col="item"><button class="sort-btn font-black" data-sort="item">Item <span data-arrow="item">↕</span></button><button class="filter-btn ml-2" data-filter="item" title="Filtrar coluna">⌕</button></th>
+          <th class="px-3 py-2 min-w-[160px]" data-col="cliente"><button class="sort-btn font-black" data-sort="cliente">Cliente <span data-arrow="cliente">↕</span></button><button class="filter-btn ml-2" data-filter="cliente" title="Filtrar coluna">⌕</button></th>
+          <th class="px-3 py-2" data-col="original"><button class="sort-btn font-black" data-sort="original">Prev. original OS <span data-arrow="original">↕</span></button><button class="filter-btn ml-2" data-filter="original" title="Filtrar coluna">⌕</button></th>
+          <th class="px-3 py-2" data-col="reneg"><button class="sort-btn font-black" data-sort="reneg">Renegociada <span data-arrow="reneg">↕</span></button><button class="filter-btn ml-2" data-filter="reneg" title="Filtrar coluna">⌕</button></th>
+          <th class="px-3 py-2 text-right" data-col="valor"><button class="sort-btn font-black" data-sort="valor">Valor <span data-arrow="valor">↕</span></button><button class="filter-btn ml-2" data-filter="valor" title="Filtrar coluna">⌕</button></th>
+          <th class="px-3 py-2 min-w-[200px]" data-col="pend"><button class="sort-btn font-black" data-sort="pend">Processos pendentes <span data-arrow="pend">↕</span></button><button class="filter-btn ml-2" data-filter="pend" title="Filtrar coluna">⌕</button></th>
+        </tr></thead>
+        <tbody id="rows"><tr><td colspan="9" class="p-12 text-center text-sm text-slate-500">Aguardando validação de acesso...</td></tr></tbody>
+      </table>
+    </div>
+    <div class="p-3 border-t flex flex-wrap items-center justify-between gap-2"><p id="pagingInfo" class="text-xs text-slate-500">—</p><button id="more" class="action-btn border border-slate-200 bg-slate-50" hidden>Mostrar mais 100</button></div>
+  </section>
+</main>
+
+<div id="colFilter" class="filter-popup" hidden>
+  <div class="flex items-center justify-between mb-2"><strong id="colFilterTitle" class="text-xs">Filtrar</strong><button id="filterClose" class="text-slate-500 text-lg leading-none" aria-label="Fechar">×</button></div>
+  <input id="colFilterSearch" class="w-full border rounded-lg p-2 text-xs bg-slate-50 mb-2" placeholder="Pesquisar opções...">
+  <div class="flex gap-2 mb-2 text-[11px]"><button id="filterToggle" class="font-bold text-columbia-700">Selecionar tudo / Desmarcar</button><button id="filterReset" class="ml-auto text-red-600 font-bold">Limpar coluna</button></div>
+  <div id="colOptions" class="max-h-60 overflow-auto border rounded-lg divide-y text-xs"></div>
+  <div class="mt-2 text-right"><button id="filterApply" class="action-btn bg-columbia-700 text-white">Aplicar</button></div>
+</div>
+
+<div id="editModal" class="modal-bg" hidden>
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+    <div class="bg-columbia-700 text-white p-4 flex justify-between items-center"><div><h3 class="font-extrabold text-base">Alterar data renegociada</h3><p id="editOS" class="text-xs text-blue-100"></p></div><button data-close="editModal" class="text-2xl leading-none">×</button></div>
+    <div class="p-5 space-y-4">
+      <p class="text-xs text-slate-500">A previsão original da OS não será alterada. A alteração será gravada no GRV com justificativa, como na aplicação de produção.</p>
+      <label class="block"><span class="block text-[10px] font-extrabold uppercase text-slate-500 mb-1">Nova data (vazio para remover)</span><input id="newDate" type="date" class="border rounded-xl w-full p-3 text-sm"></label>
+      <label class="block"><span class="block text-[10px] font-extrabold uppercase text-slate-500 mb-1">Justificativa obrigatória</span><textarea id="justification" rows="3" maxlength="1000" class="border rounded-xl w-full p-3 text-sm" placeholder="Motivo da alteração..."></textarea></label>
+      <div id="editError" class="text-xs font-bold text-red-600" hidden></div>
+    </div>
+    <div class="bg-slate-50 border-t p-4 flex justify-end gap-2"><button data-close="editModal" class="action-btn bg-white border">Cancelar</button><button id="saveEdit" class="action-btn bg-columbia-700 text-white">Salvar no sistema</button></div>
+  </div>
+</div>
+<div id="shareModal" class="modal-bg" hidden>
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+    <div class="bg-columbia-700 text-white p-4 flex justify-between items-center"><h3 class="font-extrabold">Gerar link das OS</h3><button data-close="shareModal" class="text-2xl leading-none">×</button></div>
+    <div class="p-5 space-y-4">
+      <p class="text-xs text-slate-600">Cria um link que abre exatamente a seleção de OS. Os dados são atualizados ao abrir. <b>Por segurança, quem recebe precisa entrar com usuário que tenha U_PCP = 1.</b></p>
+      <label class="flex items-center gap-2 text-xs font-bold"><input name="shareScope" type="radio" value="filtered" checked> Todas as OS filtradas (<span id="filterQty">0</span>)</label>
+      <label class="flex items-center gap-2 text-xs font-bold"><input name="shareScope" type="radio" value="selected"> Apenas as OS marcadas (<span id="selectedQty">0</span>)</label>
+      <div id="shareError" class="text-xs text-red-600 font-bold" hidden></div>
+      <div id="shareResult" hidden><label class="text-[10px] font-black text-slate-500 uppercase">Link gerado</label><div class="flex gap-2 mt-1"><input id="shareURL" readonly class="flex-1 min-w-0 border rounded-lg p-2 text-xs"><button id="copyShare" class="action-btn bg-emerald-600 text-white">Copiar</button></div></div>
+    </div>
+    <div class="bg-slate-50 border-t p-4 flex justify-end gap-2"><button data-close="shareModal" class="action-btn bg-white border">Fechar</button><button id="generateShare" class="action-btn bg-cyan-600 text-white">Gerar link</button></div>
+  </div>
+</div>
+<script src="./app.js"></script>
+</body>
+</html>
