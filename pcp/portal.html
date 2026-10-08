@@ -60,7 +60,7 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
       <div class="table-scroll"><table id="resultTable" class="w-full min-w-[1120px] text-left border-collapse">
         <thead><tr>
           <th data-sort="os">OS ↕</th><th data-sort="orc">Orçamento ↕</th><th data-sort="item">Item ↕</th><th data-sort="cliente">Cliente ↕</th><th data-sort="segmento">Segmento ↕</th>
-          <th data-sort="original">Previsão original ↕</th><th data-sort="reneg">Renegociada ↕</th><th data-sort="valor" class="valuecol">Valor ↕</th><th data-sort="pend">Processos pendentes ↕</th><th>Anexos</th>
+          <th data-sort="original">Previsão original ↕</th><th data-sort="reneg">Reprogramada ↕</th><th data-sort="valor" class="valuecol">Valor ↕</th><th data-sort="pend">Processos pendentes ↕</th><th>Anexos</th>
         </tr></thead>
         <tbody id="rows"></tbody></table></div>
     </section>
@@ -155,7 +155,7 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
   function excel(){
     if(!view.portal?.permitir_excel||!window.XLSX)return;
     const out=view.filtered.map(r=>{
-      const o={Semana:weekOf(r).label,'Nº OS':r.os,'Orçamento':r.orc,Item:r.item,Cliente:r.cliente,Segmento:r.segmento||'Sem segmento','Previsão original':dateBR(r.original),'Renegociada':dateBR(r.reneg),'Processos pendentes':r.pend};
+      const o={Semana:weekOf(r).label,'Nº OS':r.os,'Orçamento':r.orc,Item:r.item,Cliente:r.cliente,Segmento:r.segmento||'Sem segmento','Previsão original':dateBR(r.original),'Reprogramada':dateBR(r.reneg),'Processos pendentes':r.pend};
       if(view.portal?.mostrar_valores)o.Valor=r.valor;
       return o;
     });
