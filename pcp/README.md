@@ -39,18 +39,23 @@ A coluna e o filtro Segmento usam o campo `segmento` no JSON de produção e seu
 ## Desenhos técnicos anexos
 A coluna **Anexos** aparece em cada OS quando o JSON retorna `anexos[]` com `cod_empresa`, `cod_os` e `cod_os_aux`. O botão abre um modal com os PDFs daquela OS, carregando cada arquivo no visualizador interno. A leitura reutiliza a rota de produção `GET /producao/desenho-anexo?cod_empresa=...&cod_os=...&cod_os_aux=...`, que devolve `pdf_base64`. Quem visualizar o link compartilhado deverá se autenticar e ter a permissão `u_pcp=1`. Validação de permissão e propriedade da OS deve ocorrer no backend.
 
-## Link único para substituir o planejamento semanal em Excel
-O botão **Gerar link** publica em **uma única URL** a seleção de OS filtradas ou marcadas. A tela desse link mantém todas as semanas de entrega em um mesmo planejamento, com:
-- cartões semanais com período (segunda a domingo), quantidade de OS e total dos valores;
-- cabeçalho separando cada semana na relação de OS, com as respectivas somas;
-- as colunas OS, orçamento, item, cliente, segmento, previsão original, data renegociada, valor, processos pendentes e anexos;
-- pesquisa, filtros, alteração justificada da renegociação, visualização de desenhos técnicos e exportação em Excel.
+## Portal compartilhado público — validade e acesso somente leitura
 
-A semana é determinada pela data **renegociada**, caso exista, ou pela **previsão original da OS** quando não existe renegociação. OS sem previsão são agrupadas em "Sem data de entrega". O acesso ao link exige login com autorização PCP, não permite consulta pública.
+O botão **Gerar link** da Carteira PCP agora cria **um único portal público** para as OS filtradas ou marcadas, seguindo o funcionamento da PSTEC. É possível informar nome, validade de 7, 30, 90 ou 365 dias, ou deixar sem vencimento, e decidir se serão exibidos valores e permitida a exportação em Excel.
 
-Os números de OS são transmitidos na URL em forma compacta (`?osv=1....`) quando todos são inteiros, economizando espaço. Links antigos com `?os=...` continuam sendo aceitos. O limite atual é de 5.000 OS e 8.000 caracteres no link; para casos acima disso é necessário guardar a seleção no servidor. O link mantém o conjunto das OS; as datas são consultadas novamente, portanto uma OS renegociada pode mudar automaticamente de semana ao reabrir.
+A pessoa que recebe o endereço **não precisa de usuário nem senha**. Ela acessa `pcp/portal.html?id=...&token=...`, visualiza a carteira completa dividida em semanas (segunda-feira a domingo), com os totais por semana, consulta todas as colunas e abre os anexos PDF **diretamente em outra aba**. A página pública **não possui controles de edição**, de alteração de data ou de criação de novos links.
 
-A interface usa linguagem de planejamento, sem termos técnicos como JSON ou API nas orientações e mensagens destinadas ao usuário. Esses detalhes ficam reservados ao código e à documentação.
+O botão **Gerenciar links** no módulo interno lista os planejamentos gerados e oferece copiar, desativar ou reativar. O link é verificado no **servidor a cada consulta e a cada abertura de PDF**. Links vencidos e desativados retornam HTTP 410, sem entregar dados.
+
+A data da semana é sempre a renegociada, caso exista; senão, a original da OS. Os valores e dados são consultados novamente ao abrir o portal, portanto o planejamento reflete alterações posteriores às datas ou processos, mas inclui somente as OS selecionadas na criação. OS sem data ficam em uma semana especial.
+
+### Instalação obrigatória no servidor Columbia
+
+O site do repositório `columbia` é estático (GitHub Pages). **Validade, revogação e acesso sem senha exigem um backend**. O código de backend já foi preparado em `pcp/backend/portal_routes.py` para incorporar ao FastAPI que serve `columbia.consultoriarf.net`. O procedimento e dependências estão em `pcp/backend/README.md`.
+
+**O portal público não entrará em funcionamento completo somente com os commits de GitHub**: é indispensável configurar e subir o novo router no servidor Columbia. O formulário de criação informa um erro se a rota ainda não estiver ativa. Não usar links antigos do tipo `?os=...` ou `?osv=...` como substitutos, pois esses continuam sujeitos ao login do módulo interno e não possuem validade.
+
+Os endpoints de criação, consulta de links e reativação só aceitam usuários autenticados e validados pelo próprio backend com `u_pcp=1`. Os únicos endpoints públicos retornam dados ou PDFs após verificar um token imprevisível, a data de vencimento, o status ativo e a lista autorizada de OS.
 
 ## Verificações sugeridas para implantação
 
