@@ -71,7 +71,7 @@
     return [...map.values()];
   }
   function normalizeRows(raw) {
-    if (!Array.isArray(raw)) throw new Error("O JSON de produção não retornou uma lista de OS.");
+    if (!Array.isArray(raw)) throw new Error("Não foi possível obter a relação de ordens de serviço.");
     const seen=new Map();
     for (const item of raw) {
       if (!item || typeof item!=="object") continue;
@@ -139,7 +139,7 @@
       });
       if(!response.ok)throw Error("HTTP "+response.status);
       const data=await response.json();
-      if (!Array.isArray(data))throw Error("O JSON complementar não contém uma lista");
+      if (!Array.isArray(data))throw Error("Não foi possível completar os dados do planejamento");
       extra=data;
     }catch(e){console.warn("Segmentos não disponíveis no JSON complementar:",e);}
     finally {clearTimeout(timer);}
@@ -152,7 +152,7 @@
   }
   function clean(s) { return str(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase(); }
   function getSavedFilters() {
-    if (new URL(location.href).searchParams.has("os")) return;
+    if (["os","osv"].some(k=>new URL(location.href).searchParams.has(k))) return;
     try {
       const s=JSON.parse(localStorage.getItem(FILTER_KEY)||"null");
       if (!s || typeof s!=="object") return;
@@ -171,10 +171,27 @@
     try { localStorage.setItem(FILTER_KEY,JSON.stringify(data)); } catch(e) {}
   }
   function parseShare() {
-    const param=new URL(location.href).searchParams.get("os");
-    if (param===null) {store.shareIds=null;return;}
-    const ids=param.split(",").map(x=>x.trim()).filter(x=>/^[\w./-]{1,45}$/.test(x));
-    if (!ids.length || ids.length>700 || param.length>7000) throw new Error("O link contém uma seleção de OS inválida ou grande demais.");
+    const params=new URL(location.href).searchParams;
+    const packed=params.get("osv"),legacy=params.get("os");
+    if(packed===null && legacy===null){store.shareIds=null;return;}
+    let ids=[];
+    if(packed!==null){
+      if(!/^1\.[0-9a-z]+(?:\.[0-9a-z]+)*$/.test(packed))throw Error("Link de planejamento inválido.");
+      const parts=packed.split(".").slice(1);
+      if(parts.length>5000)throw Error("O link contém OS demais.");
+      let last=0;
+      for(const part of parts){
+        const delta=parseInt(part,36);
+        if(!Number.isSafeInteger(delta)||delta<1)throw Error("Seleção de OS inválida.");
+        last+=delta;
+        if(!Number.isSafeInteger(last))throw Error("Numeração de OS inválida.");
+        ids.push(String(last));
+      }
+    }else{
+      if(legacy.length>10000)throw Error("O link é muito longo.");
+      ids=legacy.split(",").map(x=>x.trim());
+      if(!ids.length||ids.length>5000||ids.some(x=>!/^[\w./-]{1,45}$/.test(x)))throw Error("Seleção compartilhada inválida.");
+    }
     store.shareIds=new Set(ids);
     $("sharedBadge").hidden=false;
     $("clearShare").hidden=false;
@@ -202,7 +219,7 @@
     if (response.status===401) {loginRedirect();return false;}
     if (response.status===403) {deny("Sua conta não possui autorização para este módulo.");return false;}
     if (!response.ok) {
-      deny("Não foi possível verificar a permissão U_PCP com o servidor (HTTP "+response.status+"). A consulta está bloqueada por segurança.");
+      deny("Não foi possível conferir sua autorização (código "+response.status+"). Entre novamente ou procure o responsável pelo sistema.");
       return false;
     }
     const data=await response.json();
@@ -295,15 +312,21 @@
     $("kpiValue").textContent=money(value);
     $("countText").textContent="· "+countFormatter.format(count)+" de "+countFormatter.format(store.rows.length);
     $("selectedCount").textContent=countFormatter.format(store.selected.size)+" selecionadas";
-    const groups=store.shareIds?groupByDeliveryWeek(store.filtered):[];
-    const ordered=store.shareIds?groups.flatMap(g=>g.rows.sort((a,b)=>(deliveryDate(a)||"9999").localeCompare(deliveryDate(b)||"9999")||a.os.localeCompare(b.os,"pt-BR",{numeric:true}))):store.filtered;
+    const groups=groupByDeliveryWeek(store.filtered);
+    const ordered=groups.flatMap(g=>g.rows.sort((x,y)=>(deliveryDate(x)||"9999").localeCompare(deliveryDate(y)||"9999")||x.os.localeCompare(y.os,"pt-BR",{numeric:true})));
     const visible=ordered.slice(0,store.shown);
     let previousWeek="";
     const groupMap=new Map(groups.map(g=>[g.key,g]));
+    $("weekOverview").hidden=!groups.length;
+    $("weekCards").innerHTML=groups.map(g=>'<div class="week-summary">'+
+      '<strong>'+esc(g.label)+'</strong>'+
+      '<span class="block font-semibold">'+countFormatter.format(g.rows.length)+' OS</span>'+
+      '<span class="block text-emerald-800 font-black mt-1">'+esc(money(g.value))+'</span>'+
+      '</div>').join("");
     if (!visible.length) $("rows").innerHTML='<tr><td colspan="11" class="p-12 text-center text-slate-500 text-sm">Nenhuma OS encontrada com os filtros atuais.</td></tr>';
     else $("rows").innerHTML=visible.map(r=>{
       let weekHeader="";
-      if(store.shareIds){
+      {
         const week=deliveryWeek(r);
         if(week.key!==previousWeek){
           previousWeek=week.key;
@@ -323,7 +346,7 @@
         '<td class="cell whitespace-nowrap '+overdueClass+'">'+esc(dateBR(r.original))+'</td>'+
         '<td class="cell whitespace-nowrap"><button class="edit-date text-purple-700 font-bold hover:bg-purple-50 rounded-lg px-2 py-1 border border-transparent hover:border-purple-200" data-edit="'+esc(r.os)+'" title="Alterar data renegociada">'+esc(dateBR(r.reneg))+' ✎</button></td>'+
         '<td class="cell text-right whitespace-nowrap font-semibold text-emerald-800">'+esc(money(r.valor))+'</td>'+
-        '<td class="cell max-w-[450px] whitespace-normal text-slate-600" title="'+esc(r.pend)+'">'+esc(r.pend||"—")+'</td>'+
+        '<td class="cell max-w-[450px] whitespace-normal text-slate-600" title="'+esc(r.pend)+'"><div class="process-clamp">'+esc(r.pend||"—")+'</div></td>'+
         '<td class="cell text-center whitespace-nowrap">'+
           (r.anexos.length?'<button data-attachments="'+esc(r.os)+'" title="Visualizar desenhos técnicos da OS" class="action-btn border border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100">Anexos ('+r.anexos.length+')</button>':'<span class="text-slate-400">—</span>')+'</td>'+
         '</tr>';
@@ -345,12 +368,12 @@
     if (!store.authorized) return;
     $("refresh").disabled=true;
     $("sync").textContent="ATUALIZANDO...";
-    setMessage("Carregando os dados atuais do JSON de produção...");
+    setMessage("Atualizando as ordens de serviço...");
     try {
       const response=await fetch(API+"?_t="+Date.now(),{cache:"no-store",headers:{Authorization:"Bearer "+localStorage.getItem(TOKEN_KEY),"Cache-Control":"no-cache"}});
       if (response.status===401) {loginRedirect();return;}
-      if (response.status===403) {deny("A API recusou o acesso aos dados de produção.");return;}
-      if (!response.ok) throw new Error("Falha na API: HTTP "+response.status);
+      if (response.status===403) {deny("Seu usuário não tem autorização para consultar estas ordens de serviço.");return;}
+      if (!response.ok) throw new Error("Falha ao atualizar os dados. Código: "+response.status);
       const data=await response.json();
       store.rows=normalizeRows(data);
       store.selected=new Set([...store.selected].filter(id=>store.rows.some(r=>r.os===id)));
@@ -361,15 +384,15 @@
       const initialMissing=store.rows.filter(r=>!r.segmento).length;
       let missing=initialMissing;
       if(initialMissing) {
-        setMessage("Complementando "+countFormatter.format(initialMissing)+" segmentos ausentes usando o JSON de faturamento...");
+        setMessage("Complementando "+countFormatter.format(initialMissing)+" ordens de serviço...");
         missing=await enrichSegments(store.rows);
         updateClientOptions();
         render();
       }
-      if(missing)setMessage("Atenção: "+countFormatter.format(missing)+" OS não têm segmento identificado nos JSONs. Elas aparecem como 'Sem segmento' e podem ser filtradas.",true);
+      if(missing)setMessage("Atenção: "+countFormatter.format(missing)+" OS estão sem segmento cadastrado. Utilize o filtro Sem segmento para identificá-las.",true);
       else setMessage("Dados atualizados. Segmentos carregados, datas editáveis e desenhos técnicos disponíveis.");
     } catch(e) {
-      $("sync").textContent=store.ready?"DADOS ANTERIORES":"ERRO NA API";
+      $("sync").textContent=store.ready?"DADOS ANTERIORES":"FALHA NA ATUALIZAÇÃO";
       setMessage("Não foi possível atualizar: "+e.message+(store.ready?". Mantendo dados em memória.":""),true);
       if (!store.ready) $("rows").innerHTML='<tr><td colspan="11" class="p-12 text-center text-red-700">'+esc(e.message)+'</td></tr>';
     } finally {$("refresh").disabled=false;}
@@ -510,87 +533,81 @@
     }catch(e){attachmentError(e.message||"Falha ao carregar o desenho técnico.");}
     finally{button.disabled=false;button.textContent="PDF "+(index+1)+" · "+(attachment.nome||"Desenho "+attachment.aux);}
   }
-  function openShare() {
+  function openShare(){
     $("filterQty").textContent=countFormatter.format(store.filtered.length);
     $("selectedQty").textContent=countFormatter.format(store.selected.size);
     document.querySelector('input[name="shareScope"][value="filtered"]').checked=true;
-    $("weeklyLinks").hidden=true;
-    $("weeklyLinks").innerHTML="";
-    $("copyAllWeeks").hidden=true;
+    $("shareResult").hidden=true;
+    $("shareWeekSummary").innerHTML="";
     $("shareError").hidden=true;
     $("shareModal").hidden=false;
   }
-  function shareError(msg) {$("shareError").textContent=msg;$("shareError").hidden=false;}
-  function buildWeekLink(rows){
-    if(!rows.length||rows.length>700)return null;
-    const url=new URL(location.href);url.search="";url.hash="";
-    url.searchParams.set("os",rows.map(r=>r.os).join(","));
-    return url.href.length<=7000?url.href:null;
+  function shareError(msg){$("shareError").textContent=msg;$("shareError").hidden=false;}
+  function createSingleLink(rows){
+    const ids=[...new Set(rows.map(r=>str(r.os)).filter(Boolean))];
+    if(!ids.length)return {error:"Não há OS para compartilhar."};
+    if(ids.length>5000)return {error:"A seleção ultrapassa 5.000 OS. Refine os filtros."};
+    const url=new URL(location.href);
+    url.search="";url.hash="";
+    const values=ids.map(Number);
+    const numeric=ids.every((id,i)=>/^[1-9]\d*$/.test(id)&&Number.isSafeInteger(values[i])&&String(values[i])===id);
+    if(numeric){
+      values.sort((x,y)=>x-y);
+      let previous=0;
+      const deltas=values.map(value=>{const delta=value-previous;previous=value;return delta.toString(36);});
+      url.searchParams.set("osv","1."+deltas.join("."));
+    }else{
+      url.searchParams.set("os",ids.join(","));
+    }
+    if(url.href.length>8000)return {error:"O link ficou muito longo. Reduza a quantidade de OS selecionadas."};
+    return {url:url.href,count:ids.length};
   }
   function generateShare(){
     $("shareError").hidden=true;
     const selected=document.querySelector('input[name="shareScope"]:checked')?.value==="selected";
-    const candidates=selected
+    const rows=selected
       ?store.rows.filter(r=>store.selected.has(r.os)&&(!store.shareIds||store.shareIds.has(r.os)))
       :store.filtered;
-    if(!candidates.length)return shareError("Não existem OS nessa seleção.");
-    const groups=groupByDeliveryWeek(candidates);
-    store.weekLinks=groups.map(g=>({...g,url:buildWeekLink(g.rows)}));
-    const valid=store.weekLinks.filter(g=>!!g.url);
-    $("weeklyLinks").innerHTML='<div class="text-xs bg-blue-50 text-columbia-700 font-extrabold border border-blue-200 p-3 rounded-xl">'+
-      countFormatter.format(groups.length)+' semana(s) · '+countFormatter.format(candidates.length)+' OS · '+esc(money(candidates.reduce((s,r)=>s+(r.valor||0),0)))+'</div>'+
-      store.weekLinks.map((g,i)=>'<div class="border rounded-xl bg-white p-3">'+
-        '<div class="flex justify-between items-center flex-wrap gap-2 mb-2"><strong class="text-columbia-700 text-xs">'+esc(g.label)+'</strong>'+
-        '<span class="text-[11px] text-slate-600 font-bold">'+countFormatter.format(g.rows.length)+' OS · '+esc(money(g.value))+'</span></div>'+
-        (g.url?'<div class="flex flex-wrap items-center gap-2"><input readonly class="week-url flex-1 min-w-0 rounded-lg border bg-slate-50 p-2 text-[11px]" value="'+esc(g.url)+'" aria-label="'+esc(g.label)+'">'+
-           '<button data-copy-week="'+i+'" class="action-btn text-white bg-emerald-600 hover:bg-emerald-700">Copiar</button>'+
-           '<button data-open-week="'+i+'" class="action-btn bg-blue-100 text-columbia-700 hover:bg-blue-200">Abrir</button></div>':
-           '<p class="text-xs text-red-700 font-bold">Há OS demais para um link direto nesta semana (máx. 700 OS ou 7.000 caracteres). Refine os filtros.</p>')+'</div>').join("");
-    $("weeklyLinks").hidden=false;
-    $("copyAllWeeks").hidden=!valid.length;
-    if(valid.length!==groups.length)shareError("Uma ou mais semanas ultrapassaram o limite de tamanho do link. Confira os avisos.");
+    if(!rows.length)return shareError("Não existem OS nessa seleção.");
+    const result=createSingleLink(rows);
+    if(result.error)return shareError(result.error);
+    const weeks=groupByDeliveryWeek(rows);
+    $("shareURL").value=result.url;
+    $("shareWeekSummary").innerHTML='<div class="text-xs bg-blue-50 border border-blue-200 rounded-lg p-3 font-bold text-columbia-700">'+
+      'Planejamento completo: '+countFormatter.format(result.count)+' OS · '+countFormatter.format(weeks.length)+' semanas · '+
+      esc(money(rows.reduce((sum,r)=>sum+(r.valor||0),0)))+'</div>'+
+      weeks.map(w=>'<div class="flex items-center justify-between gap-3 text-xs border-b py-1.5">'+
+        '<span class="font-bold text-slate-700">'+esc(w.label)+'</span>'+
+        '<span class="text-slate-600 whitespace-nowrap">'+w.rows.length+' OS · '+esc(money(w.value))+'</span></div>').join("");
+    $("shareResult").hidden=false;
   }
   async function copyText(value){
     try{await navigator.clipboard.writeText(value);return true;}
     catch(e){
-      const temp=document.createElement("textarea");
-      temp.value=value;
-      temp.style.position="fixed";
-      temp.style.opacity="0";
-      document.body.appendChild(temp);
-      temp.select();
-      const ok=document.execCommand("copy");
-      temp.remove();
-      return !!ok;
+      const el=document.createElement("textarea");
+      el.value=value;el.style.position="fixed";el.style.opacity="0";
+      document.body.appendChild(el);el.select();
+      const ok=document.execCommand("copy");el.remove();return !!ok;
     }
   }
-  async function copyWeek(index,button){
-    const g=store.weekLinks[index];
-    if(!g?.url)return;
-    if(!await copyText(g.url))return shareError("Falha ao copiar o link. Selecione e copie-o manualmente.");
-    const label=button.textContent;
-    button.textContent="Copiado!";
-    setTimeout(()=>{button.textContent=label;},1400);
-  }
-  async function copyAllWeeks(){
-    const groups=store.weekLinks.filter(g=>!!g.url);
-    if(!groups.length)return;
-    const textValue=groups.map(g=>g.label+" | "+g.rows.length+" OS | "+money(g.value)+"\n"+g.url).join("\n\n");
-    if(!await copyText(textValue))return shareError("Não foi possível copiar todos os links.");
-    const button=$("copyAllWeeks");
-    button.textContent="Links copiados!";
-    setTimeout(()=>button.textContent="Copiar todos os links",1700);
+  async function copyShare(){
+    const value=$("shareURL").value;
+    if(!value)return shareError("Gere o link primeiro.");
+    if(!await copyText(value))return shareError("Não foi possível copiar. Selecione o link e copie manualmente.");
+    $("copyShare").textContent="Copiado!";
+    setTimeout(()=>$("copyShare").textContent="Copiar link",1500);
   }
   function exportExcel() {
     if (!store.filtered.length) return alert("Nenhuma OS filtrada para exportar.");
     if (!window.XLSX) return alert("A biblioteca de Excel não carregou. Verifique a conexão.");
     const records=store.filtered.map(r=>({
       "Nº OS":r.os,"Orçamento":r.orc,"Item":r.item,"Cliente":r.cliente,"Segmento":r.segmento||SEGMENT_EMPTY,
+      "Semana de entrega":deliveryWeek(r).label,"Data considerada":dateBR(deliveryDate(r)),
       "Previsão original OS":dateBR(r.original),"Data renegociada":dateBR(r.reneg),
       "Valor":r.valor,"Processos pendentes":r.pend
     }));
     const sheet=XLSX.utils.json_to_sheet(records);
-    sheet["!cols"]=[{wch:13},{wch:15},{wch:38},{wch:29},{wch:24},{wch:19},{wch:20},{wch:16},{wch:45}];
+    sheet["!cols"]=[{wch:13},{wch:15},{wch:38},{wch:29},{wch:24},{wch:35},{wch:19},{wch:19},{wch:20},{wch:16},{wch:45}];
     const book=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(book,sheet,"Carteira PCP");
     XLSX.writeFile(book,"Carteira_PCP_Columbia_"+localToday()+".xlsx");
@@ -600,16 +617,8 @@
     $("export").addEventListener("click",exportExcel);
     $("share").addEventListener("click",openShare);
     $("generateShare").addEventListener("click",generateShare);
-    $("copyAllWeeks").addEventListener("click",copyAllWeeks);
-    $("weeklyLinks").addEventListener("click",e=>{
-      const copy=e.target.closest("[data-copy-week]");
-      const open=e.target.closest("[data-open-week]");
-      if(copy){copyWeek(Number(copy.dataset.copyWeek),copy);return;}
-      if(open){
-        const url=store.weekLinks[Number(open.dataset.openWeek)]?.url;
-        if(url)window.open(url,"_blank","noopener,noreferrer");
-      }
-    });
+    $("copyShare").addEventListener("click",copyShare);
+    $("openShared").addEventListener("click",()=>{const url=$("shareURL").value;if(url)window.open(url,"_blank","noopener,noreferrer");});
     $("logout").addEventListener("click",()=>{
       [TOKEN_KEY,PERM_KEY,"columbia_analista_usuario","columbia_analista_cod_responsavel"].forEach(k=>localStorage.removeItem(k));
       location.href="../login.html";
