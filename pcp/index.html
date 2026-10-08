@@ -27,10 +27,10 @@ th .filter-btn.on{background:#dbeafe;color:#003e7e;border-color:#93c5fd}
 .modal-bg[hidden], [hidden]{display:none!important}
 input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset:1px}
 ::selection{background:#bfdbfe}
-.kb-board{display:flex;gap:12px;overflow-x:auto;align-items:flex-start;padding:4px 2px 16px}
-.kb-col{flex:1 0 240px;min-width:240px;max-width:400px;background:#e9f0f8;border:1px solid #cbd5e1;border-radius:15px;overflow:hidden}
+.kb-board{display:flex;gap:12px;overflow-x:auto;align-items:stretch;padding:4px 2px 16px}
+.kb-col{flex:1 0 240px;min-width:240px;max-width:400px;min-height:360px;display:flex;flex-direction:column;background:#e9f0f8;border:1px solid #cbd5e1;border-radius:15px;overflow:hidden}
 .kb-head{background:#003e7e;color:white;padding:12px 14px}
-.kb-cards{padding:10px;max-height:calc(100vh - 300px);overflow-y:auto;display:grid;align-content:start;gap:9px}
+.kb-cards{flex:1;min-height:265px;padding:10px;max-height:calc(100vh - 300px);overflow-y:auto;display:grid;align-content:start;gap:9px}
 .kb-card{background:white;border:1px solid #d1dae5;border-radius:12px;padding:11px;box-shadow:0 3px 8px #102b5210}
 .kb-move{border:1px solid #bfdbfe;background:#eff6ff;color:#003e7e;border-radius:8px;font-weight:900;padding:5px 13px;cursor:pointer}
 .kb-move:hover{background:#dbeafe}
