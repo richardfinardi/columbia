@@ -37,6 +37,16 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
 .kb-move:disabled{opacity:.3;cursor:not-allowed}
 .kb-badge{font-size:10px;border-radius:6px;padding:3px 7px;font-weight:800;background:#ede9fe;color:#5b21b6}
 .kb-empty{font-size:11px;text-align:center;color:#64748b;padding:22px 10px}
+.kb-card[draggable="true"]{cursor:grab;transition:box-shadow .15s ease,transform .15s ease}
+.kb-card[draggable="true"]:hover{box-shadow:0 7px 17px #003e7e20}
+.kb-card.kb-dragging{opacity:.35;cursor:grabbing}
+.kb-grip{font-size:10px;font-weight:800;color:#2563eb;background:#eff6ff;border:1px dashed #93c5fd;border-radius:7px;padding:4px 7px;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;white-space:nowrap}
+.kb-grip:hover{background:#dbeafe}
+.kb-col.kb-drop-ready{border:2px dashed #60a5fa;background:#edf6ff}
+.kb-col.kb-drop-target{border:3px solid #16a34a;background:#dcfce7;box-shadow:0 0 0 3px #bbf7d0}
+.kb-col.kb-drop-target .kb-head{background:#166534}
+.kb-touch-ghost{position:fixed;z-index:120;pointer-events:none;max-width:220px;border:2px solid #3b82f6;background:#fff;box-shadow:0 13px 38px #0f172a40;padding:12px 16px;border-radius:12px;font-size:12px;font-weight:900;color:#003e7e;white-space:nowrap;transform:translate(-50%,-125%)}
+.kb-board.kb-drag-active{user-select:none}
 </style>
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-800">
@@ -111,7 +121,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
   <section id="kanbanView" hidden>
     <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
       <div><h2 class="text-base font-black text-columbia-700">Planejamento semanal · Kanban</h2>
-        <p class="text-xs text-slate-600 mt-1">Um mês por vez. As setas de cada OS movimentam uma semana e gravam a sexta-feira da semana de destino no GRV.</p></div>
+        <p class="text-xs text-slate-600 mt-1">Um mês por vez. <strong>Arraste a OS para outra semana e solte</strong> (também no celular), ou use as setinhas. A entrega passa para sexta-feira da semana de destino.</p></div>
       <div class="flex gap-2 items-center">
         <button id="kbPrev" type="button" class="action-btn border bg-white text-columbia-700 px-3 py-2 text-lg" aria-label="Mês anterior">‹</button>
         <strong id="kbMonth" class="text-sm text-columbia-700 min-w-[155px] text-center uppercase">—</strong>
@@ -145,7 +155,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
       <p id="kbFilterInfo" class="text-[11px] text-slate-500 mt-2">Os filtros por coluna da Planilha também são respeitados, exceto os de data.</p>
       <p id="kbDataStatus" role="status" class="text-[11px] mt-2 text-slate-500">Aguardando dados da API para preencher os filtros...</p>
     </section>
-    <div id="kbMessage" class="text-xs text-slate-500 mb-3" role="status">As movimentações exigem permissão U_PCP = 1.</div>
+    <div id="kbMessage" class="text-xs text-slate-600 mb-3 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2" role="status" aria-live="polite">Arraste o cartão para a semana desejada ou utilize as setas. As movimentações são gravadas no GRV (U_PCP = 1).</div>
     <div id="kbBoard" class="kb-board"></div>
   </section>
 </main>
@@ -219,6 +229,6 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
     <div class="border-t bg-slate-50 p-3 text-right"><button data-close="managePortalModal" class="action-btn border bg-white">Fechar</button></div>
   </div>
 </div>
-<script src="./app.js?v=2.1.2"></script>
+<script src="./app.js?v=2.2.0"></script>
 </body>
 </html>
