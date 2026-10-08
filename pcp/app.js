@@ -8,7 +8,7 @@
   const SEGMENT_EMPTY = "Sem segmento";
   const moneyFormatter = new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"});
   const countFormatter = new Intl.NumberFormat("pt-BR");
-  const labels = {os:"Nº OS",orc:"Orçamento",item:"Item",cliente:"Cliente",segmento:"Segmento",original:"Previsão original OS",reneg:"Data renegociada",valor:"Valor",pend:"Processos pendentes"};
+  const labels = {os:"Nº OS",orc:"Orçamento",item:"Item",cliente:"Cliente",segmento:"Segmento",original:"Previsão original OS",reneg:"Data reprogramada",valor:"Valor",pend:"Processos pendentes"};
   const cols = Object.keys(labels);
   const $ = id => document.getElementById(id);
   const str = v => v == null ? "" : String(v).trim();
@@ -16,7 +16,7 @@
   const esc = v => String(v == null ? "" : v).replace(/[&<>"']/g, x => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[x]));
   const localToday = () => { const d = new Date(); return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-"); };
   const money = v => v == null ? "—" : moneyFormatter.format(v);
-  const store = {rows:[],filtered:[],selected:new Set(),authorized:false,ready:false,editOS:null,pageSize:100,shown:100,sortKey:"original",sortAsc:true,shareIds:null,filters:{},popupKey:null,popupChoices:null,attachmentOS:null,attachmentBlobUrl:null,weekLinks:[]};
+  const store = {rows:[],filtered:[],selected:new Set(),authorized:false,ready:false,editOS:null,pageSize:100,shown:100,sortKey:"original",sortAsc:true,shareIds:null,filters:{},popupKey:null,popupChoices:null,attachmentOS:null,attachmentBlobUrl:null,weekLinks:[],weekOverviewExpanded:false,expandedWeeks:new Set()};
   const numberFields = new Set(["valor"]);
   const dateFields = new Set(["original","reneg"]);
 
@@ -207,7 +207,7 @@
   }
   function deny(msg) {
     store.authorized=false;store.ready=false;store.rows=[];store.filtered=[];
-    ["refresh","export","share","selectAll","checkAll"].forEach(id=>$(id).disabled=true);
+    ["refresh","export","share","selectAll","checkAll","expandWeeks","collapseWeeks"].forEach(id=>$(id).disabled=true);
     $("sync").textContent="ACESSO BLOQUEADO";
     setMessage(msg,true);
     $("rows").innerHTML='<tr><td colspan="11" class="p-12 text-center text-red-700 font-bold text-sm">'+esc(msg)+'</td></tr>';
@@ -243,7 +243,7 @@
   }
   function deliveryDate(r) {return r.reneg||r.original||"";}
   function isoDate(d) {return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");}
-  // Semana de entrega: segunda a domingo, sempre pela data renegociada quando existir.
+  // Semana de entrega: segunda a domingo, sempre pela data reprogramada quando existir.
   function deliveryWeek(r) {
     const dt=deliveryDate(r);
     if(!dt || !isCalendarDate(dt))return {key:"9999-12-31",label:"Sem data de entrega"};
@@ -272,8 +272,13 @@
     if (q && ![r.os,r.orc,r.item,r.cliente,r.segmento||SEGMENT_EMPTY,dateBR(r.original),dateBR(r.reneg),money(r.valor),r.pend].some(v=>clean(v).includes(q))) return false;
     if ($("client").value && r.cliente!==$("client").value) return false;
     if ($("segment").value && (r.segmento||SEGMENT_EMPTY)!==$("segment").value) return false;
-    if ($("from").value && (!r.original || r.original<$("from").value)) return false;
-    if ($("to").value && (!r.original || r.original>$("to").value)) return false;
+    // Pesquisa o período nas duas datas: a original OU a reprogramada.
+    // Cada data deve estar dentro do intervalo inteiro, inclusive as extremidades.
+    const start=$("from").value,end=$("to").value;
+    if(start||end){
+      const matches=date=>date&&(!start||date>=start)&&(!end||date<=end);
+      if(!matches(r.original)&&!matches(r.reneg))return false;
+    }
     const s=$("status").value;
     if (s==="overdue"&&!isOverdue(r)) return false;
     if (s==="ontime"&&(isOverdue(r)||!(r.reneg||r.original))) return false;
@@ -313,27 +318,34 @@
     $("countText").textContent="· "+countFormatter.format(count)+" de "+countFormatter.format(store.rows.length);
     $("selectedCount").textContent=countFormatter.format(store.selected.size)+" selecionadas";
     const groups=groupByDeliveryWeek(store.filtered);
-    const ordered=groups.flatMap(g=>g.rows.sort((x,y)=>(deliveryDate(x)||"9999").localeCompare(deliveryDate(y)||"9999")||x.os.localeCompare(y.os,"pt-BR",{numeric:true})));
-    const visible=ordered.slice(0,store.shown);
-    let previousWeek="";
-    const groupMap=new Map(groups.map(g=>[g.key,g]));
+    for(const g of groups)g.rows.sort((x,y)=>(deliveryDate(x)||"9999").localeCompare(deliveryDate(y)||"9999")||x.os.localeCompare(y.os,"pt-BR",{numeric:true}));
+    const expandedOrdered=groups.filter(g=>store.expandedWeeks.has(g.key)).flatMap(g=>g.rows);
+    const visible=expandedOrdered.slice(0,store.shown);
+    const visibleSet=new Set(visible.map(r=>r.os));
     $("weekOverview").hidden=!groups.length;
-    $("weekCards").innerHTML=groups.map(g=>'<div class="week-summary">'+
+    $("weekOverviewCount").textContent= countFormatter.format(groups.length)+" semana(s) · "+countFormatter.format(count)+" OS";
+    $("weekCards").hidden=!store.weekOverviewExpanded;
+    $("toggleWeekOverview").setAttribute("aria-expanded",String(store.weekOverviewExpanded));
+    $("toggleWeekOverview").textContent=store.weekOverviewExpanded?"Recolher resumo semanal ▴":"Mostrar resumo semanal ▾";
+    if(store.weekOverviewExpanded) $("weekCards").innerHTML=groups.map(g=>'<div class="week-summary">'+
       '<strong>'+esc(g.label)+'</strong>'+
       '<span class="block font-semibold">'+countFormatter.format(g.rows.length)+' OS</span>'+
       '<span class="block text-emerald-800 font-black mt-1">'+esc(money(g.value))+'</span>'+
       '</div>').join("");
-    if (!visible.length) $("rows").innerHTML='<tr><td colspan="11" class="p-12 text-center text-slate-500 text-sm">Nenhuma OS encontrada com os filtros atuais.</td></tr>';
-    else $("rows").innerHTML=visible.map(r=>{
-      let weekHeader="";
-      {
-        const week=deliveryWeek(r);
-        if(week.key!==previousWeek){
-          previousWeek=week.key;
-          const group=groupMap.get(week.key);
-          weekHeader='<tr class="bg-blue-50 border-y border-blue-200"><td colspan="11" class="p-3"><div class="flex flex-wrap justify-between items-center gap-3"><strong class="text-columbia-700 font-black text-xs">'+esc(week.label)+'</strong><span class="text-xs font-bold text-slate-600">'+countFormatter.format(group.rows.length)+' OS · '+esc(money(group.value))+'</span></div></td></tr>';
-        }
-      }
+    const openGroups=groups.filter(g=>store.expandedWeeks.has(g.key)).length;
+    $("expandWeeks").disabled=!store.authorized||!groups.length||openGroups===groups.length;
+    $("collapseWeeks").disabled=!store.authorized||!openGroups;
+    if(!groups.length) $("rows").innerHTML='<tr><td colspan="11" class="p-12 text-center text-slate-500 text-sm">Nenhuma OS encontrada com os filtros atuais.</td></tr>';
+    else $("rows").innerHTML=groups.map(group=>{
+      const expanded=store.expandedWeeks.has(group.key);
+      const groupLabel=expanded?"Recolher semana":"Expandir semana";
+      const weekHeader='<tr class="bg-blue-50 border-y border-blue-200"><td colspan="11" class="p-0">'+
+        '<button type="button" class="week-toggle p-3" data-week-toggle="'+esc(group.key)+'" aria-expanded="'+expanded+'" title="'+groupLabel+'">'+
+        '<span class="flex items-center gap-2"><span aria-hidden="true" class="text-lg leading-none text-blue-700">'+(expanded?"▾":"▸")+'</span>'+
+        '<strong class="text-columbia-700 font-black text-xs">'+esc(group.label)+'</strong></span>'+
+        '<span class="text-xs font-bold text-slate-600">'+countFormatter.format(group.rows.length)+' OS · '+esc(money(group.value))+'</span></button></td></tr>';
+      if(!expanded)return weekHeader;
+      return weekHeader+group.rows.filter(r=>visibleSet.has(r.os)).map(r=>{
       const overdueClass=isOverdue(r)?"text-red-700 font-extrabold":"text-slate-700";
       const selected=store.selected.has(r.os);
       return weekHeader+'<tr class="hover:bg-blue-50/40">'+
@@ -344,15 +356,16 @@
         '<td class="cell whitespace-normal">'+esc(r.cliente||"—")+'</td>'+
         '<td class="cell whitespace-normal">'+(r.segmento?esc(r.segmento):'<span class="inline-block bg-amber-50 text-amber-700 rounded-lg px-2 py-1 text-[11px] font-bold">Sem segmento</span>')+'</td>'+
         '<td class="cell whitespace-nowrap '+overdueClass+'">'+esc(dateBR(r.original))+'</td>'+
-        '<td class="cell whitespace-nowrap"><button class="edit-date text-purple-700 font-bold hover:bg-purple-50 rounded-lg px-2 py-1 border border-transparent hover:border-purple-200" data-edit="'+esc(r.os)+'" title="Alterar data renegociada">'+esc(dateBR(r.reneg))+' ✎</button></td>'+
+        '<td class="cell whitespace-nowrap"><button class="edit-date text-purple-700 font-bold hover:bg-purple-50 rounded-lg px-2 py-1 border border-transparent hover:border-purple-200" data-edit="'+esc(r.os)+'" title="Alterar data reprogramada">'+esc(dateBR(r.reneg))+' ✎</button></td>'+
         '<td class="cell text-right whitespace-nowrap font-semibold text-emerald-800">'+esc(money(r.valor))+'</td>'+
         '<td class="cell max-w-[450px] whitespace-normal text-slate-600" title="'+esc(r.pend)+'"><div class="process-clamp">'+esc(r.pend||"—")+'</div></td>'+
         '<td class="cell text-center whitespace-nowrap">'+
           (r.anexos.length?'<button data-attachments="'+esc(r.os)+'" title="Visualizar desenhos técnicos da OS" class="action-btn border border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100">Anexos ('+r.anexos.length+')</button>':'<span class="text-slate-400">—</span>')+'</td>'+
         '</tr>';
+      }).join("");
     }).join("");
-    $("pagingInfo").textContent="Exibindo "+countFormatter.format(visible.length)+" de "+countFormatter.format(count)+" OS filtradas";
-    $("more").hidden=visible.length>=count;
+    $("pagingInfo").textContent=groups.length+" semana(s) · "+countFormatter.format(count)+" OS filtradas · "+countFormatter.format(visible.length)+" de "+countFormatter.format(expandedOrdered.length)+" OS em semanas abertas";
+    $("more").hidden=visible.length>=expandedOrdered.length;
     const allVisible=visible.length>0&&visible.every(x=>store.selected.has(x.os));
     $("checkAll").checked=allVisible;
     $("checkAll").indeterminate=!allVisible&&visible.some(x=>store.selected.has(x.os));
@@ -470,9 +483,9 @@
       const body=await response.json().catch(()=>({}));
       if (!response.ok) throw new Error(body.detail||body.message||"Não foi possível salvar a nova data (código "+response.status+").");
       r.reneg=date; $("editModal").hidden=true; store.editOS=null;render();
-      setMessage("Data renegociada da OS "+os+" gravada com justificativa. Atualizando dados...");
+      setMessage("Data reprogramada da OS "+os+" gravada com justificativa. Atualizando dados...");
       await refresh();
-    } catch(e) {showEditError(e.message||"Erro ao salvar renegociação.");}
+    } catch(e) {showEditError(e.message||"Erro ao salvar a reprogramação.");}
     finally {$("saveEdit").disabled=false;$("saveEdit").textContent="Salvar no sistema";}
   }
 
@@ -676,7 +689,7 @@
     const records=store.filtered.map(r=>({
       "Nº OS":r.os,"Orçamento":r.orc,"Item":r.item,"Cliente":r.cliente,"Segmento":r.segmento||SEGMENT_EMPTY,
       "Semana de entrega":deliveryWeek(r).label,"Data considerada":dateBR(deliveryDate(r)),
-      "Previsão original OS":dateBR(r.original),"Data renegociada":dateBR(r.reneg),
+      "Previsão original OS":dateBR(r.original),"Data reprogramada":dateBR(r.reneg),
       "Valor":r.valor,"Processos pendentes":r.pend
     }));
     const sheet=XLSX.utils.json_to_sheet(records);
@@ -687,6 +700,17 @@
   }
   function bind() {
     $("refresh").addEventListener("click",refresh);
+    $("toggleWeekOverview").addEventListener("click",()=>{
+      store.weekOverviewExpanded=!store.weekOverviewExpanded;
+      render();
+    });
+    $("expandWeeks").addEventListener("click",()=>{
+      for(const group of groupByDeliveryWeek(store.filtered))store.expandedWeeks.add(group.key);
+      store.shown=100;render();
+    });
+    $("collapseWeeks").addEventListener("click",()=>{
+      store.expandedWeeks.clear();store.shown=100;render();
+    });
     $("export").addEventListener("click",exportExcel);
     $("share").addEventListener("click",openShare);
     $("generateShare").addEventListener("click",generateShare);
@@ -726,6 +750,13 @@
       render();
     });
     $("rows").addEventListener("click",e=>{
+      const weekly=e.target.closest("[data-week-toggle]");
+      if(weekly){
+        const key=weekly.dataset.weekToggle;
+        if(store.expandedWeeks.has(key))store.expandedWeeks.delete(key);
+        else store.expandedWeeks.add(key);
+        store.shown=100;render();return;
+      }
       const anexos=e.target.closest("[data-attachments]");
       if(anexos){
         const r=store.rows.find(x=>x.os===anexos.dataset.attachments);
@@ -786,7 +817,7 @@
       parseShare();
       getSavedFilters();
       if (!await authorize()) return;
-      ["refresh","export","share","selectAll","checkAll"].forEach(id=>$(id).disabled=false);
+      ["refresh","export","share","selectAll","checkAll","expandWeeks","collapseWeeks"].forEach(id=>$(id).disabled=false);
       await refresh();
     } catch(e) { deny("Falha ao iniciar a Carteira PCP: "+e.message); }
   }
