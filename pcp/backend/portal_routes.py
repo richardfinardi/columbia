@@ -140,7 +140,8 @@ def normalize(source: Any, include_value: bool) -> dict | None:
         return None
     r = {str(k).lower(): v for k, v in source.items()}
     os_number = clean(pick(r, "n_os", "numero_os"))
-    if not os_number:
+    # OS arquivadas no limbo não podem ser expostas nos links públicos PCP.
+    if not os_number or str(r.get("u_limbo", "")).strip().lower() in {"1", "true"}:
         return None
     item = {
         "os": os_number,
