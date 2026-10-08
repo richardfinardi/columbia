@@ -160,10 +160,11 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
 
 <div id="editModal" class="modal-bg" hidden>
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-    <div class="bg-columbia-700 text-white p-4 flex justify-between items-center"><div><h3 class="font-extrabold text-base">Alterar data reprogramada</h3><p id="editOS" class="text-xs text-blue-100"></p></div><button data-close="editModal" class="text-2xl leading-none">×</button></div>
+    <div class="bg-columbia-700 text-white p-4 flex justify-between items-center"><div><h3 class="font-extrabold text-base">Editar reprogramação do GRV</h3><p id="editOS" class="text-xs text-blue-100"></p></div><button data-close="editModal" class="text-2xl leading-none">×</button></div>
     <div class="p-5 space-y-4">
-      <p class="text-xs text-slate-500">A previsão original da OS não será alterada. A alteração será gravada no GRV com justificativa, como na aplicação de produção.</p>
-      <label class="block"><span class="block text-[10px] font-extrabold uppercase text-slate-500 mb-1">Nova data (vazio para remover)</span><input id="newDate" type="date" class="border rounded-xl w-full p-3 text-sm"></label>
+      <p class="text-xs text-slate-500">Você está editando a <strong>data reprogramada do GRV</strong>, não a data manual do Kanban. A previsão original permanece intacta. A alteração exige justificativa.</p>
+      <p id="editKanbanInfo" class="text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-200 p-3 rounded-xl" hidden></p>
+      <label class="block"><span class="block text-[10px] font-extrabold uppercase text-slate-500 mb-1">Data reprogramada no GRV (vazio para remover)</span><input id="newDate" type="date" class="border rounded-xl w-full p-3 text-sm"></label>
       <label class="block"><span class="block text-[10px] font-extrabold uppercase text-slate-500 mb-1">Justificativa obrigatória</span><textarea id="justification" rows="3" maxlength="1000" class="border rounded-xl w-full p-3 text-sm" placeholder="Motivo da alteração..."></textarea></label>
       <div id="editError" class="text-xs font-bold text-red-600" hidden></div>
     </div>
@@ -218,6 +219,6 @@ input:focus,select:focus,textarea:focus{outline:2px solid #93c5fd;outline-offset
     <div class="border-t bg-slate-50 p-3 text-right"><button data-close="managePortalModal" class="action-btn border bg-white">Fechar</button></div>
   </div>
 </div>
-<script src="./app.js?v=2.1.1"></script>
+<script src="./app.js?v=2.1.2"></script>
 </body>
 </html>
