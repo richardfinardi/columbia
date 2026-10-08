@@ -51,7 +51,7 @@ A pagina `/columbia/pcp` possui dois modos: **Planilha** e **Kanban**. Nos dois 
 
 A Planilha apresenta **Entrega vigente** com a origem (MANUAL/GRV/ORIGINAL), e **Original (referencia)** visualmente. Os filtros de periodo, indicadores de atraso e Excel utilizam a data vigente. A coluna original e somente referencia.
 
-O Kanban filtra obrigatoriamente **um mes**, iniciando no mes atual e usando setas para navegar. Mostra uma coluna para cada semana de calendario que intersecta o mes, inclusive quando houver seis. Cada OS aparece na semana da data vigente, e as setas do cartao acionam:
+O Kanban filtra obrigatoriamente **um mes**, iniciando no mes atual e usando setas para navegar. **Pesquisa geral, Cliente, Segmento e Situacao sao compartilhados e sincronizados em duas vias com a Planilha**, inclusive ao atualizar a pagina (persistem em localStorage). Filtros por coluna da planilha que nao sejam de data tambem sao respeitados no Kanban. O periodo `Entrega de/ate` e filtros por colunas de data (`entrega` e `original`) **nao restringem o Kanban**: apenas o mes das setas determina o intervalo. `Limpar filtros` do Kanban remove apenas os filtros nao relacionados a datas, preservando `from/to`, filtros de colunas de datas e o mes escolhido. Mostra uma coluna para cada semana de calendario que intersecta o mes, inclusive quando houver seis. Cada OS aparece na semana da data vigente, e as setas do cartao acionam:
 
 `PATCH /producao/pcp/kanban/mover` com `{"cod_empresa":1,"cod_os":1234,"direcao":1}` ou `direcao:-1`.
 
