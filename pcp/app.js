@@ -476,22 +476,14 @@
     finally {$("saveEdit").disabled=false;$("saveEdit").textContent="Salvar no sistema";}
   }
 
-  function clearAttachmentPreview(){
-    $("attachmentPreview").hidden=true;
-    $("attachmentFrame").removeAttribute("src");
-    $("attachmentNewTab").removeAttribute("href");
-    if(store.attachmentBlobUrl){URL.revokeObjectURL(store.attachmentBlobUrl);store.attachmentBlobUrl=null;}
-  }
   function closeAttachments(){
     $("attachmentsModal").hidden=true;
     store.attachmentOS=null;
-    clearAttachmentPreview();
   }
   function showAttachments(os){
     const row=store.rows.find(r=>r.os===os);
     if(!row)return;
     store.attachmentOS=os;
-    clearAttachmentPreview();
     $("attachmentError").hidden=true;
     $("attachmentOS").textContent="OS "+os+" · "+row.cliente+" · "+row.anexos.length+" anexo(s)";
     $("attachmentList").innerHTML=row.anexos.length
@@ -504,82 +496,163 @@
     const row=store.rows.find(r=>r.os===store.attachmentOS);
     const attachment=row?.anexos[index];
     if (!attachment)return attachmentError("Anexo não encontrado.");
-    button.disabled=true;button.textContent="Carregando PDF...";
+    // A aba precisa ser aberta no clique, antes da consulta ao servidor.
+    // Abrir somente depois do await faria navegadores bloquearem o PDF.
+    const tab=window.open("about:blank","_blank");
+    if(!tab)return attachmentError("O navegador bloqueou a nova aba. Permita abrir novas abas para visualizar os desenhos.");
+    try{tab.opener=null;tab.document.title="Carregando desenho técnico";tab.document.body.textContent="Abrindo desenho técnico...";}catch(_){}
+    const original=button.textContent;
+    button.disabled=true;button.textContent="Abrindo PDF...";
     $("attachmentError").hidden=true;
-    clearAttachmentPreview();
     try{
       const url=new URL(API+"/desenho-anexo");
       url.searchParams.set("cod_empresa",attachment.empresa);
       url.searchParams.set("cod_os",attachment.os);
       url.searchParams.set("cod_os_aux",attachment.aux);
       const response=await fetch(url.href,{cache:"no-store",headers:{Authorization:"Bearer "+localStorage.getItem(TOKEN_KEY)}});
-      if(response.status===401){loginRedirect();return;}
+      if(response.status===401){tab.close();loginRedirect();return;}
       if(!response.ok){
         const error=await response.json().catch(()=>({}));
-        throw Error(error.detail||"Não foi possível abrir o desenho técnico (código "+response.status);
+        throw Error(error.detail||"Não foi possível abrir o desenho técnico (código "+response.status+")");
       }
       const payload=await response.json();
       if(!payload.pdf_base64)throw Error("O desenho técnico não está disponível neste momento.");
       const chars=atob(payload.pdf_base64.replace(/^data:application\/pdf;base64,/i,""));
       const bytes=new Uint8Array(chars.length);
       for(let i=0;i<chars.length;i++)bytes[i]=chars.charCodeAt(i);
-      // Evita mostrar anexos de outra OS quando o usuário muda o modal durante o download.
-      if(store.attachmentOS!==row.os)return;
-      store.attachmentBlobUrl=URL.createObjectURL(new Blob([bytes],{type:"application/pdf"}));
-      $("attachmentTitle").textContent="OS "+row.os+" · "+(attachment.nome||"Desenho")+" · Aux "+attachment.aux;
-      $("attachmentFrame").src=store.attachmentBlobUrl;
-      $("attachmentNewTab").href=store.attachmentBlobUrl;
-      $("attachmentPreview").hidden=false;
-    }catch(e){attachmentError(e.message||"Falha ao carregar o desenho técnico.");}
-    finally{button.disabled=false;button.textContent="PDF "+(index+1)+" · "+(attachment.nome||"Desenho "+attachment.aux);}
+      const objectUrl=URL.createObjectURL(new Blob([bytes],{type:"application/pdf"}));
+      // Não revoga antes de a nova aba carregar o documento.
+      if(!store.attachmentBlobUrls)store.attachmentBlobUrls=[];
+      store.attachmentBlobUrls.push(objectUrl);
+      tab.location.replace(objectUrl);
+    }catch(e){tab.close();attachmentError(e.message||"Não foi possível abrir o desenho técnico.");}
+    finally{button.disabled=false;button.textContent=original;}
   }
   function openShare(){
     $("filterQty").textContent=countFormatter.format(store.filtered.length);
     $("selectedQty").textContent=countFormatter.format(store.selected.size);
     document.querySelector('input[name="shareScope"][value="filtered"]').checked=true;
     $("shareResult").hidden=true;
+    $("portalName").value="Planejamento de entrega · "+new Date().toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
     $("shareWeekSummary").innerHTML="";
     $("shareError").hidden=true;
     $("shareModal").hidden=false;
   }
   function shareError(msg){$("shareError").textContent=msg;$("shareError").hidden=false;}
-  function createSingleLink(rows){
-    const ids=[...new Set(rows.map(r=>str(r.os)).filter(Boolean))];
-    if(!ids.length)return {error:"Não há OS para compartilhar."};
-    if(ids.length>5000)return {error:"A seleção ultrapassa 5.000 OS. Refine os filtros."};
-    const url=new URL(location.href);
-    url.search="";url.hash="";
-    const values=ids.map(Number);
-    const numeric=ids.every((id,i)=>/^[1-9]\d*$/.test(id)&&Number.isSafeInteger(values[i])&&String(values[i])===id);
-    if(numeric){
-      values.sort((x,y)=>x-y);
-      let previous=0;
-      const deltas=values.map(value=>{const delta=value-previous;previous=value;return delta.toString(36);});
-      url.searchParams.set("osv","1."+deltas.join("."));
-    }else{
-      url.searchParams.set("os",ids.join(","));
-    }
-    if(url.href.length>8000)return {error:"O link ficou muito longo. Reduza a quantidade de OS selecionadas."};
-    return {url:url.href,count:ids.length};
+  const PORTAL_API=API+"/pcp";
+  const portalHeaders=(extra={})=>({
+    Authorization:"Bearer "+(localStorage.getItem(TOKEN_KEY)||""),
+    ...extra
+  });
+  async function portalRequest(path,opts={}){
+    const response=await fetch(PORTAL_API+path,{
+      cache:"no-store",
+      ...opts,
+      headers:portalHeaders(opts.headers)
+    });
+    if(response.status===401){loginRedirect();throw Error("Sua sessão expirou. Entre novamente.");}
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw Error(data.detail||data.message||(response.status===404?"O compartilhamento ainda não está habilitado no servidor.":("Não foi possível concluir a operação (código "+response.status+").")));
+    return data;
   }
-  function generateShare(){
+  function publicUrl(id,token){
+    if(!id||!token)throw Error("Não foi possível obter o endereço de compartilhamento.");
+    const link=new URL("./portal.html",location.href);
+    link.searchParams.set("id",String(id));
+    link.searchParams.set("token",String(token));
+    return link.href;
+  }
+  async function generateShare(){
     $("shareError").hidden=true;
     const selected=document.querySelector('input[name="shareScope"]:checked')?.value==="selected";
     const rows=selected
       ?store.rows.filter(r=>store.selected.has(r.os)&&(!store.shareIds||store.shareIds.has(r.os)))
       :store.filtered;
     if(!rows.length)return shareError("Não existem OS nessa seleção.");
-    const result=createSingleLink(rows);
-    if(result.error)return shareError(result.error);
-    const weeks=groupByDeliveryWeek(rows);
-    $("shareURL").value=result.url;
-    $("shareWeekSummary").innerHTML='<div class="text-xs bg-blue-50 border border-blue-200 rounded-lg p-3 font-bold text-columbia-700">'+
-      'Planejamento completo: '+countFormatter.format(result.count)+' OS · '+countFormatter.format(weeks.length)+' semanas · '+
-      esc(money(rows.reduce((sum,r)=>sum+(r.valor||0),0)))+'</div>'+
-      weeks.map(w=>'<div class="flex items-center justify-between gap-3 text-xs border-b py-1.5">'+
-        '<span class="font-bold text-slate-700">'+esc(w.label)+'</span>'+
-        '<span class="text-slate-600 whitespace-nowrap">'+w.rows.length+' OS · '+esc(money(w.value))+'</span></div>').join("");
-    $("shareResult").hidden=false;
+    const name=$("portalName").value.trim();
+    if(!name)return shareError("Informe o nome do planejamento.");
+    const validade=Number($("portalValidity").value);
+    if(![0,7,30,90,365].includes(validade))return shareError("Escolha a validade.");
+    const btn=$("generateShare");
+    btn.disabled=true;btn.textContent="Criando link...";
+    $("shareResult").hidden=true;
+    try{
+      if(!await authorize())throw Error("Seu acesso não pôde ser confirmado.");
+      const data=await portalRequest("/portal",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          nome:name,validade_dias:validade,
+          mostrar_valores:$("portalValues").checked,
+          permitir_excel:$("portalExcel").checked,
+          os:[...new Set(rows.map(r=>r.os))]
+        })
+      });
+      const created=data.portal||data;
+      // Nunca criar um link compartilhável sem token de acesso emitido pelo servidor.
+      const link=publicUrl(created.id,created.token);
+      $("shareURL").value=link;
+      const weeks=groupByDeliveryWeek(rows);
+      $("shareWeekSummary").innerHTML='<div class="text-xs bg-blue-50 border border-blue-200 rounded-lg p-3 font-bold text-columbia-700">'+
+        'Planejamento: '+countFormatter.format(rows.length)+' OS · '+countFormatter.format(weeks.length)+' semanas · '+
+        esc($("portalValues").checked?money(rows.reduce((sum,r)=>sum+(r.valor||0),0)):"valores ocultos")+
+        ' · '+(validade?validade+" dias":"sem vencimento")+'</div>'+
+        weeks.map(w=>'<div class="flex items-center justify-between gap-3 text-xs border-b py-1.5"><span class="font-bold text-slate-700">'+esc(w.label)+'</span><span class="text-slate-600 whitespace-nowrap">'+w.rows.length+' OS</span></div>').join("");
+      $("shareResult").hidden=false;
+    }catch(e){shareError(e.message||"Não foi possível gerar o link.");}
+    finally{btn.disabled=false;btn.textContent="Criar link público";}
+  }
+  function portalDate(v){
+    if(!v)return"Sem vencimento";
+    const d=new Date(v);
+    return Number.isFinite(d.getTime())?d.toLocaleString("pt-BR"):"Sem vencimento";
+  }
+  function showManageError(message){
+    $("managePortalList").innerHTML='<p class="text-xs rounded-xl border border-red-200 bg-red-50 text-red-700 p-4">'+esc(message)+'</p>';
+  }
+  async function managePortals(){
+    $("shareModal").hidden=true;
+    $("managePortalModal").hidden=false;
+    $("managePortalList").textContent="Carregando links do planejamento...";
+    try{
+      const data=await portalRequest("/portais");
+      const list=Array.isArray(data)?data:(data.portais||[]);
+      if(!list.length){$("managePortalList").textContent="Nenhum link criado até o momento.";return;}
+      $("managePortalList").innerHTML='<div class="space-y-3">'+list.map(p=>{
+        const active=p.ativo===true||p.ativo===1;
+        const expired=!!p.validade_ate&&Date.parse(p.validade_ate)<Date.now();
+        return '<div class="rounded-xl border p-3 flex flex-wrap items-center justify-between gap-3">'+
+          '<div><p class="font-extrabold text-sm text-columbia-700">'+esc(p.nome||"Planejamento")+'</p>'+
+          '<p class="text-[11px] text-slate-500">'+Number(p.qtd_os||0).toLocaleString("pt-BR")+' OS · Validade: '+esc(portalDate(p.validade_ate))+'</p>'+
+          '<p class="text-[11px] font-bold '+(active&&!expired?'text-emerald-700':'text-red-700')+'">'+(expired?"VENCIDO":active?"ATIVO":"DESATIVADO")+'</p></div>'+
+          '<div class="flex gap-1 flex-wrap">'+
+          (p.url?'<button data-copy-portal="'+esc(p.id)+'" class="action-btn border text-columbia-700" title="Copiar link">Copiar</button>':'')+
+          '<button data-status-portal="'+esc(p.id)+'" data-active="'+(active?"1":"0")+'" class="action-btn '+(active?'bg-red-50 text-red-700':'bg-emerald-50 text-emerald-700')+'">'+(active?'Desativar':'Reativar')+'</button>'+
+          '</div></div>';
+      }).join("")+'</div>';
+      store.managePortals=list;
+    }catch(e){showManageError(e.message);}
+  }
+  async function managePortalAction(event){
+    const copy=event.target.closest("[data-copy-portal]");
+    const change=event.target.closest("[data-status-portal]");
+    if(copy){
+      const p=(store.managePortals||[]).find(v=>String(v.id)===copy.dataset.copyPortal);
+      if(!p?.url)return showManageError("Não foi possível recuperar este link. Crie um novo.");
+      if(await copyText(p.url)){copy.textContent="Copiado!";setTimeout(()=>copy.textContent="Copiar",1500);}
+      return;
+    }
+    if(!change)return;
+    const id=change.dataset.statusPortal,ativo=change.dataset.active==="0";
+    change.disabled=true;
+    try{
+      await portalRequest("/portal/"+encodeURIComponent(id)+"/status",{
+        method:"PATCH",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ativo})
+      });
+      await managePortals();
+    }catch(e){showManageError(e.message);}
+    finally{change.disabled=false;}
   }
   async function copyText(value){
     try{await navigator.clipboard.writeText(value);return true;}
@@ -617,6 +690,8 @@
     $("export").addEventListener("click",exportExcel);
     $("share").addEventListener("click",openShare);
     $("generateShare").addEventListener("click",generateShare);
+    $("manageShare").addEventListener("click",managePortals);
+    $("managePortalList").addEventListener("click",managePortalAction);
     $("copyShare").addEventListener("click",copyShare);
     $("openShared").addEventListener("click",()=>{const url=$("shareURL").value;if(url)window.open(url,"_blank","noopener,noreferrer");});
     $("logout").addEventListener("click",()=>{
@@ -632,7 +707,7 @@
     }
     $("clear").addEventListener("click",resetFilters);
     $("clearShare").addEventListener("click",()=>{
-      const url=new URL(location.href);url.searchParams.delete("os");location.href=url.href;
+      const url=new URL(location.href);url.searchParams.delete("os");url.searchParams.delete("osv");location.href=url.href;
     });
     $("selectAll").addEventListener("click",()=>{
       const all=store.filtered.every(r=>store.selected.has(r.os));
@@ -652,7 +727,12 @@
     });
     $("rows").addEventListener("click",e=>{
       const anexos=e.target.closest("[data-attachments]");
-      if(anexos){showAttachments(anexos.dataset.attachments);return;}
+      if(anexos){
+        const r=store.rows.find(x=>x.os===anexos.dataset.attachments);
+        if(r?.anexos.length===1){store.attachmentOS=r.os;openAttachment(0,anexos);}
+        else showAttachments(anexos.dataset.attachments);
+        return;
+      }
       const b=e.target.closest("[data-edit]");
       if (b) openEdit(b.dataset.edit);
     });
@@ -693,11 +773,12 @@
       else $(b.dataset.close).hidden=true;
     }));
     $("saveEdit").addEventListener("click",saveEdit);
-    for (const id of ["editModal","shareModal","attachmentsModal"]) $(id).addEventListener("click",e=>{
+    for (const id of ["editModal","shareModal","attachmentsModal","managePortalModal"]) $(id).addEventListener("click",e=>{
       if(e.target!==$(id))return;
       if(id==="attachmentsModal")closeAttachments();else $(id).hidden=true;
     });
-    document.addEventListener("keydown",e=>{if(e.key==="Escape"){closePopup();$("editModal").hidden=true;$("shareModal").hidden=true;closeAttachments();}});
+    document.addEventListener("keydown",e=>{if(e.key==="Escape"){closePopup();$("editModal").hidden=true;$("shareModal").hidden=true;$("managePortalModal").hidden=true;closeAttachments();}});
+    window.addEventListener("pagehide",()=>{for(const url of store.attachmentBlobUrls||[])URL.revokeObjectURL(url);});
   }
   async function init() {
     bind();iconize();
