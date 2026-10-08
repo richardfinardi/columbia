@@ -36,7 +36,7 @@ O frontend valida \`GET /producao/portal/me\` com o token Bearer e **nega acesso
 ## Interface interna: planilha direta
 A tela do usuário PCP **não exibe resumo por semana e não agrupa OS na tabela**. Mostra uma única planilha com filtros, ordenação, pesquisa, seleção, anexos, edição de data e botão para criar link de visualização.
 
-O filtro **Entrega de / Entrega até** inclui uma OS quando sua data **original ou reprogramada** pertence ao período, inclusive as extremidades. Se ambas estiverem preenchidas, basta que uma coincida. A tela usa o nome **Reprogramada**, mantendo no banco o nome técnico `u_data_renegociacao` e o endpoint legado `alterar-renegociacao`.
+O filtro **Entrega de / Entrega até** considera uma única data vigente para cada OS: **reprogramada, quando informada; caso contrário, original**. Se a data original é 13/10/2026 e a reprogramada é 01/12/2026, esta OS **não aparece** no período de outubro, somente no período de dezembro. Os limites do intervalo são inclusivos. A tela exibe ambas as datas nas colunas, mas não utiliza a original para passar no filtro quando há reprogramação. O agrupamento da visualização pública segue a mesma prioridade. A interface mantém o nome **Reprogramada**, enquanto o banco utiliza `u_data_renegociacao` e a rota de atualização é `alterar-renegociacao`.
 
 ## Visualização pública: cronograma semanal
 **Somente `pcp/portal.html`** tem agrupamento por semana de entrega. Não há mais uma parede de cartões repetidos: o portal mostra a lista de semanas em **cabeçalhos expansíveis**, com status da semana, quantidade de OS, atrasadas, datas e valores quando liberados. A semana atual (ou a mais relevante) vem aberta, as demais começam recolhidas. O usuário pode expandir/recolher cada uma ou todas. Semanas atuais e futuras vêm primeiro e o histórico vencido fica depois, ordenado da mais recente para a mais antiga. Filtros e pesquisa mostram automaticamente as OS correspondentes. A data de agrupamento prioriza a **reprogramada**, recorrendo à previsão original quando não existe reprogramação.
@@ -70,7 +70,7 @@ Os endpoints de criação, consulta de links e reativação só aceitam usuário
 1. Entrar com usuário \`u_pcp=0\` e confirmar que o módulo não abre nem por URL direta.
 2. Entrar com \`u_pcp=1\` e conferir algumas OS entre a produção e a nova carteira, inclusive campos nulos e renegociações.
 3. Modificar e remover uma data com justificativa, verificar banco de dados e log do GRV.
-4. Filtrar a planilha interna por original ou reprogramada; após instalar o backend, abrir link público e verificar o agrupamento por semanas com expandir/recolher.
+4. Filtrar a planilha pela **data de entrega vigente** (reprogramada > original) e confirmar que uma OS reprogramada para dezembro não aparece ao filtrar outubro. Após instalar o backend, conferir a visualização pública agrupada em semanas.
 5. Garantir via API a rejeição com HTTP 403 de leituras e escritas PCP por token sem a permissão.
 
 Validação realizada na edição: sintaxe JavaScript verificada. Sem conexão com a API privada neste ambiente, a integração real e as permissões no backend precisam ser testadas na infraestrutura Columbia.
