@@ -8,21 +8,20 @@ const SCRIPT_URL='https://script.google.com/macros/s/AKfycbx-reTI7fl-EH8KTa7gWnZ
 const STORE='grvmax_columbia_apps_script_url';
 function valid(u){return /^https:\/\/script\.google\.com\/macros\/s\/[^\/?#]+\/exec(?:[?#].*)?$/.test(u)}
 function openApp(url){
-  // No celular, a incorporacao externa do Google Apps Script pode renderizar
-  // uma tela de erro do Drive. Navegue como pagina principal nesse caso.
-  const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
-    || (window.matchMedia && window.matchMedia('(max-width: 860px)').matches)
-    || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
-  if (mobile) {
-    window.location.replace(url);
-    return;
+  // Nunca redirecionar automaticamente o navegador para script.google.com.
+  // O Apps Script opera como motor interno, mantendo a barra de endereço na ConsultoriaRF.
+  const params = new URLSearchParams(window.location.search);
+  const invite=params.get('invite')||'', email=params.get('email')||'';
+  let target=url;
+  if(invite && email && /^[a-zA-Z0-9-]{50,150}$/.test(invite)){
+    const query=new URLSearchParams({invite:invite,email:email});
+    target=url+(url.includes('?')?'&':'?')+query.toString();
   }
-  // Preserva o comportamento no desktop, ja validado pela Columbia.
-  const frame = document.createElement('iframe');
-  frame.className = 'frame';
-  frame.referrerPolicy = 'strict-origin-when-cross-origin';
-  frame.title = 'GRVMAX | Columbia';
-  frame.src = url;
+  const frame=document.createElement('iframe');
+  frame.className='frame';
+  frame.referrerPolicy='strict-origin-when-cross-origin';
+  frame.title='GRVMAX | Columbia';
+  frame.src=target;
   document.getElementById('view').replaceChildren(frame);
 }
 function setup(){
