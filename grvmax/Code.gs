@@ -22,7 +22,27 @@ function doGet(e) {
     .setTitle('GRVMAX | Implantação Columbia')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
-function doPost(e) { return ContentService.createTextOutput(JSON.stringify({error:'Acesse o aplicativo pela interface web.'})).setMimeType(ContentService.MimeType.JSON); }
+/**
+ * API HTTP: somente POST JSON. O Cloudflare Worker faz proxy HTTPS e CORS.
+ * Preserva google.script.run / doGet para rollback da versão anterior.
+ */
+function doPost(e) {
+  let answer;
+  try {
+    const raw=e&&e.postData&&e.postData.contents||'';
+    if(!raw || raw.length>150000)throw Error('Corpo da requisição inválido.');
+    const req=JSON.parse(raw);
+    if(!req || typeof req.action!=='string' || !req.payload || typeof req.payload!=='object' || Array.isArray(req.payload))
+      throw Error('Parâmetros inválidos.');
+    if(req.token && (typeof req.token!=='string' || req.token.length>512))
+      throw Error('Credencial inválida.');
+    answer={ok:true,result:api(req.action,req.payload,req.token||'')};
+  }catch(err){
+    answer={ok:false,error:String(err&&err.message||err)};
+  }
+  return ContentService.createTextOutput(JSON.stringify(answer))
+    .setMimeType(ContentService.MimeType.JSON);
+}
 
 function api(action, payload, token) {
   try {
