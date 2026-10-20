@@ -27,7 +27,7 @@ var S=null,screen='dashboard',search='',filterStage='',filterStatus='',filterRes
 if(dark)document.body.classList.add('dark');
 var tabs=[['dashboard','◫','Dashboard'],['stages','▦','Etapas'],['activities','☷','Atividades'],['approvals','◈','Homologações'],['people','♙','Pessoas'],['emails','✉','Comunicação'],['agenda','▣','Agenda'],['pending','⚑','Pendências'],['changes','⇄','Mudanças'],['training','▤','Treinamentos'],['golive','◉','GO LIVE'],['history','≡','Histórico / Logs']];
 var defs={
- ETAPAS:[['ORDEM','Ordem','number'],['TITULO','Título','text','wide'],['DESCRICAO','Descrição','textarea','wide'],['ENTREGAVEL','Entregável','textarea','wide'],['RESPONSAVEL_ID','Responsável','person'],['STATUS','Situação','stagesStatus'],['OBRIGATORIA','Obrigatória','bool']],
+ ETAPAS:[['ORDEM','Ordem','number'],['TITULO','Título','text','wide'],['DESCRICAO','Descrição','textarea','wide'],['ENTREGAVEL','Entregável','textarea','wide'],['RESPONSAVEL_ID','Responsável','person'],['DATA_INICIO','Início previsto','date'],['DATA_FIM','Fim previsto','date'],['DEPENDE_DE','Etapas predecessoras','stageMultiple','wide'],['STATUS','Situação','stagesStatus'],['OBRIGATORIA','Obrigatória','bool']],
  ATIVIDADES:[['ETAPA_ID','Etapa','stage'],['TITULO','Atividade','text','wide'],['DESCRICAO','Instruções','textarea','wide'],['RESPONSAVEL_ID','Responsável principal','person'],['__PARTICIPANTES','Participantes da atividade','peopleMultiple','wide'],['__HOMOLOGADOR','Homologador designado','homologator','wide'],['STATUS','Situação','activityStatus'],['PRIORIDADE','Prioridade','priority'],['DATA_ORIENTACAO','Data da orientação','date'],['PRAZO','Prazo de validação','date'],['CRITERIO_ACEITE','Critério de aceite','textarea','wide'],['EVIDENCIA_URL','Link da evidência','text','wide'],['DEPENDE_DE','Depende de','activity'],['OBRIGATORIA','Obrigatória','bool']],
  PESSOAS:[['NOME','Nome','text','wide'],['EMAIL','E-mail de acesso','email','wide'],['EMPRESA','Empresa','text'],['DEPARTAMENTO','Departamento','text'],['CARGO','Cargo','text'],['PERFIL','Perfil','role'],['ATIVO','Ativo','bool']],
  PENDENCIAS:[['ATIVIDADE_ID','Atividade','activity'],['TITULO','Título','text','wide'],['DESCRICAO','Descrição','textarea','wide'],['RESPONSAVEL_ID','Responsável','person'],['PRIORIDADE','Prioridade','priority'],['STATUS','Situação','pendingStatus'],['IMPACTO','Impacto','textarea','wide'],['PRAZO','Prazo','date']],
@@ -109,6 +109,10 @@ function activityTeam(id,type){return (S.vinculos||[]).filter(function(v){return
 function canApprove(id){return S.canEdit||activityTeam(id,'HOMOLOGADOR').includes(S.me.ID)}
 function person(id){var x=S.people.find(function(p){return p.ID===id});return x?x.NOME:'—'}
 function stage(id){var x=S.stages.find(function(p){return p.ID===id});return x?x.TITULO:'—'}
+function stageDependencies(st){return String(st&&st.DEPENDE_DE||'').split(/[,;|]/).map(function(id){return S.stages.find(function(x){return x.ID===id.trim()})}).filter(Boolean)}
+function stagePending(st){return stageDependencies(st).filter(function(d){return d.STATUS!=='Homologada'})}
+function stageHasPath(source,target,seen){if(source===target)return true;seen=seen||{};if(seen[source])return false;seen[source]=true;var st=S.stages.find(function(x){return x.ID===source});return st?stageDependencies(st).some(function(d){return stageHasPath(d.ID,target,seen)}):false}
+function stageCalendar(st){var deps=stageDependencies(st),pending=stagePending(st);return '<div class="small muted" style="margin-top:5px">Início: <b>'+fmt(st.DATA_INICIO)+'</b> · Fim: <b>'+fmt(st.DATA_FIM)+'</b>'+(deps.length?' · Depende das etapas '+esc(deps.map(function(d){return d.ORDEM}).join(', ')):' · Sem dependências')+'</div>'+(pending.length?'<div class="tiny" style="color:#b37320;margin-top:4px">Pendente: '+esc(pending.map(function(d){return 'etapa '+d.ORDEM}).join(', '))+'</div>':'');}
 function fmt(dt){if(!dt)return '—';var s=String(dt);if(s.length>=10&&s[4]==='-')return s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4);return s}
 function badge(s){var cls=/Homologada|Aprovad|Resolvida|Conclu/.test(s)?'ok':/Atrasada|Devolvida|Bloquead|Crítica|Cancelada/.test(s)?'bad':/Aguardando|Pendente|Em execução|Orientada|andamento/.test(s)?'warn':'neutral';return '<span class="pill '+cls+'">'+esc(s||'—')+'</span>'}
 function pct(stid){var xs=S.activities.filter(function(a){return a.ETAPA_ID===stid});return xs.length?Math.round(xs.filter(function(a){return a.STATUS==='Homologada'}).length*100/xs.length):0}
@@ -165,7 +169,7 @@ function dashboard(root){
 function stagesView(root){
  root.innerHTML='<div class="toolbar"><span class="muted small">'+S.stages.length+' etapas · '+S.activities.length+' atividades</span><span class="spacer"></span>'+createButton('ETAPAS')+'</div>'+S.stages.map(function(s,i){
    var tasks=S.activities.filter(function(a){return a.ETAPA_ID===s.ID});
-   return '<section class="stage"><div class="stage-head" data-stage="'+esc(s.ID)+'"><span class="num">'+String(s.ORDEM).padStart(2,'0')+'</span><div style="flex:1"><h3>'+esc(s.TITULO)+'</h3><div class="small muted">'+esc(s.ENTREGAVEL||'')+'</div></div><span class="small bold">'+pct(s.ID)+'%</span><div style="width:100px" class="progress"><span style="width:'+pct(s.ID)+'%"></span></div><span>⌄</span></div><div id="stage-'+s.ID+'" class="stage-content hidden"><div class="toolbar" style="margin:14px 0">'+badge(s.STATUS)+'<span class="spacer"></span>'+(S.canEdit?'<button class="btn" onclick="editItem(\'ETAPAS\',\''+s.ID+'\')">Editar etapa</button><button class="btn primary" onclick="editItem(\'ATIVIDADES\',null,\''+s.ID+'\')">+ Atividade</button>':'')+'</div>'+tasks.map(function(a){return '<div class="listrow"><div style="flex:1"><div class="small bold">'+esc(a.TITULO)+'</div><div class="tiny muted">'+person(a.RESPONSAVEL_ID)+' · Prazo '+fmt(a.PRAZO)+'</div></div>'+badge(a.STATUS)+'<button class="link" onclick="editItem(\'ATIVIDADES\',\''+a.ID+'\')">Abrir</button></div>'}).join('')+(tasks.length?'':'<div class="empty">Nenhuma atividade cadastrada.</div>')+'</div></section>';
+   return '<section class="stage"><div class="stage-head" data-stage="'+esc(s.ID)+'"><span class="num">'+String(s.ORDEM).padStart(2,'0')+'</span><div style="flex:1"><h3>'+esc(s.TITULO)+'</h3><div class="small muted">'+esc(s.ENTREGAVEL||'')+'</div>'+stageCalendar(s)+'</div><span class="small bold">'+pct(s.ID)+'%</span><div style="width:100px" class="progress"><span style="width:'+pct(s.ID)+'%"></span></div><span>⌄</span></div><div id="stage-'+s.ID+'" class="stage-content hidden"><div class="toolbar" style="margin:14px 0">'+badge(s.STATUS)+'<span class="spacer"></span>'+(S.canEdit?'<button class="btn" onclick="editItem(\'ETAPAS\',\''+s.ID+'\')">Editar etapa</button><button class="btn primary" onclick="editItem(\'ATIVIDADES\',null,\''+s.ID+'\')">+ Atividade</button>':'')+'</div>'+tasks.map(function(a){return '<div class="listrow"><div style="flex:1"><div class="small bold">'+esc(a.TITULO)+'</div><div class="tiny muted">'+person(a.RESPONSAVEL_ID)+' · Orientação '+fmt(a.DATA_ORIENTACAO)+' · Validação '+fmt(a.PRAZO)+'</div></div>'+badge(a.STATUS)+'<button class="link" onclick="editItem(\'ATIVIDADES\',\''+a.ID+'\')">Abrir</button></div>'}).join('')+(tasks.length?'':'<div class="empty">Nenhuma atividade cadastrada.</div>')+'</div></section>';
  }).join('');
  document.querySelectorAll('[data-stage]').forEach(function(a){a.onclick=function(){el('stage-'+a.dataset.stage).classList.toggle('hidden')}});
 }
@@ -234,7 +238,11 @@ window.changeTaskStatus=async function(id,next){
  var sel=document.querySelector('[data-quick="'+id+'"]');
  if(next==='Aguardando validação'){if(sel)sel.value=row.STATUS;editItem('ATIVIDADES',id,null,next);return}
  if(next==='Cancelada'&&!confirm('Cancelar esta atividade? A alteração ficará registrada no histórico.')){if(sel)sel.value=row.STATUS;return}
- if(sel)sel.disabled=true;
+ if(['Orientada','Em execução'].includes(next)){
+    var parentStage=S.stages.find(function(st){return st.ID===row.ETAPA_ID});
+    if(parentStage&&stagePending(parentStage).length){if(sel)sel.value=row.STATUS;notify('Etapa bloqueada por dependências não homologadas.',true);return;}
+  }
+  if(sel)sel.disabled=true;
  try{await api('save',{table:'ATIVIDADES',item:{ID:id,STATUS:next}});await reload(true);notify('Situação alterada e registrada no histórico.')}
  catch(e){if(sel){sel.value=row.STATUS;sel.disabled=false}notify(e.message,true)}
 };
@@ -281,7 +289,11 @@ function options(field,type){
 }
 function formField(f,item,restricted){
  var k=f[0],label=f[1],type=f[2],wide=f[3],v=item[k]||'';
- if(type==='peopleMultiple'){
+ if(type==='stageMultiple'){
+    var selected=String(v).split(/[,;|]/).map(function(x){return x.trim()}).filter(Boolean);
+    return '<div class="fitem wide"><label>Etapas anteriores obrigatórias</label><div class="checkgrid" style="grid-template-columns:repeat(2,minmax(0,1fr));max-height:210px;overflow:auto">'+S.stages.filter(function(st){return st.ID!==item.ID}).map(function(st){return '<label class="checkitem"><input type="checkbox" class="stage-dependency" value="'+attr(st.ID)+'" '+(selected.includes(st.ID)?'checked':'')+'>'+esc(st.ORDEM+' · '+st.TITULO)+'</label>'}).join('')+'</div><p class="small muted">Selecione as predecessoras; é exigida a homologação delas antes de iniciar a etapa.</p></div>';
+  }
+  if(type==='peopleMultiple'){
    var selected=activityTeam(item.ID,'PARTICIPANTE');
    var members=S.people.filter(function(p){return p.ATIVO==='SIM'});
    return '<div class="fitem wide"><label>Participantes (várias pessoas)</label><div class="checkgrid" id="teamChecks" style="grid-template-columns:repeat(2,minmax(0,1fr));max-height:230px;overflow:auto">'+members.map(function(p){return '<label class="checkitem"><input type="checkbox" class="team-participant" value="'+attr(p.ID)+'" '+(selected.includes(p.ID)?'checked':'')+'>'+esc(p.NOME)+'<div class="tiny muted">'+esc(p.EMAIL)+'</div></label>'}).join('')+'</div><p class="small muted">Participantes podem executar e registrar evidências. Inclusões são notificadas por e-mail.</p></div>';
@@ -335,6 +347,23 @@ window.editItem=function(table,id,stageId,desiredStatus){
  el('saveItem').onclick=async function(){
    var body=row?{ID:row.ID}:{};if(data.PROJETO_ID)body.PROJETO_ID=data.PROJETO_ID;if(data.ETAPA_ID&&!row)body.ETAPA_ID=data.ETAPA_ID;
    document.querySelectorAll('#itemForm [name]').forEach(function(c){body[c.name]=c.value});
+   if(table==='ETAPAS'){
+     body.DEPENDE_DE=Array.from(document.querySelectorAll('#itemForm .stage-dependency:checked')).map(function(c){return c.value}).join(',');
+     if(body.DATA_INICIO&&body.DATA_FIM&&body.DATA_FIM<body.DATA_INICIO){notify('Fim previsto anterior ao início.',true);return;}
+     var deps=body.DEPENDE_DE?body.DEPENDE_DE.split(','):[];
+     if(row&&deps.some(function(id){return stageHasPath(id,row.ID,{})})){notify('Dependência circular entre etapas.',true);return;}
+     if(['Em andamento','Aguardando validação','Homologada'].includes(body.STATUS)&&(!row||row.STATUS!==body.STATUS)){
+       var blocked=deps.map(function(id){return S.stages.find(function(st){return st.ID===id})}).filter(function(st){return st&&st.STATUS!=='Homologada'});
+       if(blocked.length){notify('Homologue antes: '+blocked.map(function(st){return 'etapa '+st.ORDEM}).join(', '),true);return;}
+     }
+   }
+   if(table==='ATIVIDADES'){
+     if(body.DATA_ORIENTACAO&&body.PRAZO&&body.PRAZO<body.DATA_ORIENTACAO){notify('Prazo anterior à orientação.',true);return;}
+     var parent=S.stages.find(function(st){return st.ID===(body.ETAPA_ID||data.ETAPA_ID)});
+     if(parent&&['Orientada','Em execução','Aguardando validação'].includes(body.STATUS)&&(!row||row.STATUS!==body.STATUS)&&stagePending(parent).length){
+       notify('Etapa bloqueada por dependências não homologadas.',true);return;
+     }
+   }
    if(table==='ATIVIDADES'){
      var noteEditor=el('newActivityNote');
      if(noteEditor&&noteEditor.value.trim()){
