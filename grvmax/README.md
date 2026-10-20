@@ -64,3 +64,13 @@ O banco foi criado na pasta BANCO_DADOS com 16 tabelas, 19 etapas, 70 atividades
 - O backend atualizado calcula a autoria a partir dos LOGS existentes, sem modificar a estrutura do Sheets. Atividades iniciais sem evento de criação não têm autor verificável e podem não aparecer na visão **Criadas por mim**.
 - **Para ativar a autoria completa**, atualizar o Code.gs do Apps Script e publicar em **Implantar → Gerenciar implantações → Editar → Nova versão → Implantar**, mantendo o mesmo link /exec. Antes disso, a interface usa os logs recentes que já vêm da API.
 - Backup anterior à alteração: branch backup/grvmax-pre-atividades-unificadas-20261020.
+
+## ATUALIZAÇÃO DE 20/10 — Histórico permanente das atividades e usuário-chave
+- **Histórico de observações por atividade:** campo Nova observação inicia vazio em cada abertura. Mensagens anteriores aparecem em cartões de leitura, com autor, data/hora e última mensagem destacada. Não há edição nem exclusão de mensagens anteriores pela aplicação.
+- Cada nova observação é gravada como evento OBSERVACAO_REGISTRADA na tabela LOGS, com ator autenticado e horário do servidor. O campo legado ATIVIDADES.OBSERVACAO é preservado; logs históricos antigos que registraram mudanças nessa coluna são recuperados automaticamente na visualização.
+- Para usuário-chave, o menu mostra **Minhas atividades** e a tela não exibe opções de Todas as atividades nem Criadas por mim. As permissões do servidor continuam limitando o conteúdo às atividades atribuídas (responsável, participante ou homologador).
+- Usuário-chave pode mudar os estados operacionais da atividade atribuída: Não iniciada, Orientada, Em execução e Aguardando validação. A passagem para Aguardando validação abre o formulário e exige evidência ou nova observação. Homologação permanece formal e com controle de permissões.
+- A edição do status de uma atividade existente mantém o valor salvo e não redefine automaticamente para Não iniciada.
+- **Publicação do backend obrigatória:** atualizar o arquivo Code.gs no projeto Google Apps Script e fazer Gerenciar implantações → Editar → Nova versão → Implantar, mantendo a URL /exec. Antes do deploy, a interface impede novos comentários para não sobrescrever conteúdo com a API antiga; as demais telas permanecem disponíveis.
+- Backup antes das alterações: backup/grvmax-antes-historico-observacoes-20261020.
+- Testes feitos em ambiente simulado: preservação de observação antiga, inclusão de dois novos registros, ordenação cronológica, atualização de status por usuário-chave, bloqueio de acesso a atividade não atribuída, modal de histórico e filtros de usuário-chave.
