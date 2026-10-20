@@ -205,10 +205,10 @@ function grvSave(who,p){
     if(!full&&old.STATUS==='Homologada')throw Error('Atividade homologada está bloqueada para alterações. Peça reabertura à consultoria.');
     const t=grvTable(table);let next=old?{...old}:{};
     if(!full){
-      if(who.PERFIL==='Usuário-chave'&&body.STATUS!==undefined&&String(body.STATUS)!==String(old.STATUS))
-        throw Error('Usuário-chave pode registrar observações e evidências, mas não alterar a situação.');
+      // Usuário-chave pode atualizar a situação das atividades atribuídas a ele.
+      // Homologação continua restrita ao fluxo formal de aprovação.
       ['STATUS','EVIDENCIA_URL'].forEach(k=>{if(body[k]!==undefined)next[k]=String(body[k]).slice(0,3000)});
-      if(['Homologada','Cancelada'].includes(next.STATUS))throw Error('Homologação exige aprovação da consultoria.');if(!['Em execução','Aguardando validação','Orientada','Devolvida',old.STATUS].includes(next.STATUS))throw Error('Situação inválida.');}
+      if(['Homologada','Cancelada'].includes(next.STATUS))throw Error('Homologação exige aprovação da consultoria.');if(!['Não iniciada','Em execução','Aguardando validação','Orientada','Devolvida',old.STATUS].includes(next.STATUS))throw Error('Situação inválida.');}
     else t.heads.forEach(k=>{if(body[k]!==undefined && !['_row','SALT','HASH','SENHA_TEMPORARIA','CRIADO_EM','ATUALIZADO_EM','HOMOLOGADO_POR','DATA_HOMOLOGACAO'].includes(k) && !(table==='ATIVIDADES'&&k==='OBSERVACAO'))next[k]=String(body[k]).slice(0,k==='DESCRICAO'||k==='OBSERVACAO'?30000:3000);});
     if(table==='ATIVIDADES'){
       if(!GRV_ACTIVITY_STATUS.includes(next.STATUS||'Não iniciada'))throw Error('Situação inválida.');
