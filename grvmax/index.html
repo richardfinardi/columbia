@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="../LOGO%20MINIMALISTA.png"><title>GRVMAX | Columbia Machine</title>
+<style>*{box-sizing:border-box}body{margin:0;font:14px Inter,Arial,sans-serif;background:#ecf2f8;color:#20324a}.frame{position:fixed;inset:0;width:100%;height:100%;border:0;background:#fff}.setup{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:25px;background:linear-gradient(135deg,#0b2645,#1b5383)}.card{max-width:540px;width:100%;background:white;padding:38px;border-radius:20px;box-shadow:0 20px 70px #0004}h1{font-size:30px;margin:6px 0}p{color:#687b90;line-height:1.6}input{width:100%;padding:14px;border:1px solid #c9d6e5;border-radius:9px;outline:0;margin:14px 0}button{background:#115b9b;color:white;border:0;padding:13px 22px;border-radius:9px;cursor:pointer;font-weight:700;width:100%}.error{color:#bf2937;font-size:12px;padding:8px}small{color:#6c7c90}a{color:#21649d}</style>
+</head><body><div id="view"></div><script>
+/* Após implantar o Apps Script, informe a URL definitiva aqui para acesso de todos. */
+const SCRIPT_URL='';
+const STORE='grvmax_columbia_apps_script_url';
+function valid(u){return /^https:\/\/script\.google\.com\/macros\/s\/[^\/?#]+\/exec(?:[?#].*)?$/.test(u)}
+function openApp(url){const frame=document.createElement('iframe');frame.className='frame';frame.referrerPolicy='strict-origin-when-cross-origin';frame.title='GRVMAX | Columbia';frame.src=url;document.getElementById('view').replaceChildren(frame)}
+function setup(){
+ document.getElementById('view').innerHTML='<div class="setup"><div class="card"><div style="color:#226da6;font-weight:800">COLUMBIA MACHINE</div><h1>GRVMAX</h1><p>A aplicação já está preparada. É necessário concluir uma única vez a conexão com a API Apps Script vinculada ao banco Google Sheets.</p><label style="font-size:12px;font-weight:800">URL de implantação do Apps Script</label><input id="link" placeholder="https://script.google.com/macros/s/.../exec"><div id="error" class="error"></div><button id="connect">Conectar ao sistema</button><p><small>O link é salvo neste navegador. Para liberar a equipe toda, configure a URL no arquivo <b>grvmax/index.html</b> do repositório.</small></p></div></div>';
+ document.getElementById('connect').onclick=function(){const url=document.getElementById('link').value.trim();if(!valid(url)){document.getElementById('error').textContent='Informe uma URL de publicação Apps Script terminada em /exec.';return;}localStorage.setItem(STORE,url);openApp(url);};
+}
+const url=SCRIPT_URL||localStorage.getItem(STORE)||'';
+if(valid(url))openApp(url);else setup();
+</script></body></html>
