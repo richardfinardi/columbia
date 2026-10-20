@@ -140,15 +140,21 @@ function grvState(who){
   const vinculos=grvRows('VINCULOS').filter(v=>v.TIPO==='PARTICIPANTE'||v.TIPO==='HOMOLOGADOR');
   const activities=full?all:all.filter(a=>a.RESPONSAVEL_ID===who.ID||vinculos.some(v=>v.ATIVIDADE_ID===a.ID&&v.PESSOA_ID===who.ID));
   const ids=new Set(activities.map(a=>a.ID));
+  // Mapa da autoria baseado no log append-only: sem migrar ou regravar atividades.
+  const logRows=grvRows('LOGS'),createdBy={};
+  logRows.forEach(x=>{
+    if(x.ENTIDADE==='ATIVIDADES'&&x.ACAO==='CRIOU'&&ids.has(x.ENTIDADE_ID)&&!createdBy[x.ENTIDADE_ID])
+      createdBy[x.ENTIDADE_ID]=x.ATOR_ID;
+  });
   const stageids=new Set(activities.map(a=>a.ETAPA_ID));
   const safe=(s)=>s.map(o=>{const {_row,...a}=o;return a;});
-  return {ok:true,me:grvPublicPerson(who),project:safe(grvRows('PROJETOS')),stages:safe(grvRows('ETAPAS').filter(x=>full||stageids.has(x.ID))),activities:safe(activities),
+  return {ok:true,me:grvPublicPerson(who),project:safe(grvRows('PROJETOS')),stages:safe(grvRows('ETAPAS').filter(x=>full||stageids.has(x.ID))),activities:safe(activities),createdBy:createdBy,
     people:people,vinculos:safe(vinculos.filter(v=>ids.has(v.ATIVIDADE_ID))),pending:safe(grvRows('PENDENCIAS').filter(x=>full||ids.has(x.ATIVIDADE_ID)||x.RESPONSAVEL_ID===who.ID)),
     changes:safe(grvRows('MUDANCAS').filter(x=>full||ids.has(x.ATIVIDADE_ID))),agenda:safe(grvRows('AGENDA').filter(x=>full||x.RESPONSAVEL_ID===who.ID||(x.PARTICIPANTES||'').includes(who.ID))),
     trainings:safe(grvRows('TREINAMENTOS')),goLive:safe(grvRows('GO_LIVE')),
     approvals:safe(grvRows('HOMOLOGACOES').filter(x=>full||ids.has(x.ATIVIDADE_ID))),
     emails:safe(grvRows('COMUNICACOES').filter(x=>full||x.ENVIADO_POR===who.ID).slice(-350).reverse()),
-    logs:safe(grvRows('LOGS').filter(x=>full||x.ATOR_ID===who.ID).slice(-500).reverse()),canEdit:admin||role==='Consultor',canAdmin:admin};
+    logs:safe(logRows.filter(x=>full||x.ATOR_ID===who.ID).slice(-500).reverse()),canEdit:admin||role==='Consultor',canAdmin:admin};
 }
 function grvSave(who,p){
   const table=String(p.table||'');if(GRV_EDITABLE.indexOf(table)<0)throw Error('Cadastro não permitido.');
