@@ -4,7 +4,7 @@
 <style>*{box-sizing:border-box}body{margin:0;font:14px Inter,Arial,sans-serif;background:#ecf2f8;color:#20324a}.frame{position:fixed;inset:0;width:100%;height:100%;border:0;background:#fff}.setup{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:25px;background:linear-gradient(135deg,#0b2645,#1b5383)}.card{max-width:540px;width:100%;background:white;padding:38px;border-radius:20px;box-shadow:0 20px 70px #0004}h1{font-size:30px;margin:6px 0}p{color:#687b90;line-height:1.6}input{width:100%;padding:14px;border:1px solid #c9d6e5;border-radius:9px;outline:0;margin:14px 0}button{background:#115b9b;color:white;border:0;padding:13px 22px;border-radius:9px;cursor:pointer;font-weight:700;width:100%}.error{color:#bf2937;font-size:12px;padding:8px}small{color:#6c7c90}a{color:#21649d}</style>
 </head><body><div id="view"></div><script>
 /* Após implantar o Apps Script, informe a URL definitiva aqui para acesso de todos. */
-const SCRIPT_URL='';
+const SCRIPT_URL='https://script.google.com/macros/s/AKfycbx-reTI7fl-EH8KTa7gWnZDnjamt5TuDpmBdusb-PW-voIYzbY-VR3Cfwj6qbbv67fX8g/exec';
 const STORE='grvmax_columbia_apps_script_url';
 function valid(u){return /^https:\/\/script\.google\.com\/macros\/s\/[^\/?#]+\/exec(?:[?#].*)?$/.test(u)}
 function openApp(url){const frame=document.createElement('iframe');frame.className='frame';frame.referrerPolicy='strict-origin-when-cross-origin';frame.title='GRVMAX | Columbia';frame.src=url;document.getElementById('view').replaceChildren(frame)}
