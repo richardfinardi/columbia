@@ -21,6 +21,12 @@ function openApp(url){
   frame.className='frame';
   frame.referrerPolicy='strict-origin-when-cross-origin';
   frame.title='GRVMAX | Columbia';
+  // Android + múltiplas contas Google: /a/*/ evita a página de erro do Drive
+  // no Chrome ao incorporar o Apps Script. Desktop e demais navegadores inalterados.
+  if (/Android/i.test(navigator.userAgent)) {
+    target = target.replace(/^https:\/\/script\.google\.com\/macros\/s\//,
+      'https://script.google.com/a/*/macros/s/');
+  }
   frame.src=target;
   document.getElementById('view').replaceChildren(frame);
 }
