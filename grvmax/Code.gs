@@ -135,7 +135,7 @@ function grvSetup(p){
 }
 function grvState(who){
   const role=who.PERFIL,admin=role==='Administrador',full=admin||role==='Consultor'||role==='Gestor';
-  const people=grvRows('PESSOAS').filter(x=>x.ATIVO==='SIM').map(grvPublicPerson);
+  const people=grvRows('PESSOAS').filter(x=>admin||x.ATIVO==='SIM').map(grvPublicPerson);
   const all=grvRows('ATIVIDADES');
   const activities=full?all:all.filter(a=>a.RESPONSAVEL_ID===who.ID||grvRows('VINCULOS').some(v=>v.ATIVIDADE_ID===a.ID&&v.PESSOA_ID===who.ID));
   const ids=new Set(activities.map(a=>a.ID));
@@ -159,6 +159,7 @@ function grvSave(who,p){
     const old=body.ID?grvFind(table,body.ID):null;
     if(body.ID&&!old)throw Error('Registro não encontrado.');
     if(!full&&(!old||old.RESPONSAVEL_ID!==who.ID&& !grvRows('VINCULOS').some(v=>v.ATIVIDADE_ID===old.ID&&v.PESSOA_ID===who.ID)))throw Error('Atividade não atribuída a você.');
+    if(!full&&old.STATUS==='Homologada')throw Error('Atividade homologada está bloqueada para alterações. Peça reabertura à consultoria.');
     const t=grvTable(table);let next=old?{...old}:{};
     if(!full){['STATUS','EVIDENCIA_URL','OBSERVACAO'].forEach(k=>{if(body[k]!==undefined)next[k]=body[k]});if(['Homologada','Cancelada'].includes(next.STATUS))throw Error('Homologação exige aprovação da consultoria.');if(!['Em execução','Aguardando validação','Orientada','Devolvida',old.STATUS].includes(next.STATUS))throw Error('Situação inválida.');}
     else t.heads.forEach(k=>{if(body[k]!==undefined && !['_row','SALT','HASH','SENHA_TEMPORARIA','CRIADO_EM','ATUALIZADO_EM','HOMOLOGADO_POR','DATA_HOMOLOGACAO'].includes(k))next[k]=String(body[k]).slice(0,k==='DESCRICAO'||k==='OBSERVACAO'?30000:3000);});
