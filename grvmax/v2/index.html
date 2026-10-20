@@ -40,7 +40,7 @@ function el(id){return document.getElementById(id)}
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function attr(v){return esc(v)}
 // Frontend 100% GitHub Pages; chamadas HTTP feitas ao backend Cloudflare Worker.
-const GRVMAX_API_ENDPOINT='https://grvmax-api.consultoriarf.net/api';
+const GRVMAX_API_ENDPOINT='https://columbia-grvmax-api.apicolumbia.workers.dev/api';
 async function api(action,payload,auth){
  const timeout=new AbortController();
  const stop=setTimeout(function(){timeout.abort()},60000);
