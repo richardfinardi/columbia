@@ -43,3 +43,14 @@ O banco foi criado na pasta BANCO_DADOS com 16 tabelas, 19 etapas, 70 atividades
 `grvmax/index.html` — wrapper da URL /grvmax.
 `grvmax/app.html` — interface carregada dinamicamente pelo Apps Script.
 `grvmax/Code.gs` — serviço do Apps Script.
+
+
+## ATUALIZAÇÃO DE 20/10 — URL própria, equipe e e-mails
+- A aplicação pública **sempre permanece** em `https://consultoriarf.net/columbia/grvmax/`, inclusive celular (sem redirecionamento automático para script.google.com).
+- Links enviados aos usuários para criar e recuperar senhas agora usam `https://consultoriarf.net/columbia/grvmax/?invite=...&email=...`. Tokens são encaminhados ao backend pelo iframe.
+- Responsável principal + múltiplos participantes + homologador na edição de cada atividade. Vínculos gravados em `VINCULOS` e mudanças em `LOGS`.
+- Usuário-chave também pode enviar e-mails; o servidor aplica permissão e registra `TENTATIVA`, `ENVIADO` e `ERRO`. O histórico que ele vê é apenas dos seus disparos.
+- Participante ou homologador recebe a atividade em "Minhas atividades"; homologador indicado pode aprovar/devolver, inclusive se for usuário-chave.
+- **IMPORTANTE: o Google Apps Script não se atualiza ao publicar Code.gs no GitHub.** Abra o projeto `COLUMBIA_GRVMAX_API`, substitua o conteúdo de Código.gs pelo `grvmax/Code.gs` atualizado e **Implantar → Gerenciar implantações → Editar → Versão: Nova versão → Implantar**. Faça atualização forte no navegador (Ctrl+Shift+R). Mantenha a mesma implantação URL /exec.
+- **Convites antigos já enviados não mudam retroativamente.** Use "Enviar acesso" novamente após implantar a nova versão.
+- Ao entrar pelo endereço `script.google.com` digitado ou salvo previamente, a barra continuará no Google. Use sempre o link `consultoriarf.net/columbia/grvmax/`, não o Web App direto.
