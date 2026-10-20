@@ -54,3 +54,13 @@ O banco foi criado na pasta BANCO_DADOS com 16 tabelas, 19 etapas, 70 atividades
 - **IMPORTANTE: o Google Apps Script não se atualiza ao publicar Code.gs no GitHub.** Abra o projeto `COLUMBIA_GRVMAX_API`, substitua o conteúdo de Código.gs pelo `grvmax/Code.gs` atualizado e **Implantar → Gerenciar implantações → Editar → Versão: Nova versão → Implantar**. Faça atualização forte no navegador (Ctrl+Shift+R). Mantenha a mesma implantação URL /exec.
 - **Convites antigos já enviados não mudam retroativamente.** Use "Enviar acesso" novamente após implantar a nova versão.
 - Ao entrar pelo endereço `script.google.com` digitado ou salvo previamente, a barra continuará no Google. Use sempre o link `consultoriarf.net/columbia/grvmax/`, não o Web App direto.
+
+## ATUALIZAÇÃO DE 20/10 — Atividades unificadas
+- Removida a entrada redundante **Minhas atividades** do menu lateral. Agora a tela **Atividades** abre em **Minhas atividades**.
+- Visualizações: **Minhas atividades** (responsável, participante ou homologador), **Todas as atividades** (respeitando permissões) e **Criadas por mim** (autoria nos logs).
+- Busca e filtros de etapa, responsável, situação e prazo, botão para limpar e indicadores de atividades, pendentes, em andamento, atrasadas e concluídas. Há um único projeto Columbia; portanto, não se acrescentou um filtro de projeto desnecessário.
+- Alteração rápida de situação pela tabela, gravada com histórico. **Aguardando validação** abre o formulário para anexar evidência/observação; **Homologada** exige decisão formal no fluxo de homologação.
+- Os formulários atuais de atividade, participantes, homologação e a comunicação permanecem intactos.
+- O backend atualizado calcula a autoria a partir dos LOGS existentes, sem modificar a estrutura do Sheets. Atividades iniciais sem evento de criação não têm autor verificável e podem não aparecer na visão **Criadas por mim**.
+- **Para ativar a autoria completa**, atualizar o Code.gs do Apps Script e publicar em **Implantar → Gerenciar implantações → Editar → Nova versão → Implantar**, mantendo o mesmo link /exec. Antes disso, a interface usa os logs recentes que já vêm da API.
+- Backup anterior à alteração: branch backup/grvmax-pre-atividades-unificadas-20261020.
