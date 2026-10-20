@@ -141,14 +141,45 @@ function grvState(who){
   const activities=full?all:all.filter(a=>a.RESPONSAVEL_ID===who.ID||vinculos.some(v=>v.ATIVIDADE_ID===a.ID&&v.PESSOA_ID===who.ID));
   const ids=new Set(activities.map(a=>a.ID));
   // Mapa da autoria baseado no log append-only: sem migrar ou regravar atividades.
-  const logRows=grvRows('LOGS'),createdBy={};
+  const logRows=grvRows('LOGS'),createdBy={},activityNotes={};
+  // Observações são imutáveis: cada mensagem ocupa um evento no LOGS.
+  // Recupera ainda os textos antigos registrados nos snapshots de auditoria.
   logRows.forEach(x=>{
+    if(x.ENTIDADE==='ATIVIDADES'&&ids.has(x.ENTIDADE_ID)){
+      let body='',kind='REGISTRO';
+      if(x.ACAO==='OBSERVACAO_REGISTRADA'){
+        body=String(x.DETALHE||'');kind='OBSERVACAO';
+      }else if(x.ACAO==='CRIOU'||x.ACAO==='ALTEROU'){
+        try{
+          const before=JSON.parse(x.ANTES_JSON||'{}'),after=JSON.parse(x.DEPOIS_JSON||'{}');
+          const prev=String(before.OBSERVACAO||'').trim(),curr=String(after.OBSERVACAO||'').trim();
+          if(curr&&curr!==prev){body=curr;kind='LEGADO';}
+        }catch(ignored){}
+      }
+      if(body.trim()){
+        if(!activityNotes[x.ENTIDADE_ID])activityNotes[x.ENTIDADE_ID]=[];
+        activityNotes[x.ENTIDADE_ID].push({
+          ID:x.ID,DATA:x.TIMESTAMP,AUTOR_ID:x.ATOR_ID,AUTOR:x.ATOR_EMAIL,
+          TEXTO:body.trim(),TIPO:kind
+        });
+      }
+    }
     if(x.ENTIDADE==='ATIVIDADES'&&x.ACAO==='CRIOU'&&ids.has(x.ENTIDADE_ID)&&!createdBy[x.ENTIDADE_ID])
       createdBy[x.ENTIDADE_ID]=x.ATOR_ID;
   });
+  activities.forEach(a=>{
+    const legacy=String(a.OBSERVACAO||'').trim(),entries=activityNotes[a.ID]||[];
+    if(legacy&&!entries.some(x=>x.TEXTO===legacy)){
+      if(!activityNotes[a.ID])activityNotes[a.ID]=[];
+      activityNotes[a.ID].push({ID:'LEGADO-'+a.ID,DATA:'',AUTOR_ID:'',AUTOR:'',
+        TEXTO:legacy,TIPO:'LEGADO'});
+    }
+  });
+  Object.keys(activityNotes).forEach(id=>activityNotes[id].sort((a,b)=>
+    String(b.DATA||'').localeCompare(String(a.DATA||''))));
   const stageids=new Set(activities.map(a=>a.ETAPA_ID));
   const safe=(s)=>s.map(o=>{const {_row,...a}=o;return a;});
-  return {ok:true,me:grvPublicPerson(who),project:safe(grvRows('PROJETOS')),stages:safe(grvRows('ETAPAS').filter(x=>full||stageids.has(x.ID))),activities:safe(activities),createdBy:createdBy,
+  return {ok:true,me:grvPublicPerson(who),project:safe(grvRows('PROJETOS')),stages:safe(grvRows('ETAPAS').filter(x=>full||stageids.has(x.ID))),activities:safe(activities),createdBy:createdBy,activityNotes:activityNotes,notesAppendOnly:true,
     people:people,vinculos:safe(vinculos.filter(v=>ids.has(v.ATIVIDADE_ID))),pending:safe(grvRows('PENDENCIAS').filter(x=>full||ids.has(x.ATIVIDADE_ID)||x.RESPONSAVEL_ID===who.ID)),
     changes:safe(grvRows('MUDANCAS').filter(x=>full||ids.has(x.ATIVIDADE_ID))),agenda:safe(grvRows('AGENDA').filter(x=>full||x.RESPONSAVEL_ID===who.ID||(x.PARTICIPANTES||'').includes(who.ID))),
     trainings:safe(grvRows('TREINAMENTOS')),goLive:safe(grvRows('GO_LIVE')),
@@ -159,6 +190,9 @@ function grvState(who){
 function grvSave(who,p){
   const table=String(p.table||'');if(GRV_EDITABLE.indexOf(table)<0)throw Error('Cadastro não permitido.');
   const body=p.item||{},full=GRV_MANAGERS.includes(who.PERFIL),admin=who.PERFIL==='Administrador';
+  const incomingNote=table==='ATIVIDADES'&&Object.prototype.hasOwnProperty.call(body,'OBSERVACAO')
+    ?String(body.OBSERVACAO||'').trim():'';
+  if(incomingNote.length>10000)throw Error('Observação deve ter no máximo 10.000 caracteres.');
   if(table==='PESSOAS'&&!admin)throw Error('Apenas administradores podem gerenciar pessoas.');
   if(!full&&table!=='ATIVIDADES')throw Error('Você não tem permissão para esta operação.');
   const changingTeam=table==='ATIVIDADES' && (Array.isArray(p.participantIds)||Object.prototype.hasOwnProperty.call(p,'homologatorId'));
@@ -170,15 +204,19 @@ function grvSave(who,p){
     if(!full&&(!old||old.RESPONSAVEL_ID!==who.ID&& !grvRows('VINCULOS').some(v=>v.ATIVIDADE_ID===old.ID&&v.PESSOA_ID===who.ID)))throw Error('Atividade não atribuída a você.');
     if(!full&&old.STATUS==='Homologada')throw Error('Atividade homologada está bloqueada para alterações. Peça reabertura à consultoria.');
     const t=grvTable(table);let next=old?{...old}:{};
-    if(!full){['STATUS','EVIDENCIA_URL','OBSERVACAO'].forEach(k=>{if(body[k]!==undefined)next[k]=body[k]});if(['Homologada','Cancelada'].includes(next.STATUS))throw Error('Homologação exige aprovação da consultoria.');if(!['Em execução','Aguardando validação','Orientada','Devolvida',old.STATUS].includes(next.STATUS))throw Error('Situação inválida.');}
-    else t.heads.forEach(k=>{if(body[k]!==undefined && !['_row','SALT','HASH','SENHA_TEMPORARIA','CRIADO_EM','ATUALIZADO_EM','HOMOLOGADO_POR','DATA_HOMOLOGACAO'].includes(k))next[k]=String(body[k]).slice(0,k==='DESCRICAO'||k==='OBSERVACAO'?30000:3000);});
+    if(!full){
+      if(who.PERFIL==='Usuário-chave'&&body.STATUS!==undefined&&String(body.STATUS)!==String(old.STATUS))
+        throw Error('Usuário-chave pode registrar observações e evidências, mas não alterar a situação.');
+      ['STATUS','EVIDENCIA_URL'].forEach(k=>{if(body[k]!==undefined)next[k]=String(body[k]).slice(0,3000)});
+      if(['Homologada','Cancelada'].includes(next.STATUS))throw Error('Homologação exige aprovação da consultoria.');if(!['Em execução','Aguardando validação','Orientada','Devolvida',old.STATUS].includes(next.STATUS))throw Error('Situação inválida.');}
+    else t.heads.forEach(k=>{if(body[k]!==undefined && !['_row','SALT','HASH','SENHA_TEMPORARIA','CRIADO_EM','ATUALIZADO_EM','HOMOLOGADO_POR','DATA_HOMOLOGACAO'].includes(k) && !(table==='ATIVIDADES'&&k==='OBSERVACAO'))next[k]=String(body[k]).slice(0,k==='DESCRICAO'||k==='OBSERVACAO'?30000:3000);});
     if(table==='ATIVIDADES'){
       if(!GRV_ACTIVITY_STATUS.includes(next.STATUS||'Não iniciada'))throw Error('Situação inválida.');
       if(next.STATUS==='Homologada'&&(!old||old.STATUS!=='Homologada'))throw Error('Use a homologação formal para aprovar.');
       if(next.DATA_ORIENTACAO && !next.PRAZO && /^\d{4}-\d\d-\d\d$/.test(next.DATA_ORIENTACAO)){
         const date=new Date(next.DATA_ORIENTACAO+'T12:00:00Z');date.setUTCDate(date.getUTCDate()+9);next.PRAZO=date.toISOString().slice(0,10);
       }
-      if(next.STATUS==='Aguardando validação'&&(!next.EVIDENCIA_URL&&!next.OBSERVACAO))throw Error('Informe uma evidência ou observação antes de solicitar validação.');
+      if(next.STATUS==='Aguardando validação'&&(!next.EVIDENCIA_URL&&!next.OBSERVACAO&&!incomingNote))throw Error('Informe uma evidência ou observação antes de solicitar validação.');
       if(next.EVIDENCIA_URL&&!/^https:\/\//i.test(next.EVIDENCIA_URL))throw Error('Evidência deve ser um link HTTPS.');
       if(next.STATUS==='Aguardando validação'&&old?.STATUS!=='Aguardando validação') next.DATA_CONCLUSAO=grvNow();
     }
@@ -207,6 +245,9 @@ function grvSave(who,p){
       if(homologator)currentTeam.push({PESSOA_ID:homologator,TIPO:'HOMOLOGADOR'});
     }
     grvWrite(table,next);
+    // Registro exclusivamente aditivo: nunca altera a mensagem anterior em ATIVIDADES.OBSERVACAO.
+    if(table==='ATIVIDADES'&&incomingNote)
+      grvLog(who,'ATIVIDADES',next.ID,'OBSERVACAO_REGISTRADA',null,null,incomingNote);
     if(changingTeam){
       const wanted=new Set(currentTeam.map(x=>x.PESSOA_ID+'|'+x.TIPO));
       previousTeam.filter(x=>!wanted.has(x.PESSOA_ID+'|'+x.TIPO)).sort((a,b)=>Number(b._row)-Number(a._row)).forEach(x=>grvTable('VINCULOS').s.deleteRow(Number(x._row)));
