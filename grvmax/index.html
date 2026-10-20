@@ -7,7 +7,24 @@
 const SCRIPT_URL='https://script.google.com/macros/s/AKfycbx-reTI7fl-EH8KTa7gWnZDnjamt5TuDpmBdusb-PW-voIYzbY-VR3Cfwj6qbbv67fX8g/exec';
 const STORE='grvmax_columbia_apps_script_url';
 function valid(u){return /^https:\/\/script\.google\.com\/macros\/s\/[^\/?#]+\/exec(?:[?#].*)?$/.test(u)}
-function openApp(url){const frame=document.createElement('iframe');frame.className='frame';frame.referrerPolicy='strict-origin-when-cross-origin';frame.title='GRVMAX | Columbia';frame.src=url;document.getElementById('view').replaceChildren(frame)}
+function openApp(url){
+  // No celular, a incorporacao externa do Google Apps Script pode renderizar
+  // uma tela de erro do Drive. Navegue como pagina principal nesse caso.
+  const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+    || (window.matchMedia && window.matchMedia('(max-width: 860px)').matches)
+    || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+  if (mobile) {
+    window.location.replace(url);
+    return;
+  }
+  // Preserva o comportamento no desktop, ja validado pela Columbia.
+  const frame = document.createElement('iframe');
+  frame.className = 'frame';
+  frame.referrerPolicy = 'strict-origin-when-cross-origin';
+  frame.title = 'GRVMAX | Columbia';
+  frame.src = url;
+  document.getElementById('view').replaceChildren(frame);
+}
 function setup(){
  document.getElementById('view').innerHTML='<div class="setup"><div class="card"><div style="color:#226da6;font-weight:800">COLUMBIA MACHINE</div><h1>GRVMAX</h1><p>A aplicação já está preparada. É necessário concluir uma única vez a conexão com a API Apps Script vinculada ao banco Google Sheets.</p><label style="font-size:12px;font-weight:800">URL de implantação do Apps Script</label><input id="link" placeholder="https://script.google.com/macros/s/.../exec"><div id="error" class="error"></div><button id="connect">Conectar ao sistema</button><p><small>O link é salvo neste navegador. Para liberar a equipe toda, configure a URL no arquivo <b>grvmax/index.html</b> do repositório.</small></p></div></div>';
  document.getElementById('connect').onclick=function(){const url=document.getElementById('link').value.trim();if(!valid(url)){document.getElementById('error').textContent='Informe uma URL de publicação Apps Script terminada em /exec.';return;}localStorage.setItem(STORE,url);openApp(url);};
