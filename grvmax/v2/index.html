@@ -13,6 +13,7 @@ body.dark{--nav:#071526;--nav2:#102a45;--accent:#66b2ff;--bg:#101a27;--card:#192
 .task-header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}.task-header .spacer{flex:1}.taskviews{display:flex;gap:6px;flex-wrap:wrap}.taskviews .taskview-active{background:var(--accent);border-color:var(--accent);color:#fff}.taskstats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:12px 0 22px}.taskstats .stat{padding:13px 17px}.taskstats .stat .value{font-size:24px}.taskfilters .search{flex:1 1 220px}.taskfilters .task-filter{flex:1 1 175px;min-width:145px;max-width:270px}.task-status{min-width:150px;padding:7px 9px;font-size:12px;font-weight:600}@media(max-width:860px){.taskstats{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:540px){.taskstats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.task-header .spacer{display:none}.task-header .btn{flex:1}.taskfilters .task-filter{max-width:none}}
 .activity-note-composer{margin:20px 0;padding:17px;border:1px solid var(--line);border-radius:13px;background:var(--bg)}.activity-note-composer label{display:block;margin-bottom:9px;text-transform:uppercase;color:var(--sub)}.activity-note-composer textarea{resize:vertical;min-height:90px}.activity-note-composer p{margin-bottom:0}.activity-note-history{border-top:1px solid var(--line);padding-top:17px;margin-top:18px}.activity-note-title{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:14px}.activity-note-title h3{margin:0;font-size:15px}.activity-note{background:var(--bg);border:1px solid var(--line);border-radius:13px;padding:16px;margin:10px 0}.activity-note-latest{background:color-mix(in srgb,var(--good) 6%,var(--card));border-color:color-mix(in srgb,var(--good) 38%,var(--line))}.activity-note-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}.activity-note-top b{font-size:12px}.activity-note-text{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.65}@media(max-width:540px){.activity-note-top .right{margin-left:0}}
 </style>
+<link rel="stylesheet" href="https://consultoriarf.net/columbia/grvmax/mobile.css?v=20261020-1">
 </head>
 <body>
 <div id="app" class="skeleton">Carregando GRVMAX…</div>
@@ -113,18 +114,46 @@ function badge(s){var cls=/Homologada|Aprovad|Resolvida|Conclu/.test(s)?'ok':/At
 function pct(stid){var xs=S.activities.filter(function(a){return a.ETAPA_ID===stid});return xs.length?Math.round(xs.filter(function(a){return a.STATUS==='Homologada'}).length*100/xs.length):0}
 function overall(){return S.activities.length?Math.round(S.activities.filter(function(a){return a.STATUS==='Homologada'}).length*100/S.activities.length):0}
 function authorized(){return S.canEdit}
+function decorateMobileTables(container){
+ if(!container)return;
+ container.querySelectorAll('table.grid').forEach(function(table){
+  var head=Array.from(table.querySelectorAll('tr')).find(function(r){return r.querySelector('th')});if(!head)return;
+  var labels=Array.from(head.querySelectorAll('th')).map(function(th){return th.textContent.trim()||'Ações'});
+  table.querySelectorAll('tr').forEach(function(tr){
+   if(tr.querySelector('th'))return;
+   Array.from(tr.children).filter(function(td){return td.tagName==='TD'}).forEach(function(td,i){
+    td.setAttribute('data-label',labels[i]||'Detalhes');
+   });
+  });
+ });
+}
 function render(){
  if(!S)return;
+ document.body.classList.remove('mobile-menu-lock');
  var visibleTabs=S.me.PERFIL==='Usuário-chave'?tabs.map(function(t){return t[0]==='activities'?['activities',t[1],'Minhas atividades']:t}):tabs;
   var tab=visibleTabs.find(function(t){return t[0]===screen})||visibleTabs[0];
- var m='<div class="shell"><aside class="nav"><div class="brand"><div class="brand-icon"><img src="https://consultoriarf.net/columbia/LOGO%20MINIMALISTA.png" alt="Consultoria RF"></div><div><b>GRVMAX</b><small>Gestão da Implantação</small></div></div><div class="navlinks">'+visibleTabs.map(function(t){return '<a class="'+(screen===t[0]?'active':'')+'" href="#" data-nav="'+t[0]+'"><span class="ico">'+t[1]+'</span>'+t[2]+'</a>'}).join('')+'</div><div class="navfoot"><strong>COLUMBIA MACHINE</strong><br>Implantação ERP • Ambiente independente</div></aside><div class="area"><header class="top"><div><h1>'+esc(tab[2])+'</h1><span class="small muted">Projeto GRVMAX ERP · Columbia Machine</span></div><div class="top-right"><span class="small muted" id="lastUpdate">Atualizado agora</span><button class="btn" id="refreshBtn" title="Atualizar">↻</button><button class="btn" id="themeBtn" title="Tema">◑</button><button class="btn" id="logoutBtn">Sair</button></div></header><main class="page" id="content"></main></div></div>';
+ var m='<div class="shell"><div class="nav-overlay" id="navOverlay" aria-hidden="true"></div><aside class="nav" id="grvMainNav" aria-label="Menu principal"><div class="brand"><div class="brand-icon"><img src="https://consultoriarf.net/columbia/LOGO%20MINIMALISTA.png" alt="Consultoria RF"></div><div><b>GRVMAX</b><small>Gestão da Implantação</small></div></div><div class="navlinks">'+visibleTabs.map(function(t){return '<a class="'+(screen===t[0]?'active':'')+'" href="#" data-nav="'+t[0]+'"><span class="ico">'+t[1]+'</span>'+t[2]+'</a>'}).join('')+'</div><div class="navfoot"><strong>COLUMBIA MACHINE</strong><br>Implantação ERP • Ambiente independente</div></aside><div class="area"><header class="top"><button type="button" class="btn mobile-menu-btn" id="mobileMenuToggle" aria-label="Abrir menu" aria-controls="grvMainNav" aria-expanded="false">☰</button><div class="top-title"><h1>'+esc(tab[2])+'</h1><span class="small muted">Projeto GRVMAX ERP · Columbia Machine</span></div><div class="top-right"><span class="small muted" id="lastUpdate">Atualizado agora</span><button class="btn" id="refreshBtn" title="Atualizar">↻</button><button class="btn" id="themeBtn" title="Tema">◑</button><button class="btn" id="logoutBtn">Sair</button></div></header><main class="page" id="content"></main></div></div>';
  el('app').innerHTML=m;
- document.querySelectorAll('[data-nav]').forEach(function(a){a.onclick=function(ev){ev.preventDefault();nav(a.dataset.nav)}});
+ var shell=el('app').querySelector('.shell'),menuToggle=el('mobileMenuToggle');
+ function closeGrvMenu(){
+  shell.classList.remove('menu-open');document.body.classList.remove('mobile-menu-lock');
+  menuToggle.setAttribute('aria-expanded','false');menuToggle.setAttribute('aria-label','Abrir menu');
+ }
+ menuToggle.onclick=function(){
+  var opened=shell.classList.toggle('menu-open');document.body.classList.toggle('mobile-menu-lock',opened);
+  this.setAttribute('aria-expanded',String(opened));this.setAttribute('aria-label',opened?'Fechar menu':'Abrir menu');
+ };
+ el('navOverlay').onclick=closeGrvMenu;
+ document.querySelectorAll('[data-nav]').forEach(function(a){a.onclick=function(ev){ev.preventDefault();closeGrvMenu();nav(a.dataset.nav)}});
  el('refreshBtn').onclick=function(){reload()};
  el('themeBtn').onclick=function(){dark=!dark;document.body.classList.toggle('dark',dark);localStorage.setItem('grvmax_dark',dark?'1':'0')};
  el('logoutBtn').onclick=async function(){try{await api('logout')}catch(e){}token='';sessionStorage.removeItem('grvmax_session');S=null;authScreen('login')};
  var content=el('content');
+ if(window.grvTableObserver)window.grvTableObserver.disconnect();
  switch(screen){case 'dashboard':dashboard(content);break;case 'stages':stagesView(content);break;case 'activities':activitiesView(content);break;case 'approvals':approvalsView(content);break;case 'people':peopleView(content);break;case 'emails':emailsView(content);break;case 'agenda':genericView(content,'AGENDA',S.agenda);break;case 'pending':genericView(content,'PENDENCIAS',S.pending);break;case 'changes':genericView(content,'MUDANCAS',S.changes);break;case 'training':genericView(content,'TREINAMENTOS',S.trainings);break;case 'golive':goLiveView(content);break;case 'history':historyView(content);break;}
+ decorateMobileTables(content);
+ window.grvTableObserver=new MutationObserver(function(){decorateMobileTables(content)});
+ window.grvTableObserver.observe(content,{subtree:true,childList:true});
 }
 function createButton(tbl){return S.canEdit||tbl==='PESSOAS'&&S.canAdmin?'<button class="btn primary" onclick="editItem(\''+tbl+'\')">+ Novo cadastro</button>':''}
 function dashboard(root){
@@ -174,10 +203,15 @@ function activitiesView(root){
  var statuses=['Não iniciada','Orientada','Em execução','Aguardando validação','Devolvida','Homologada','Cancelada'];
  var stat='<option value="">Todas as situações</option>'+statuses.map(function(x){return '<option value="'+attr(x)+'" '+(filterStatus===x?'selected':'')+'>'+esc(x)+'</option>'}).join('');
  var responsible='<option value="">Todos os responsáveis</option>'+S.people.map(function(x){return '<option value="'+attr(x.ID)+'" '+(filterResponsible===x.ID?'selected':'')+'>'+esc(x.NOME)+'</option>'}).join('');
- root.innerHTML='<div class="task-header"><div class="taskviews" role="group" aria-label="Visualização de atividades">'+(S.me.PERFIL==='Usuário-chave'?'<span class="muted small">Atividades atribuídas a você, como responsável, participante ou homologador.</span>':scopes.map(function(v){return '<button type="button" class="btn '+(taskScope===v[0]?'taskview-active':'')+'" data-scope="'+v[0]+'" aria-pressed="'+(taskScope===v[0])+'">'+v[1]+'</button>'}).join(''))+'</div><span class="spacer"></span>'+createButton('ATIVIDADES')+'</div><div class="taskstats" id="taskStats"></div><div class="toolbar taskfilters">'+searchbar()+'<select id="filterStage" class="field task-filter" aria-label="Etapa">'+stages+'</select><select id="filterResponsible" class="field task-filter" aria-label="Responsável">'+responsible+'</select><select id="filterStatus" class="field task-filter" aria-label="Situação">'+stat+'</select><select id="filterDeadline" class="field task-filter" aria-label="Prazo"><option value="">Todos os prazos</option><option value="late" '+(filterDeadline==='late'?'selected':'')+'>Atrasadas</option><option value="today" '+(filterDeadline==='today'?'selected':'')+'>Vencem hoje</option><option value="week" '+(filterDeadline==='week'?'selected':'')+'>Próximos 7 dias</option><option value="none" '+(filterDeadline==='none'?'selected':'')+'>Sem prazo</option></select><button class="btn" id="clearTaskFilters">Limpar filtros</button></div><div id="taskList"></div>';
+ root.innerHTML='<div class="task-header"><div class="taskviews" role="group" aria-label="Visualização de atividades">'+(S.me.PERFIL==='Usuário-chave'?'<span class="muted small">Atividades atribuídas a você, como responsável, participante ou homologador.</span>':scopes.map(function(v){return '<button type="button" class="btn '+(taskScope===v[0]?'taskview-active':'')+'" data-scope="'+v[0]+'" aria-pressed="'+(taskScope===v[0])+'">'+v[1]+'</button>'}).join(''))+'</div><span class="spacer"></span>'+createButton('ATIVIDADES')+'</div><div class="taskstats" id="taskStats"></div><div class="mobile-filter-toggle"><button class="btn" type="button" id="taskFilterToggle" aria-expanded="false">☷ Filtros</button></div><div class="toolbar taskfilters" id="taskFilters">'+searchbar()+'<select id="filterStage" class="field task-filter" aria-label="Etapa">'+stages+'</select><select id="filterResponsible" class="field task-filter" aria-label="Responsável">'+responsible+'</select><select id="filterStatus" class="field task-filter" aria-label="Situação">'+stat+'</select><select id="filterDeadline" class="field task-filter" aria-label="Prazo"><option value="">Todos os prazos</option><option value="late" '+(filterDeadline==='late'?'selected':'')+'>Atrasadas</option><option value="today" '+(filterDeadline==='today'?'selected':'')+'>Vencem hoje</option><option value="week" '+(filterDeadline==='week'?'selected':'')+'>Próximos 7 dias</option><option value="none" '+(filterDeadline==='none'?'selected':'')+'>Sem prazo</option></select><button class="btn" id="clearTaskFilters">Limpar filtros</button></div><div id="taskList"></div>';
  root.querySelectorAll('[data-scope]').forEach(function(b){b.onclick=function(){taskScope=this.dataset.scope;activitiesView(root)}});
  ['q','filterStage','filterResponsible','filterStatus','filterDeadline'].forEach(function(id){var x=el(id);x[id==='q'?'oninput':'onchange']=function(){if(id==='q')search=this.value;else if(id==='filterStage')filterStage=this.value;else if(id==='filterResponsible')filterResponsible=this.value;else if(id==='filterStatus')filterStatus=this.value;else filterDeadline=this.value;taskRows()}});
  el('clearTaskFilters').onclick=function(){search='';filterStage='';filterStatus='';filterResponsible='';filterDeadline='';activitiesView(root)};
+ var taskToggle=el('taskFilterToggle');if(taskToggle)taskToggle.onclick=function(){
+  var on=el('taskFilters').classList.toggle('filters-expanded');
+  this.textContent=on?'Ocultar filtros':'☷ Filtros';this.setAttribute('aria-expanded',String(on));
+ };
+ if(filterStage||filterResponsible||filterStatus||filterDeadline)el('taskFilters').classList.add('filters-expanded');
  taskRows();
 }
 function taskStatusCell(a){
