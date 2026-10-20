@@ -155,7 +155,7 @@ function grvSave(who,p){
   if(table==='PESSOAS'&&!admin)throw Error('Apenas administradores podem gerenciar pessoas.');
   if(!full&&table!=='ATIVIDADES')throw Error('Você não tem permissão para esta operação.');
   if(table==='GO_LIVE'&&!full)throw Error('Operação não autorizada.');
-  return grvLock(()=>{
+  const saved = grvLock(()=>{
     const old=body.ID?grvFind(table,body.ID):null;
     if(body.ID&&!old)throw Error('Registro não encontrado.');
     if(!full&&(!old||old.RESPONSAVEL_ID!==who.ID&& !grvRows('VINCULOS').some(v=>v.ATIVIDADE_ID===old.ID&&v.PESSOA_ID===who.ID)))throw Error('Atividade não atribuída a você.');
@@ -187,15 +187,18 @@ function grvSave(who,p){
     grvWrite(table,next);
     const cleaned=o=>{if(!o)return null;const {SALT,HASH,SENHA_TEMPORARIA,_row,...safe}=o;return safe;};
     grvLog(who,table,next.ID,old?'ALTEROU':'CRIOU',cleaned(old),cleaned(next),'');
-    return {ok:true,id:next.ID};
+    return {ok:true,id:next.ID,newPerson:table==='PESSOAS'&&!old,notification:table==='ATIVIDADES'?{id:next.ID,title:next.TITULO,owner:next.RESPONSAVEL_ID,previousOwner:old?.RESPONSAVEL_ID||'',status:next.STATUS,previousStatus:old?.STATUS||'',due:next.PRAZO,previousDue:old?.PRAZO||''}:null};
   });
+  if(saved.newPerson){try{grvInvite(who,{id:saved.id});}catch(err){grvLog(who,'PESSOAS',saved.id,'CONVITE_AUTOMATICO_FALHOU',null,null,String(err));}}
+  if(saved.notification){try{grvNotifyActivity(who,saved.notification);}catch(err){grvLog(who,'ATIVIDADES',saved.id,'NOTIFICACAO_FALHOU',null,null,String(err));}}
+  return {ok:true,id:saved.id};
 }
 function grvApprove(who,p){
   if(!GRV_MANAGERS.includes(who.PERFIL))throw Error('Apenas consultoria/administração homologam.');
   const id=String(p.id||''),decision=String(p.decision||''),note=String(p.note||'').trim();
   if(!['Homologada','Devolvida'].includes(decision))throw Error('Decisão inválida.');
   if(decision==='Devolvida'&&!note)throw Error('Informe o motivo da devolução.');
-  return grvLock(()=>{
+  const approved=grvLock(()=>{
     const a=grvFind('ATIVIDADES',id);
     if(!a)throw Error('Atividade não encontrada.');
     if(!['Aguardando validação','Devolvida','Em execução'].includes(a.STATUS))throw Error('Atividade não está disponível para homologação.');
@@ -204,8 +207,17 @@ function grvApprove(who,p){
     a.ATUALIZADO_EM=grvNow();grvWrite('ATIVIDADES',a);
     const h={ID:grvId('HOM'),ATIVIDADE_ID:id,DECISAO:decision,PARECER:note,RESPONSAVEL_ID:who.ID,DATA:grvNow(),EVIDENCIA_URL:a.EVIDENCIA_URL};
     grvWrite('HOMOLOGACOES',h);grvLog(who,'ATIVIDADES',id,'HOMOLOGOU_'+decision,before,a,note);
-    return {ok:true};
+    return {ok:true,id:id,title:a.TITULO,owner:a.RESPONSAVEL_ID,decision:decision};
   });
+  const recipient=grvFind('PESSOAS',approved.owner);
+  if(recipient&&recipient.ATIVO==='SIM'&&recipient.EMAIL){grvMail(who,'HOMOLOGACAO',recipient.EMAIL,'GRVMAX | '+decision+' — '+approved.title,'Sua atividade teve nova decisão: '+decision+'\nAtividade: '+approved.title+'\nParecer: '+note+'\nAcesse: '+grvPortalLink(),id);}
+  return {ok:true};
+}
+function grvNotifyActivity(who,n){
+  const all=grvRows('PESSOAS'),recipient=all.find(p=>p.ID===n.owner&&p.ATIVO==='SIM');
+  if(recipient&&n.owner!==n.previousOwner){grvMail(who,'ATRIBUICAO',recipient.EMAIL,'GRVMAX | Nova atividade atribuída','Olá, '+recipient.NOME+'!\nAtividade: '+n.title+'\nPrazo: '+(n.due||'A definir')+'\nAcesse: '+grvPortalLink(),n.id);}
+  else if(recipient&&n.due!==n.previousDue&&n.previousDue){grvMail(who,'PRAZO_ALTERADO',recipient.EMAIL,'GRVMAX | Prazo alterado — '+n.title,'Atividade: '+n.title+'\nNovo prazo: '+n.due+'\nAcesse: '+grvPortalLink(),n.id);}
+  if(n.status==='Aguardando validação'&&n.previousStatus!==n.status){all.filter(p=>p.ATIVO==='SIM'&&GRV_MANAGERS.includes(p.PERFIL)&&p.ID!==who.ID).forEach(p=>grvMail(who,'PEDIDO_VALIDACAO',p.EMAIL,'GRVMAX | Homologação solicitada — '+n.title,'Atividade aguardando conferência: '+n.title+'\nResponsável: '+(recipient?.NOME||'Não definido')+'\nAcesse: '+grvPortalLink(),n.id));}
 }
 function grvLogEmail(who,type,email,subject,body,activity,status,error) {
   grvWrite('COMUNICACOES',{ID:grvId('EML'),TIPO:type,ASSUNTO:subject,CORPO:body,DESTINATARIOS:email,ATIVIDADE_ID:activity||'',STATUS:status,ERRO:error||'',ENVIADO_POR:who.ID||'SISTEMA',DATA:grvNow()});
