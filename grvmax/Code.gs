@@ -137,23 +137,26 @@ function grvState(who){
   const role=who.PERFIL,admin=role==='Administrador',full=admin||role==='Consultor'||role==='Gestor';
   const people=grvRows('PESSOAS').filter(x=>admin||x.ATIVO==='SIM').map(grvPublicPerson);
   const all=grvRows('ATIVIDADES');
-  const activities=full?all:all.filter(a=>a.RESPONSAVEL_ID===who.ID||grvRows('VINCULOS').some(v=>v.ATIVIDADE_ID===a.ID&&v.PESSOA_ID===who.ID));
+  const vinculos=grvRows('VINCULOS').filter(v=>v.TIPO==='PARTICIPANTE'||v.TIPO==='HOMOLOGADOR');
+  const activities=full?all:all.filter(a=>a.RESPONSAVEL_ID===who.ID||vinculos.some(v=>v.ATIVIDADE_ID===a.ID&&v.PESSOA_ID===who.ID));
   const ids=new Set(activities.map(a=>a.ID));
   const stageids=new Set(activities.map(a=>a.ETAPA_ID));
   const safe=(s)=>s.map(o=>{const {_row,...a}=o;return a;});
   return {ok:true,me:grvPublicPerson(who),project:safe(grvRows('PROJETOS')),stages:safe(grvRows('ETAPAS').filter(x=>full||stageids.has(x.ID))),activities:safe(activities),
-    people:people,pending:safe(grvRows('PENDENCIAS').filter(x=>full||ids.has(x.ATIVIDADE_ID)||x.RESPONSAVEL_ID===who.ID)),
+    people:people,vinculos:safe(vinculos.filter(v=>ids.has(v.ATIVIDADE_ID))),pending:safe(grvRows('PENDENCIAS').filter(x=>full||ids.has(x.ATIVIDADE_ID)||x.RESPONSAVEL_ID===who.ID)),
     changes:safe(grvRows('MUDANCAS').filter(x=>full||ids.has(x.ATIVIDADE_ID))),agenda:safe(grvRows('AGENDA').filter(x=>full||x.RESPONSAVEL_ID===who.ID||(x.PARTICIPANTES||'').includes(who.ID))),
     trainings:safe(grvRows('TREINAMENTOS')),goLive:safe(grvRows('GO_LIVE')),
     approvals:safe(grvRows('HOMOLOGACOES').filter(x=>full||ids.has(x.ATIVIDADE_ID))),
-    emails:full?safe(grvRows('COMUNICACOES').slice(-350).reverse()):[],
-    logs:full?safe(grvRows('LOGS').slice(-500).reverse()):[],canEdit:admin||role==='Consultor',canAdmin:admin};
+    emails:safe(grvRows('COMUNICACOES').filter(x=>full||x.ENVIADO_POR===who.ID).slice(-350).reverse()),
+    logs:safe(grvRows('LOGS').filter(x=>full||x.ATOR_ID===who.ID).slice(-500).reverse()),canEdit:admin||role==='Consultor',canAdmin:admin};
 }
 function grvSave(who,p){
   const table=String(p.table||'');if(GRV_EDITABLE.indexOf(table)<0)throw Error('Cadastro não permitido.');
   const body=p.item||{},full=GRV_MANAGERS.includes(who.PERFIL),admin=who.PERFIL==='Administrador';
   if(table==='PESSOAS'&&!admin)throw Error('Apenas administradores podem gerenciar pessoas.');
   if(!full&&table!=='ATIVIDADES')throw Error('Você não tem permissão para esta operação.');
+  const changingTeam=table==='ATIVIDADES' && (Array.isArray(p.participantIds)||Object.prototype.hasOwnProperty.call(p,'homologatorId'));
+  if(changingTeam&&!full)throw Error('Apenas consultores e administradores alteram equipe de atividades.');
   if(table==='GO_LIVE'&&!full)throw Error('Operação não autorizada.');
   const saved = grvLock(()=>{
     const old=body.ID?grvFind(table,body.ID):null;
@@ -185,17 +188,40 @@ function grvSave(who,p){
     if(!next.ID)next.ID=grvId(({ETAPAS:'ETP',ATIVIDADES:'ATV',PESSOAS:'PES',PENDENCIAS:'PEND',MUDANCAS:'MUD',AGENDA:'AG',TREINAMENTOS:'TRE',GO_LIVE:'GOL'})[table]);
     if(!next.CRIADO_EM)next.CRIADO_EM=grvNow();
     next.ATUALIZADO_EM=grvNow();
+    let previousTeam=[],currentTeam=[];
+    if(changingTeam){
+      const valid=grvRows('PESSOAS').filter(x=>x.ATIVO==='SIM').map(x=>x.ID);
+      const participants=[...new Set((p.participantIds||[]).map(String).filter(Boolean))];
+      const homologator=String(p.homologatorId||'');
+      if(participants.length>30)throw Error('Limite de 30 participantes por atividade.');
+      if(participants.some(id=>!valid.includes(id)))throw Error('Há participantes inválidos ou inativos.');
+      if(homologator&&!valid.includes(homologator))throw Error('Homologador inválido ou inativo.');
+      previousTeam=grvRows('VINCULOS').filter(x=>x.ATIVIDADE_ID===next.ID&&['PARTICIPANTE','HOMOLOGADOR'].includes(x.TIPO));
+      currentTeam=participants.map(id=>({PESSOA_ID:id,TIPO:'PARTICIPANTE'}));
+      if(homologator)currentTeam.push({PESSOA_ID:homologator,TIPO:'HOMOLOGADOR'});
+    }
     grvWrite(table,next);
+    if(changingTeam){
+      const wanted=new Set(currentTeam.map(x=>x.PESSOA_ID+'|'+x.TIPO));
+      previousTeam.filter(x=>!wanted.has(x.PESSOA_ID+'|'+x.TIPO)).sort((a,b)=>Number(b._row)-Number(a._row)).forEach(x=>grvTable('VINCULOS').s.deleteRow(Number(x._row)));
+      const was=new Set(previousTeam.map(x=>x.PESSOA_ID+'|'+x.TIPO));
+      currentTeam.filter(x=>!was.has(x.PESSOA_ID+'|'+x.TIPO)).forEach(x=>grvWrite('VINCULOS',{ID:grvId('VIN'),ATIVIDADE_ID:next.ID,PESSOA_ID:x.PESSOA_ID,TIPO:x.TIPO,CRIADO_EM:grvNow()}));
+      const beforeMembers=previousTeam.map(x=>x.PESSOA_ID+'|'+x.TIPO).sort();
+      const afterMembers=currentTeam.map(x=>x.PESSOA_ID+'|'+x.TIPO).sort();
+      if(JSON.stringify(beforeMembers)!==JSON.stringify(afterMembers)){
+        grvLog(who,'VINCULOS',next.ID,'EQUIPE_ALTERADA',beforeMembers,afterMembers,'Responsável principal: '+(next.RESPONSAVEL_ID||'não definido'));
+      }
+    }
     const cleaned=o=>{if(!o)return null;const {SALT,HASH,SENHA_TEMPORARIA,_row,...safe}=o;return safe;};
     grvLog(who,table,next.ID,old?'ALTEROU':'CRIOU',cleaned(old),cleaned(next),'');
-    return {ok:true,id:next.ID,newPerson:table==='PESSOAS'&&!old,notification:table==='ATIVIDADES'?{id:next.ID,title:next.TITULO,owner:next.RESPONSAVEL_ID,previousOwner:old?.RESPONSAVEL_ID||'',status:next.STATUS,previousStatus:old?.STATUS||'',due:next.PRAZO,previousDue:old?.PRAZO||''}:null};
+    return {ok:true,id:next.ID,newPerson:table==='PESSOAS'&&!old,notification:table==='ATIVIDADES'?{id:next.ID,title:next.TITULO,owner:next.RESPONSAVEL_ID,previousOwner:old?.RESPONSAVEL_ID||'',status:next.STATUS,previousStatus:old?.STATUS||'',due:next.PRAZO,previousDue:old?.PRAZO||'',previousTeam:previousTeam.map(x=>x.PESSOA_ID+'|'+x.TIPO),currentTeam:currentTeam.map(x=>x.PESSOA_ID+'|'+x.TIPO)}:null};
   });
   if(saved.newPerson){try{grvInvite(who,{id:saved.id});}catch(err){grvLog(who,'PESSOAS',saved.id,'CONVITE_AUTOMATICO_FALHOU',null,null,String(err));}}
   if(saved.notification){try{grvNotifyActivity(who,saved.notification);}catch(err){grvLog(who,'ATIVIDADES',saved.id,'NOTIFICACAO_FALHOU',null,null,String(err));}}
   return {ok:true,id:saved.id};
 }
 function grvApprove(who,p){
-  if(!GRV_MANAGERS.includes(who.PERFIL))throw Error('Apenas consultoria/administração homologam.');
+  if(!GRV_MANAGERS.includes(who.PERFIL) && !grvRows('VINCULOS').some(v=>v.TIPO==='HOMOLOGADOR'&&v.ATIVIDADE_ID===String(p.id||'')&&v.PESSOA_ID===who.ID))throw Error('Apenas consultoria ou homologador designado pode aprovar.');
   const id=String(p.id||''),decision=String(p.decision||''),note=String(p.note||'').trim();
   if(!['Homologada','Devolvida'].includes(decision))throw Error('Decisão inválida.');
   if(decision==='Devolvida'&&!note)throw Error('Informe o motivo da devolução.');
@@ -210,16 +236,27 @@ function grvApprove(who,p){
     grvWrite('HOMOLOGACOES',h);grvLog(who,'ATIVIDADES',id,'HOMOLOGOU_'+decision,before,a,note);
     return {ok:true,id:id,title:a.TITULO,owner:a.RESPONSAVEL_ID,decision:decision};
   });
-  const recipient=grvFind('PESSOAS',approved.owner);
-  if(recipient&&recipient.ATIVO==='SIM'&&recipient.EMAIL){grvMail(who,'HOMOLOGACAO',recipient.EMAIL,'GRVMAX | '+decision+' — '+approved.title,'Sua atividade teve nova decisão: '+decision+'\nAtividade: '+approved.title+'\nParecer: '+note+'\nAcesse: '+grvPortalLink(),id);}
+  const involved=new Set([approved.owner,...grvRows('VINCULOS').filter(v=>v.ATIVIDADE_ID===id&&v.TIPO==='PARTICIPANTE').map(v=>v.PESSOA_ID)]);
+  const toNotify=grvRows('PESSOAS').filter(u=>involved.has(u.ID)&&u.ID!==who.ID&&u.ATIVO==='SIM');
+  toNotify.forEach(u=>grvMail(who,'HOMOLOGACAO',u.EMAIL,'GRVMAX | '+decision+' — '+approved.title,'Sua atividade teve nova decisão: '+decision+'\nAtividade: '+approved.title+'\nParecer: '+note+'\nAcesse: '+grvPortalLink(),id));
   return {ok:true};
 }
 function grvNotifyActivity(who,n){
   const all=grvRows('PESSOAS'),recipient=all.find(p=>p.ID===n.owner&&p.ATIVO==='SIM');
-  if(recipient&&n.owner!==n.previousOwner){grvMail(who,'ATRIBUICAO',recipient.EMAIL,'GRVMAX | Nova atividade atribuída','Olá, '+recipient.NOME+'!\nAtividade: '+n.title+'\nPrazo: '+(n.due||'A definir')+'\nAcesse: '+grvPortalLink(),n.id);}
-  else if(recipient&&n.due!==n.previousDue&&n.previousDue){grvMail(who,'PRAZO_ALTERADO',recipient.EMAIL,'GRVMAX | Prazo alterado — '+n.title,'Atividade: '+n.title+'\nNovo prazo: '+n.due+'\nAcesse: '+grvPortalLink(),n.id);}
-  if(n.status==='Aguardando validação'&&n.previousStatus!==n.status){all.filter(p=>p.ATIVO==='SIM'&&GRV_MANAGERS.includes(p.PERFIL)&&p.ID!==who.ID).forEach(p=>grvMail(who,'PEDIDO_VALIDACAO',p.EMAIL,'GRVMAX | Homologação solicitada — '+n.title,'Atividade aguardando conferência: '+n.title+'\nResponsável: '+(recipient?.NOME||'Não definido')+'\nAcesse: '+grvPortalLink(),n.id));}
+  if(recipient&&n.owner!==n.previousOwner)grvMail(who,'ATRIBUICAO',recipient.EMAIL,'GRVMAX | Nova atividade atribuída','Olá, '+recipient.NOME+'!\nAtividade: '+n.title+'\nPrazo: '+(n.due||'A definir')+'\nAcesse: '+grvPortalLink(),n.id);
+  else if(recipient&&n.due!==n.previousDue&&n.previousDue)grvMail(who,'PRAZO_ALTERADO',recipient.EMAIL,'GRVMAX | Prazo alterado — '+n.title,'Atividade: '+n.title+'\nNovo prazo: '+n.due+'\nAcesse: '+grvPortalLink(),n.id);
+  const previous=new Set(n.previousTeam||[]),current=new Set(n.currentTeam||[]);
+  (n.currentTeam||[]).filter(v=>!previous.has(v)).forEach(v=>{
+    const [id,role]=v.split('|'),u=all.find(x=>x.ID===id&&x.ATIVO==='SIM');
+    if(u&&u.ID!==n.owner)grvMail(who,role==='HOMOLOGADOR'?'DESIGNACAO_HOMOLOGADOR':'PARTICIPACAO',u.EMAIL,'GRVMAX | '+(role==='HOMOLOGADOR'?'Nova homologação atribuída':'Nova participação')+' — '+n.title,'Olá, '+u.NOME+'!\nAtividade: '+n.title+'\nPapel: '+role+'\nPrazo: '+(n.due||'A definir')+'\nAcesse: '+grvPortalLink(),n.id);
+  });
+  if(n.status==='Aguardando validação'&&n.previousStatus!==n.status){
+    const homologatorId=(n.currentTeam||[]).filter(v=>v.endsWith('|HOMOLOGADOR')).map(v=>v.split('|')[0])[0];
+    const reviewers=homologatorId?all.filter(u=>u.ID===homologatorId&&u.ATIVO==='SIM'):all.filter(u=>u.ATIVO==='SIM'&&GRV_MANAGERS.includes(u.PERFIL)&&u.ID!==who.ID);
+    reviewers.forEach(u=>grvMail(who,'PEDIDO_VALIDACAO',u.EMAIL,'GRVMAX | Homologação solicitada — '+n.title,'Atividade aguardando conferência: '+n.title+'\nResponsável: '+(recipient?.NOME||'Não definido')+'\nAcesse: '+grvPortalLink(),n.id));
+  }
 }
+
 function grvLogEmail(who,type,email,subject,body,activity,status,error) {
   grvWrite('COMUNICACOES',{ID:grvId('EML'),TIPO:type,ASSUNTO:subject,CORPO:body,DESTINATARIOS:email,ATIVIDADE_ID:activity||'',STATUS:status,ERRO:error||'',ENVIADO_POR:who.ID||'SISTEMA',DATA:grvNow()});
   grvLog(who,'COMUNICACOES',email,status==='ENVIADO'?'EMAIL_ENVIADO':'EMAIL_'+status,null,{tipo:type,assunto:subject,destinatario:email,atividade:activity,erro:error||''},'');
@@ -236,7 +273,7 @@ function grvMail(who,type,to,subject,body,activity){
   }
 }
 function grvSendEmails(who,p){
-  if(!['Administrador','Consultor','Gestor'].includes(who.PERFIL))throw Error('Sem permissão para enviar comunicações.');
+  if(!GRV_ROLES.includes(who.PERFIL))throw Error('Sem permissão para enviar comunicações.');
   const ids=Array.isArray(p.peopleIds)?p.peopleIds.slice(0,50):[];
   if(!ids.length)throw Error('Selecione os destinatários.');
   const subj=String(p.subject||'').trim().slice(0,200),body=String(p.body||'').trim().slice(0,15000);
@@ -253,8 +290,7 @@ function grvInvite(who,p){
   if(!person||person.ATIVO!=='SIM')throw Error('Usuário não encontrado ou inativo.');
   const token=grvToken(),expires=new Date(Date.now()+48*3600000).toISOString();
   grvLock(()=>grvWrite('CONVITES',{ID:grvId('INV'),PESSOA_ID:person.ID,TOKEN_HASH:grvDigest(token),EXPIRA_EM:expires,UTILIZADO_EM:'',CRIADO_EM:grvNow()}));
-  const service=ScriptApp.getService().getUrl();
-  const url=service+'?invite='+encodeURIComponent(token)+'&email='+encodeURIComponent(person.EMAIL);
+  const url=grvPortalLink()+'?invite='+encodeURIComponent(token)+'&email='+encodeURIComponent(person.EMAIL);
   const result=grvMail(who,'CONVITE',person.EMAIL,'GRVMAX | Defina sua senha','Olá, '+person.NOME+'!\n\nSeu acesso à implantação do GRVMAX foi cadastrado.\nDefina sua senha pessoal (link válido por 48 horas):\n'+url+'\n\nSe você não solicitou, ignore esta mensagem.','');
   return {ok:result.status==='ENVIADO',result};
 }
@@ -263,7 +299,7 @@ function grvForgot(p){
   if(person && person.ATIVO==='SIM'){
     const token=grvToken(),expires=new Date(Date.now()+30*60000).toISOString();
     grvLock(()=>grvWrite('CONVITES',{ID:grvId('RST'),PESSOA_ID:person.ID,TOKEN_HASH:grvDigest(token),EXPIRA_EM:expires,UTILIZADO_EM:'',CRIADO_EM:grvNow()}));
-    grvMail({ID:'SISTEMA',EMAIL:'sistema'},'RECUPERACAO',email,'GRVMAX | Redefinição de senha','Para redefinir sua senha, acesse em até 30 minutos:\n'+ScriptApp.getService().getUrl()+'?invite='+encodeURIComponent(token)+'&email='+encodeURIComponent(email),'');
+    grvMail({ID:'SISTEMA',EMAIL:'sistema'},'RECUPERACAO',email,'GRVMAX | Redefinição de senha','Para redefinir sua senha, acesse em até 30 minutos:\n'+grvPortalLink()+'?invite='+encodeURIComponent(token)+'&email='+encodeURIComponent(email),'');
   }
   return {ok:true,message:'Se o e-mail estiver cadastrado, enviaremos instruções.'};
 }
