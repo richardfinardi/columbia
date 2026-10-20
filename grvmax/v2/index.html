@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="referrer" content="no-referrer"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GRVMAX • Implantação Columbia</title>
+<link rel="icon" type="image/png" href="https://consultoriarf.net/columbia/LOGO%20MINIMALISTA.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--nav:#0d2544;--nav2:#12375e;--accent:#1564ac;--bg:#f4f7fb;--card:#fff;--text:#17273b;--sub:#67778b;--line:#e1e8f1;--good:#078664;--warn:#bf7b06;--bad:#bf3a46;--shadow:0 8px 28px #1232530a}
+body.dark{--nav:#071526;--nav2:#102a45;--accent:#66b2ff;--bg:#101a27;--card:#192638;--text:#e7eef8;--sub:#9daec4;--line:#314057;--good:#38c59d;--warn:#eeb35e;--bad:#fb7283;--shadow:none}
+*{box-sizing:border-box}body{font:14px Inter,system-ui,sans-serif;margin:0;background:var(--bg);color:var(--text)}button,input,select,textarea{font:inherit}button{cursor:pointer}a{color:var(--accent)}.hidden{display:none!important}.muted{color:var(--sub)}.small{font-size:12px}.tiny{font-size:11px}.bold{font-weight:800}.shell{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:100vh}.nav{background:linear-gradient(175deg,var(--nav),var(--nav2));color:#e3f1ff;display:flex;flex-direction:column;padding:24px 14px;position:sticky;top:0;height:100vh}.brand{padding:8px 14px 22px;display:flex;gap:10px;align-items:center}.brand-icon{background:#fff;width:44px;height:44px;display:grid;place-items:center;border-radius:12px;overflow:hidden;padding:4px;flex-shrink:0}.brand-icon img{width:100%;height:100%;object-fit:contain;display:block}.brand b{font-size:21px;letter-spacing:-.7px}.brand small{display:block;opacity:.72;font-size:10px}.nav a{color:#cfdfed;display:flex;gap:12px;padding:12px 14px;text-decoration:none;border-radius:11px;align-items:center;font-weight:600;font-size:13px;margin:2px 0}.nav a.active,.nav a:hover{background:#ffffff22;color:#fff}.nav a .ico{font-size:17px;width:22px;text-align:center}.navfoot{margin-top:auto;padding:16px 13px 0;border-top:1px solid #ffffff25;font-size:12px;color:#b9d1e8}.area{min-width:0}.top{background:var(--card);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:20px 28px;gap:15px}.top h1{margin:0;font-size:19px;font-weight:800}.top-right{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.page{padding:26px 28px 45px;max-width:1540px;margin:auto}.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px}.toolbar .spacer{flex:1}.btn{padding:10px 15px;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:10px;font-weight:700;font-size:12px;display:inline-flex;gap:7px;align-items:center;justify-content:center}.btn:hover{border-color:var(--accent)}.primary{background:#115d9e;border-color:#115d9e;color:#fff}.primary:hover{background:#0a4d88;color:#fff}.danger{color:var(--bad)}.btn:disabled{opacity:.45;cursor:wait}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:20px}.statgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin:15px 0 25px}.stat{border:1px solid var(--line);background:var(--card);border-radius:14px;padding:18px}.stat .value{font-weight:800;font-size:28px;letter-spacing:-1px;margin-top:7px}.stat .muted{font-size:12px}.twocol{display:grid;grid-template-columns:1.25fr .75fr;gap:18px}.sectiontitle{font-size:16px;font-weight:800;margin:2px 0 16px}.progress{height:8px;background:var(--line);border-radius:10px;overflow:hidden}.progress span{display:block;background:#1489c7;height:100%;border-radius:10px}.listrow{padding:13px 0;border-bottom:1px solid var(--line);display:flex;gap:14px;align-items:center;justify-content:space-between}.listrow:last-child{border-bottom:0}.pill{padding:5px 9px;border-radius:99px;display:inline-block;font-size:10px;font-weight:800;white-space:nowrap;background:#e7effa;color:#276095}.pill.ok{background:#d6f8e9;color:#08744f}.pill.bad{background:#ffdee2;color:#a6323e}.pill.warn{background:#fff1cf;color:#966306}.pill.neutral{background:#e8eaf0;color:#617084}.tablewrap{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow-x:auto}.grid{width:100%;border-collapse:collapse;white-space:nowrap;text-align:left;font-size:12px}.grid th{background:var(--bg);color:var(--sub);font-size:11px;text-transform:uppercase;letter-spacing:.35px;padding:13px;border-bottom:1px solid var(--line)}.grid td{padding:13px;border-bottom:1px solid var(--line);max-width:380px;overflow:hidden;text-overflow:ellipsis}.grid tr:last-child td{border-bottom:0}.grid tr:hover td{background:var(--bg)}.grid .title{font-weight:700;white-space:normal;min-width:190px}.link{background:transparent;border:0;padding:4px;color:var(--accent);font-weight:800}.field{width:100%;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:10px;padding:10px 12px;outline:none;font-size:13px}.field:focus{border-color:var(--accent)}.search{width:300px;max-width:100%}.stage{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:10px;overflow:hidden}.stage-head{padding:17px 20px;display:flex;align-items:center;gap:12px;cursor:pointer}.stage-head h3{font-size:13px;margin:0 0 5px}.stage-head .num{background:var(--bg);color:var(--accent);font-size:12px;font-weight:800;padding:9px;border-radius:9px}.stage-content{padding:0 18px 18px;border-top:1px solid var(--line)}.empty{text-align:center;color:var(--sub);padding:42px 12px}.backdrop{position:fixed;inset:0;background:#071b32a6;z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}.modal{background:var(--card);width:min(780px,100%);max-height:92vh;border-radius:18px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 18px 65px #0004}.modalheader{padding:21px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}.modalheader h2{font-size:18px;margin:0}.modalbody{padding:20px 24px;overflow:auto}.modalfooter{padding:16px 24px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.fitem.wide{grid-column:1/-1}.fitem label{display:block;font-size:11px;color:var(--sub);font-weight:800;text-transform:uppercase;margin-bottom:7px}.fitem textarea{resize:vertical;min-height:100px}.hint{background:#eaf4ff;color:#2e5a87;padding:12px 14px;border-radius:10px;font-size:12px}.auth{min-height:100vh;display:grid;place-items:center;padding:20px;background:radial-gradient(circle at 90% 0%,#266bab 0%,transparent 48%),linear-gradient(135deg,#081c34,#173d67)}.authbox{background:white;color:#213047;width:min(420px,100%);padding:36px;border-radius:20px;box-shadow:0 30px 90px #0004}.authbox h1{font-size:25px;margin:4px 0 7px}.authbox label{display:block;margin:16px 0 6px;font-size:12px;font-weight:700}.authbox .field{background:#fff;color:#12263e;border-color:#dce4ed}.authbox button{width:100%;margin-top:20px}.authbox .link{margin:15px 0 0;font-size:12px}.alert{padding:13px;border:1px solid #f9c5ce;color:#9b2e44;background:#fff1f3;border-radius:10px;margin-top:12px;font-size:12px}.toast{position:fixed;bottom:22px;right:22px;max-width:440px;background:#122a44;color:#fff;padding:15px 20px;border-radius:12px;z-index:300;box-shadow:0 7px 35px #0004}.checkgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:10px 0 20px}.checkitem{border:1px solid var(--line);padding:11px;border-radius:10px;font-size:12px}.checkitem input{margin-right:8px}.flex{display:flex;align-items:center;gap:10px}.wrap{flex-wrap:wrap}.right{margin-left:auto}.skeleton{padding:60px;text-align:center}.stage-label{font-size:12px;color:var(--sub);margin:0 0 8px}.code{font-family:ui-monospace,monospace;font-size:11px;white-space:pre-wrap;word-break:break-word}.scroller{max-height:500px;overflow:auto}@media(max-width:1200px){.statgrid{grid-template-columns:repeat(3,1fr)}}@media(max-width:860px){.shell{grid-template-columns:1fr}.nav{position:relative;height:auto;padding:8px 12px}.brand{padding:8px}.navlinks{display:flex;overflow:auto;gap:3px}.nav a{white-space:nowrap}.navfoot{display:none}.page{padding:18px}.top{padding:14px 18px}.twocol{grid-template-columns:1fr}.statgrid{grid-template-columns:repeat(2,1fr)}}@media(max-width:540px){.top{align-items:flex-start}.top-right{justify-content:flex-end}.statgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.stat{padding:14px}.stat .value{font-size:23px}.formgrid,.checkgrid{grid-template-columns:1fr}.card{padding:15px}.modalbody{padding:14px}.top h1{font-size:15px}}
+.task-header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}.task-header .spacer{flex:1}.taskviews{display:flex;gap:6px;flex-wrap:wrap}.taskviews .taskview-active{background:var(--accent);border-color:var(--accent);color:#fff}.taskstats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:12px 0 22px}.taskstats .stat{padding:13px 17px}.taskstats .stat .value{font-size:24px}.taskfilters .search{flex:1 1 220px}.taskfilters .task-filter{flex:1 1 175px;min-width:145px;max-width:270px}.task-status{min-width:150px;padding:7px 9px;font-size:12px;font-weight:600}@media(max-width:860px){.taskstats{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:540px){.taskstats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.task-header .spacer{display:none}.task-header .btn{flex:1}.taskfilters .task-filter{max-width:none}}
+.activity-note-composer{margin:20px 0;padding:17px;border:1px solid var(--line);border-radius:13px;background:var(--bg)}.activity-note-composer label{display:block;margin-bottom:9px;text-transform:uppercase;color:var(--sub)}.activity-note-composer textarea{resize:vertical;min-height:90px}.activity-note-composer p{margin-bottom:0}.activity-note-history{border-top:1px solid var(--line);padding-top:17px;margin-top:18px}.activity-note-title{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:14px}.activity-note-title h3{margin:0;font-size:15px}.activity-note{background:var(--bg);border:1px solid var(--line);border-radius:13px;padding:16px;margin:10px 0}.activity-note-latest{background:color-mix(in srgb,var(--good) 6%,var(--card));border-color:color-mix(in srgb,var(--good) 38%,var(--line))}.activity-note-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}.activity-note-top b{font-size:12px}.activity-note-text{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.65}@media(max-width:540px){.activity-note-top .right{margin-left:0}}
+</style>
+</head>
+<body>
+<div id="app" class="skeleton">Carregando GRVMAX…</div>
+<div id="pop" class="hidden backdrop"><div class="modal"><div class="modalheader"><h2 id="popTitle">Editar</h2><button class="btn" onclick="closePop()">✕</button></div><div class="modalbody" id="popBody"></div><div class="modalfooter" id="popActions"></div></div></div>
+<div class="hidden toast" id="toast"></div>
+<script>
+(function(){
+'use strict';
+var token=sessionStorage.getItem('grvmax_session')||'';
+var S=null,screen='dashboard',search='',filterStage='',filterStatus='',filterResponsible='',filterDeadline='',taskScope='mine',inviteToken='',inviteEmail='',dark=localStorage.getItem('grvmax_dark')==='1';
+if(dark)document.body.classList.add('dark');
+var tabs=[['dashboard','◫','Dashboard'],['stages','▦','Etapas'],['activities','☷','Atividades'],['approvals','◈','Homologações'],['people','♙','Pessoas'],['emails','✉','Comunicação'],['agenda','▣','Agenda'],['pending','⚑','Pendências'],['changes','⇄','Mudanças'],['training','▤','Treinamentos'],['golive','◉','GO LIVE'],['history','≡','Histórico / Logs']];
+var defs={
+ ETAPAS:[['ORDEM','Ordem','number'],['TITULO','Título','text','wide'],['DESCRICAO','Descrição','textarea','wide'],['ENTREGAVEL','Entregável','textarea','wide'],['RESPONSAVEL_ID','Responsável','person'],['STATUS','Situação','stagesStatus'],['OBRIGATORIA','Obrigatória','bool']],
+ ATIVIDADES:[['ETAPA_ID','Etapa','stage'],['TITULO','Atividade','text','wide'],['DESCRICAO','Instruções','textarea','wide'],['RESPONSAVEL_ID','Responsável principal','person'],['__PARTICIPANTES','Participantes da atividade','peopleMultiple','wide'],['__HOMOLOGADOR','Homologador designado','homologator','wide'],['STATUS','Situação','activityStatus'],['PRIORIDADE','Prioridade','priority'],['DATA_ORIENTACAO','Data da orientação','date'],['PRAZO','Prazo de validação','date'],['CRITERIO_ACEITE','Critério de aceite','textarea','wide'],['EVIDENCIA_URL','Link da evidência','text','wide'],['DEPENDE_DE','Depende de','activity'],['OBRIGATORIA','Obrigatória','bool']],
+ PESSOAS:[['NOME','Nome','text','wide'],['EMAIL','E-mail de acesso','email','wide'],['EMPRESA','Empresa','text'],['DEPARTAMENTO','Departamento','text'],['CARGO','Cargo','text'],['PERFIL','Perfil','role'],['ATIVO','Ativo','bool']],
+ PENDENCIAS:[['ATIVIDADE_ID','Atividade','activity'],['TITULO','Título','text','wide'],['DESCRICAO','Descrição','textarea','wide'],['RESPONSAVEL_ID','Responsável','person'],['PRIORIDADE','Prioridade','priority'],['STATUS','Situação','pendingStatus'],['IMPACTO','Impacto','textarea','wide'],['PRAZO','Prazo','date']],
+ MUDANCAS:[['ETAPA_ID','Etapa','stage'],['ATIVIDADE_ID','Atividade','activity'],['TITULO','Solicitação','text','wide'],['DESCRICAO','Descrição','textarea','wide'],['IMPACTO','Impacto','textarea','wide'],['STATUS','Situação','changeStatus']],
+ AGENDA:[['TIPO','Tipo','agendaType'],['TITULO','Compromisso','text','wide'],['DESCRICAO','Descrição','textarea','wide'],['INICIO','Data inicial','date'],['FIM','Data final','date'],['RESPONSAVEL_ID','Responsável','person'],['PARTICIPANTES','Participantes (IDs / observação)','text','wide'],['ATIVIDADE_ID','Atividade','activity'],['STATUS','Situação','agendaStatus']],
+ TREINAMENTOS:[['ETAPA_ID','Etapa','stage'],['TITULO','Treinamento','text','wide'],['VIDEO_URL','URL do vídeo','text','wide'],['PARTICIPANTES','Participantes','text','wide'],['DATA','Data','date'],['STATUS','Situação','agendaStatus'],['EVIDENCIA_URL','Evidência','text','wide']],
+ GO_LIVE:[['CRITERIO','Critério','textarea','wide'],['STATUS','Situação','goStatus'],['RESPONSAVEL_ID','Responsável','person'],['EVIDENCIA_URL','Link da evidência','text','wide'],['OBRIGATORIO','Obrigatório','bool']]
+};
+var tableNames={ETAPAS:'Etapa',ATIVIDADES:'Atividade',PESSOAS:'Pessoa',PENDENCIAS:'Pendência',MUDANCAS:'Mudança',AGENDA:'Agenda',TREINAMENTOS:'Treinamento',GO_LIVE:'Critério GO LIVE'};
+function el(id){return document.getElementById(id)}
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function attr(v){return esc(v)}
+// Frontend 100% GitHub Pages; chamadas HTTP feitas ao backend Cloudflare Worker.
+const GRVMAX_API_ENDPOINT='https://grvmax-api.consultoriarf.net/api';
+async function api(action,payload,auth){
+ const timeout=new AbortController();
+ const stop=setTimeout(function(){timeout.abort()},60000);
+ try{
+  const res=await fetch(GRVMAX_API_ENDPOINT,{
+   method:'POST',mode:'cors',credentials:'omit',cache:'no-store',
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({action:action,payload:payload||{},token:auth===undefined?token:auth}),
+   signal:timeout.signal
+  });
+  let answer;
+  try{answer=await res.json()}catch(e){throw Error('A API retornou uma resposta inválida.')}
+  if(!res.ok||!answer||answer.ok!==true)throw Error(answer&&answer.error||'Falha na comunicação com o servidor.');
+  return answer.result;
+ }catch(err){
+  if(err.name==='AbortError')throw Error('Tempo esgotado ao acessar o servidor.');
+  if(err instanceof TypeError)throw Error('Não foi possível conectar à API GRVMAX. Confira se o servidor já foi publicado.');
+  throw err;
+ }finally{clearTimeout(stop)}
+}
+function notify(msg,err){var n=el('toast');n.textContent=msg;n.style.background=err?'#9a283d':'#133e60';n.classList.remove('hidden');clearTimeout(window.toastTimer);window.toastTimer=setTimeout(function(){n.classList.add('hidden')},5500)}
+function busy(b){document.querySelectorAll('[data-save]').forEach(function(x){x.disabled=b});}
+async function start(){
+ try{
+  const init=await api('bootstrap',{},'');
+  const params=new URLSearchParams(window.location.search);
+  inviteToken=params.get('invite')||'';
+  inviteEmail=params.get('email')||'';
+  if(inviteToken){authScreen('invite');return}
+  if(init.needsSetup){authScreen('setup');return}
+  if(token){try{await reload();return}catch(e){token='';sessionStorage.removeItem('grvmax_session')}}
+  authScreen('login');
+ }catch(e){
+  el('app').innerHTML='<div class="auth"><div class="authbox"><h2>Não foi possível conectar</h2><div class="alert">'+esc(e.message)+'</div><p><a href="../">Voltar à versão atual</a></p><button class="btn" onclick="location.reload()">Tentar novamente</button></div></div>';
+ }
+}
+function authScreen(mode){
+ var title=mode==='setup'?'Configuração inicial':mode==='invite'?'Defina sua senha':mode==='forgot'?'Recuperar acesso':'Acessar implantação';
+ var input='<label>E-mail</label><input class="field" id="mail" autocomplete="email" type="email" value="'+attr(inviteEmail)+'" placeholder="usuario@empresa.com.br">';
+ if(mode==='setup')input='<label>Nome</label><input class="field" id="personName" placeholder="Seu nome">'+input+'<label>Chave de configuração</label><input class="field" id="setupKey" type="password" placeholder="Definida nas propriedades do script">';
+ if(mode==='login'||mode==='setup'||mode==='invite')input+='<label>Senha</label><input class="field" id="password" type="password" autocomplete="'+(mode==='login'?'current-password':'new-password')+'" minlength="10" placeholder="Sua senha">';
+ var btn=mode==='login'?'Entrar':mode==='setup'?'Criar administrador':mode==='invite'?'Definir senha':'Enviar recuperação';
+ el('app').innerHTML='<div class="auth"><div class="authbox"><div class="brand-icon" style="margin-bottom:20px;width:54px;height:54px"><img src="https://consultoriarf.net/columbia/LOGO%20MINIMALISTA.png" alt="Consultoria RF"></div><div class="bold" style="font-size:12px;color:#32709f">COLUMBIA MACHINE</div><h1>GRVMAX</h1><p style="color:#68768a;font-size:13px">Gestão da Implantação ERP</p><h2 style="font-size:17px;margin-top:24px">'+title+'</h2><form onsubmit="return false" id="authForm">'+input+'<div id="authError"></div><button type="submit" class="btn primary" id="authSubmit">'+btn+'</button></form>'+(mode==='login'?'<button class="link" id="forgotLink">Esqueci minha senha</button>':'')+(mode==='forgot'?'<button class="link" id="backLogin">Voltar ao login</button>':'')+'</div></div>';
+ el('authForm').onsubmit=function(ev){ev.preventDefault();authSubmit(mode)};
+ if(el('forgotLink'))el('forgotLink').onclick=function(){authScreen('forgot')};
+ if(el('backLogin'))el('backLogin').onclick=function(){authScreen('login')};
+}
+async function authSubmit(mode){
+ var btn=el('authSubmit'),mail=el('mail').value.trim(),password=el('password')?el('password').value:'';
+ btn.disabled=true;el('authError').innerHTML='';
+ try{
+  if(mode==='setup'){await api('setup',{name:el('personName').value,email:mail,password:password,key:el('setupKey').value},'');notify('Administrador criado. Faça login.');authScreen('login');return}
+  if(mode==='forgot'){var m=await api('forgot',{email:mail},'');notify(m.message||'Verifique seu e-mail.');authScreen('login');return}
+  if(mode==='invite'){await api('setPassword',{email:mail,password:password,invite:inviteToken},'');notify('Senha definida. Acesse sua conta.');inviteToken='';inviteEmail='';authScreen('login');return}
+  var l=await api('login',{email:mail,password:password},'');token=l.token;sessionStorage.setItem('grvmax_session',token);await reload();
+ }catch(e){el('authError').innerHTML='<div class="alert">'+esc(e.message)+'</div>'}
+ finally{if(btn)btn.disabled=false}
+}
+async function reload(silent){
+ try{var data=await api('state');S=data;render();if(!silent)notify('Dados atualizados.');}
+ catch(e){notify(e.message,true);if(/Sessão|sessão|expirada/.test(e.message)){token='';sessionStorage.removeItem('grvmax_session');authScreen('login')}throw e;}
+}
+function nav(name){if(name==='mine')name='activities';if(name==='activities'&&screen!=='activities')taskScope='mine';screen=name;search='';filterStage='';filterStatus='';filterResponsible='';filterDeadline='';render();}
+function activityTeam(id,type){return (S.vinculos||[]).filter(function(v){return v.ATIVIDADE_ID===id&&v.TIPO===type}).map(function(v){return v.PESSOA_ID})}
+function canApprove(id){return S.canEdit||activityTeam(id,'HOMOLOGADOR').includes(S.me.ID)}
+function person(id){var x=S.people.find(function(p){return p.ID===id});return x?x.NOME:'—'}
+function stage(id){var x=S.stages.find(function(p){return p.ID===id});return x?x.TITULO:'—'}
+function fmt(dt){if(!dt)return '—';var s=String(dt);if(s.length>=10&&s[4]==='-')return s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4);return s}
+function badge(s){var cls=/Homologada|Aprovad|Resolvida|Conclu/.test(s)?'ok':/Atrasada|Devolvida|Bloquead|Crítica|Cancelada/.test(s)?'bad':/Aguardando|Pendente|Em execução|Orientada|andamento/.test(s)?'warn':'neutral';return '<span class="pill '+cls+'">'+esc(s||'—')+'</span>'}
+function pct(stid){var xs=S.activities.filter(function(a){return a.ETAPA_ID===stid});return xs.length?Math.round(xs.filter(function(a){return a.STATUS==='Homologada'}).length*100/xs.length):0}
+function overall(){return S.activities.length?Math.round(S.activities.filter(function(a){return a.STATUS==='Homologada'}).length*100/S.activities.length):0}
+function authorized(){return S.canEdit}
+function render(){
+ if(!S)return;
+ var visibleTabs=S.me.PERFIL==='Usuário-chave'?tabs.map(function(t){return t[0]==='activities'?['activities',t[1],'Minhas atividades']:t}):tabs;
+  var tab=visibleTabs.find(function(t){return t[0]===screen})||visibleTabs[0];
+ var m='<div class="shell"><aside class="nav"><div class="brand"><div class="brand-icon"><img src="https://consultoriarf.net/columbia/LOGO%20MINIMALISTA.png" alt="Consultoria RF"></div><div><b>GRVMAX</b><small>Gestão da Implantação</small></div></div><div class="navlinks">'+visibleTabs.map(function(t){return '<a class="'+(screen===t[0]?'active':'')+'" href="#" data-nav="'+t[0]+'"><span class="ico">'+t[1]+'</span>'+t[2]+'</a>'}).join('')+'</div><div class="navfoot"><strong>COLUMBIA MACHINE</strong><br>Implantação ERP • Ambiente independente</div></aside><div class="area"><header class="top"><div><h1>'+esc(tab[2])+'</h1><span class="small muted">Projeto GRVMAX ERP · Columbia Machine</span></div><div class="top-right"><span class="small muted" id="lastUpdate">Atualizado agora</span><button class="btn" id="refreshBtn" title="Atualizar">↻</button><button class="btn" id="themeBtn" title="Tema">◑</button><button class="btn" id="logoutBtn">Sair</button></div></header><main class="page" id="content"></main></div></div>';
+ el('app').innerHTML=m;
+ document.querySelectorAll('[data-nav]').forEach(function(a){a.onclick=function(ev){ev.preventDefault();nav(a.dataset.nav)}});
+ el('refreshBtn').onclick=function(){reload()};
+ el('themeBtn').onclick=function(){dark=!dark;document.body.classList.toggle('dark',dark);localStorage.setItem('grvmax_dark',dark?'1':'0')};
+ el('logoutBtn').onclick=async function(){try{await api('logout')}catch(e){}token='';sessionStorage.removeItem('grvmax_session');S=null;authScreen('login')};
+ var content=el('content');
+ switch(screen){case 'dashboard':dashboard(content);break;case 'stages':stagesView(content);break;case 'activities':activitiesView(content);break;case 'approvals':approvalsView(content);break;case 'people':peopleView(content);break;case 'emails':emailsView(content);break;case 'agenda':genericView(content,'AGENDA',S.agenda);break;case 'pending':genericView(content,'PENDENCIAS',S.pending);break;case 'changes':genericView(content,'MUDANCAS',S.changes);break;case 'training':genericView(content,'TREINAMENTOS',S.trainings);break;case 'golive':goLiveView(content);break;case 'history':historyView(content);break;}
+}
+function createButton(tbl){return S.canEdit||tbl==='PESSOAS'&&S.canAdmin?'<button class="btn primary" onclick="editItem(\''+tbl+'\')">+ Novo cadastro</button>':''}
+function dashboard(root){
+ var a=S.activities,hom=a.filter(function(x){return x.STATUS==='Homologada'}).length,waiting=a.filter(function(x){return x.STATUS==='Aguardando validação'}).length;
+ var today=new Date().toISOString().slice(0,10),late=a.filter(function(x){return x.PRAZO&&x.PRAZO<today&&!['Homologada','Cancelada'].includes(x.STATUS)}).length;
+ var cards=[['Progresso geral',overall()+'%','Etapas homologadas'],['Atividades',a.length,'Cadastradas'],['Homologadas',hom,'Entregas aprovadas'],['Aguardando validação',waiting,'Para conferir'],['Atrasadas',late,'Com prazo vencido']];
+ root.innerHTML='<div class="flex wrap"><div><h2 class="sectiontitle" style="font-size:23px;margin:0">Visão geral da implantação</h2><p class="muted small">Acompanhamento em tempo real com rastreabilidade de cada ação.</p></div><span class="right">'+badge(S.project[0]?S.project[0].STATUS:'Em andamento')+'</span></div><div class="statgrid">'+cards.map(function(c){return '<div class="stat"><span class="muted">'+esc(c[0])+'</span><div class="value">'+c[1]+'</div><span class="small muted">'+esc(c[2])+'</span></div>'}).join('')+'</div><div class="twocol"><section class="card"><h3 class="sectiontitle">Progresso por etapa</h3>'+S.stages.map(function(st){return '<div class="listrow"><div style="flex:1"><div class="flex" style="justify-content:space-between;margin-bottom:8px"><span class="small bold">'+esc(st.ORDEM+' · '+st.TITULO)+'</span><span class="small muted">'+pct(st.ID)+'%</span></div><div class="progress"><span style="width:'+pct(st.ID)+'%"></span></div></div></div>'}).join('')+'</section><section class="card"><h3 class="sectiontitle">Exige atenção</h3>'+a.filter(function(x){return x.STATUS==='Aguardando validação'||x.PRAZO&&x.PRAZO<today&&!['Homologada','Cancelada'].includes(x.STATUS)}).slice(0,12).map(function(x){return '<div class="listrow"><div><div class="small bold">'+esc(x.TITULO)+'</div><div class="tiny muted">'+esc(person(x.RESPONSAVEL_ID))+' · '+fmt(x.PRAZO)+'</div></div><button class="link" onclick="editItem(\'ATIVIDADES\',\''+x.ID+'\')">Abrir</button></div>'}).join('')+(waiting+late===0?'<div class="empty">Nenhuma pendência urgente.</div>':'')+'<div style="margin-top:18px"><button class="btn" onclick="nav(\'approvals\')">Ver homologações →</button></div></section></div>';
+}
+function stagesView(root){
+ root.innerHTML='<div class="toolbar"><span class="muted small">'+S.stages.length+' etapas · '+S.activities.length+' atividades</span><span class="spacer"></span>'+createButton('ETAPAS')+'</div>'+S.stages.map(function(s,i){
+   var tasks=S.activities.filter(function(a){return a.ETAPA_ID===s.ID});
+   return '<section class="stage"><div class="stage-head" data-stage="'+esc(s.ID)+'"><span class="num">'+String(s.ORDEM).padStart(2,'0')+'</span><div style="flex:1"><h3>'+esc(s.TITULO)+'</h3><div class="small muted">'+esc(s.ENTREGAVEL||'')+'</div></div><span class="small bold">'+pct(s.ID)+'%</span><div style="width:100px" class="progress"><span style="width:'+pct(s.ID)+'%"></span></div><span>⌄</span></div><div id="stage-'+s.ID+'" class="stage-content hidden"><div class="toolbar" style="margin:14px 0">'+badge(s.STATUS)+'<span class="spacer"></span>'+(S.canEdit?'<button class="btn" onclick="editItem(\'ETAPAS\',\''+s.ID+'\')">Editar etapa</button><button class="btn primary" onclick="editItem(\'ATIVIDADES\',null,\''+s.ID+'\')">+ Atividade</button>':'')+'</div>'+tasks.map(function(a){return '<div class="listrow"><div style="flex:1"><div class="small bold">'+esc(a.TITULO)+'</div><div class="tiny muted">'+person(a.RESPONSAVEL_ID)+' · Prazo '+fmt(a.PRAZO)+'</div></div>'+badge(a.STATUS)+'<button class="link" onclick="editItem(\'ATIVIDADES\',\''+a.ID+'\')">Abrir</button></div>'}).join('')+(tasks.length?'':'<div class="empty">Nenhuma atividade cadastrada.</div>')+'</div></section>';
+ }).join('');
+ document.querySelectorAll('[data-stage]').forEach(function(a){a.onclick=function(){el('stage-'+a.dataset.stage).classList.toggle('hidden')}});
+}
+function searchbar(){return '<input id="q" class="field search" placeholder="Pesquisar..." value="'+attr(search)+'">'}
+
+function taskDateKey(v){var x=String(v||'');if(x.charAt(4)==='-')return x.slice(0,10);var v=x.split('/');return v.length===3?v[2].slice(0,4)+'-'+v[1]+'-'+v[0]:''}
+function taskToday(){var parts=new Intl.DateTimeFormat('en-US',{year:'numeric',month:'2-digit',day:'2-digit',timeZone:'America/Sao_Paulo'}).formatToParts(new Date()),p={};parts.forEach(function(x){p[x.type]=x.value});return p.year+'-'+p.month+'-'+p.day}
+function taskDone(a){return ['Homologada','Cancelada'].includes(a.STATUS)}
+function taskLate(a){var d=taskDateKey(a.PRAZO);return !!(d&&d<taskToday()&&!taskDone(a))}
+function taskMine(a){return a.RESPONSAVEL_ID===S.me.ID||activityTeam(a.ID,'PARTICIPANTE').includes(S.me.ID)||activityTeam(a.ID,'HOMOLOGADOR').includes(S.me.ID)}
+function taskCreator(a){
+ if(S.createdBy&&S.createdBy[a.ID])return S.createdBy[a.ID];
+ if(a.CRIADO_POR_ID)return a.CRIADO_POR_ID;
+ var l=(S.logs||[]).find(function(x){return x.ENTIDADE==='ATIVIDADES'&&x.ENTIDADE_ID===a.ID&&x.ACAO==='CRIOU'});return l?l.ATOR_ID:'';
+}
+function taskScopeList(){if(S.me.PERFIL==='Usuário-chave')return S.activities.filter(taskMine);return S.activities.filter(function(a){return taskScope==='all'||taskScope==='mine'&&taskMine(a)||taskScope==='created'&&taskCreator(a)===S.me.ID})}
+function taskFiltered(xs,includeStatus){
+ var today=taskToday(),todayMs=Date.parse(today+'T12:00:00Z'),needle=search.trim().toLocaleLowerCase('pt-BR');
+ return xs.filter(function(a){
+  if(filterStage&&a.ETAPA_ID!==filterStage)return false;
+  if(filterResponsible&&a.RESPONSAVEL_ID!==filterResponsible)return false;
+  if(includeStatus&&filterStatus&&a.STATUS!==filterStatus)return false;
+  var d=taskDateKey(a.PRAZO),diff=d?Math.round((Date.parse(d+'T12:00:00Z')-todayMs)/86400000):null;
+  if(filterDeadline==='late'&&!(diff!==null&&diff<0&&!taskDone(a)))return false;
+  if(filterDeadline==='today'&&diff!==0)return false;
+  if(filterDeadline==='week'&&!(diff!==null&&diff>=0&&diff<=7&&!taskDone(a)))return false;
+  if(filterDeadline==='none'&&d)return false;
+  if(needle&&!([a.TITULO,a.DESCRICAO,stage(a.ETAPA_ID),person(a.RESPONSAVEL_ID),a.STATUS,activityTeam(a.ID,'PARTICIPANTE').map(person).join(' '),person(activityTeam(a.ID,'HOMOLOGADOR')[0])].join(' ').toLocaleLowerCase('pt-BR').includes(needle)))return false;
+  return true;
+ });
+}
+function activitiesView(root){
+ var scopes=S.me.PERFIL==='Usuário-chave'?[]:[['mine','Minhas atividades'],['all','Todas as atividades'],['created','Criadas por mim']];
+ var stages='<option value="">Todas as etapas</option>'+S.stages.map(function(x){return '<option value="'+attr(x.ID)+'" '+(filterStage===x.ID?'selected':'')+'>'+esc(x.TITULO)+'</option>'}).join('');
+ var statuses=['Não iniciada','Orientada','Em execução','Aguardando validação','Devolvida','Homologada','Cancelada'];
+ var stat='<option value="">Todas as situações</option>'+statuses.map(function(x){return '<option value="'+attr(x)+'" '+(filterStatus===x?'selected':'')+'>'+esc(x)+'</option>'}).join('');
+ var responsible='<option value="">Todos os responsáveis</option>'+S.people.map(function(x){return '<option value="'+attr(x.ID)+'" '+(filterResponsible===x.ID?'selected':'')+'>'+esc(x.NOME)+'</option>'}).join('');
+ root.innerHTML='<div class="task-header"><div class="taskviews" role="group" aria-label="Visualização de atividades">'+(S.me.PERFIL==='Usuário-chave'?'<span class="muted small">Atividades atribuídas a você, como responsável, participante ou homologador.</span>':scopes.map(function(v){return '<button type="button" class="btn '+(taskScope===v[0]?'taskview-active':'')+'" data-scope="'+v[0]+'" aria-pressed="'+(taskScope===v[0])+'">'+v[1]+'</button>'}).join(''))+'</div><span class="spacer"></span>'+createButton('ATIVIDADES')+'</div><div class="taskstats" id="taskStats"></div><div class="toolbar taskfilters">'+searchbar()+'<select id="filterStage" class="field task-filter" aria-label="Etapa">'+stages+'</select><select id="filterResponsible" class="field task-filter" aria-label="Responsável">'+responsible+'</select><select id="filterStatus" class="field task-filter" aria-label="Situação">'+stat+'</select><select id="filterDeadline" class="field task-filter" aria-label="Prazo"><option value="">Todos os prazos</option><option value="late" '+(filterDeadline==='late'?'selected':'')+'>Atrasadas</option><option value="today" '+(filterDeadline==='today'?'selected':'')+'>Vencem hoje</option><option value="week" '+(filterDeadline==='week'?'selected':'')+'>Próximos 7 dias</option><option value="none" '+(filterDeadline==='none'?'selected':'')+'>Sem prazo</option></select><button class="btn" id="clearTaskFilters">Limpar filtros</button></div><div id="taskList"></div>';
+ root.querySelectorAll('[data-scope]').forEach(function(b){b.onclick=function(){taskScope=this.dataset.scope;activitiesView(root)}});
+ ['q','filterStage','filterResponsible','filterStatus','filterDeadline'].forEach(function(id){var x=el(id);x[id==='q'?'oninput':'onchange']=function(){if(id==='q')search=this.value;else if(id==='filterStage')filterStage=this.value;else if(id==='filterResponsible')filterResponsible=this.value;else if(id==='filterStatus')filterStatus=this.value;else filterDeadline=this.value;taskRows()}});
+ el('clearTaskFilters').onclick=function(){search='';filterStage='';filterStatus='';filterResponsible='';filterDeadline='';activitiesView(root)};
+ taskRows();
+}
+function taskStatusCell(a){
+ if(a.STATUS==='Homologada')return badge(a.STATUS);
+ var choices=S.canEdit?['Não iniciada','Orientada','Em execução','Aguardando validação','Cancelada']:['Não iniciada','Orientada','Em execução','Aguardando validação'];
+ if(!choices.includes(a.STATUS))choices.unshift(a.STATUS);
+ return '<select class="field task-status" data-quick="'+attr(a.ID)+'" aria-label="Situação: '+attr(a.TITULO)+'">'+choices.map(function(s){return '<option value="'+attr(s)+'" '+(s===a.STATUS?'selected':'')+'>'+esc(s)+'</option>'}).join('')+'</select>';
+}
+function taskRows(){
+ var scoped=taskScopeList(),summary=taskFiltered(scoped,false),tasks=taskFiltered(scoped,true);
+ var counts=[['Atividades',summary.length],['Pendentes',summary.filter(function(a){return ['Não iniciada','Devolvida','Aguardando validação'].includes(a.STATUS)}).length],['Em andamento',summary.filter(function(a){return ['Orientada','Em execução'].includes(a.STATUS)}).length],['Atrasadas',summary.filter(taskLate).length],['Concluídas',summary.filter(function(a){return a.STATUS==='Homologada'}).length]];
+ el('taskStats').innerHTML=counts.map(function(c){return '<div class="stat"><span class="muted small">'+esc(c[0])+'</span><div class="value">'+c[1]+'</div></div>'}).join('');
+ var msg=taskScope==='created'?'Nenhuma atividade criada por você com autoria registrada. Cadastros iniciais sem registro de criação não entram nesta visão.':taskScope==='mine'?'Nenhuma atividade atribuída a você corresponde aos filtros.':'Nenhuma atividade corresponde aos filtros.';
+ el('taskList').innerHTML='<div class="tablewrap"><table class="grid"><thead><tr><th>Atividade</th><th>Etapa</th><th>Responsável</th><th>Orientação</th><th>Validação</th><th>Status</th><th></th></tr></thead><tbody>'+tasks.map(function(a){return '<tr><td class="title">'+esc(a.TITULO)+'</td><td>'+esc(stage(a.ETAPA_ID))+'</td><td>'+esc(person(a.RESPONSAVEL_ID))+'<div class="tiny muted">'+esc(activityTeam(a.ID,'PARTICIPANTE').map(person).join(', '))+'</div></td><td>'+fmt(a.DATA_ORIENTACAO)+'</td><td>'+fmt(a.PRAZO)+(taskLate(a)?' <span class="pill bad">ATRASO</span>':'')+'</td><td>'+taskStatusCell(a)+'</td><td><button class="link" data-task-open="'+attr(a.ID)+'">Abrir</button></td></tr>'}).join('')+'</tbody></table>'+(tasks.length?'':'<div class="empty">'+msg+'</div>')+'</div><div class="muted small" style="margin-top:10px">'+tasks.length+' de '+scoped.length+' atividades nesta visualização</div>';
+ document.querySelectorAll('[data-quick]').forEach(function(b){b.onchange=function(){changeTaskStatus(this.dataset.quick,this.value)}});
+ document.querySelectorAll('[data-task-open]').forEach(function(b){b.onclick=function(){editItem('ATIVIDADES',this.dataset.taskOpen)}});
+}
+window.changeTaskStatus=async function(id,next){
+ var row=S.activities.find(function(a){return a.ID===id});if(!row||!next||next===row.STATUS)return;
+ var sel=document.querySelector('[data-quick="'+id+'"]');
+ if(next==='Aguardando validação'){if(sel)sel.value=row.STATUS;editItem('ATIVIDADES',id,null,next);return}
+ if(next==='Cancelada'&&!confirm('Cancelar esta atividade? A alteração ficará registrada no histórico.')){if(sel)sel.value=row.STATUS;return}
+ if(sel)sel.disabled=true;
+ try{await api('save',{table:'ATIVIDADES',item:{ID:id,STATUS:next}});await reload(true);notify('Situação alterada e registrada no histórico.')}
+ catch(e){if(sel){sel.value=row.STATUS;sel.disabled=false}notify(e.message,true)}
+};
+function approvalsView(root){
+ var waiting=S.activities.filter(function(a){return a.STATUS==='Aguardando validação'||a.STATUS==='Devolvida'});
+ root.innerHTML='<div class="toolbar"><span class="muted small">Aprovação formal e histórico de devoluções</span><span class="spacer"></span>'+badge(waiting.length+' aguardando')+'</div><div class="tablewrap"><table class="grid"><tr><th>Atividade</th><th>Responsável</th><th>Solicitação</th><th>Evidência</th><th>Ação</th></tr>'+waiting.map(function(a){return '<tr><td class="title">'+esc(a.TITULO)+'</td><td>'+esc(person(a.RESPONSAVEL_ID))+'</td><td>'+badge(a.STATUS)+'</td><td>'+evidenceLink(a.EVIDENCIA_URL)+'</td><td>'+(canApprove(a.ID)?'<button class="btn primary" onclick="approveItem(\''+a.ID+'\')">Homologar</button>':'—')+'</td></tr>'}).join('')+'</table>'+(waiting.length?'':'<div class="empty">Não há homologações pendentes.</div>')+'</div><div class="card" style="margin-top:18px"><h3 class="sectiontitle">Últimas decisões</h3>'+S.approvals.slice(-15).reverse().map(function(x){return '<div class="listrow"><div class="small bold">'+esc(S.activities.find(function(a){return a.ID===x.ATIVIDADE_ID})?.TITULO||x.ATIVIDADE_ID)+'</div>'+badge(x.DECISAO)+'<span class="small muted">'+fmt(x.DATA)+'</span></div>'}).join('')+'</div>';
+}
+function peopleView(root){
+ root.innerHTML='<div class="toolbar"><span class="muted small">'+S.people.length+' pessoas ativas</span><span class="spacer"></span>'+(S.canAdmin?createButton('PESSOAS'):'')+'</div><div class="tablewrap"><table class="grid"><tr><th>Nome</th><th>E-mail / Login</th><th>Departamento</th><th>Perfil</th><th>Ações</th></tr>'+S.people.map(function(p){return '<tr><td class="title">'+esc(p.NOME)+'</td><td>'+esc(p.EMAIL)+'</td><td>'+esc(p.DEPARTAMENTO)+'</td><td>'+badge(p.PERFIL)+'</td><td>'+(S.canAdmin?'<button class="link" onclick="editItem(\'PESSOAS\',\''+p.ID+'\')">Editar</button><button class="link" onclick="invitePerson(\''+p.ID+'\')">Enviar acesso</button>':'—')+'</td></tr>'}).join('')+'</table></div><p class="small muted">Acesso independente do CPS. A senha é definida pelo próprio usuário através de convite enviado ao e-mail cadastrado.</p>';
+}
+function emailsView(root){
+ root.innerHTML='<div class="toolbar"><span class="small muted">Envie mensagens aos participantes. Toda tentativa, sucesso e falha ficam registrados.</span><span class="spacer"></span>'+'<button class="btn primary" onclick="compose()">✉ Nova comunicação</button>'+'</div><div class="card"><div class="flex wrap"><h3 class="sectiontitle">Histórico de envios</h3>'+(S.canEdit?'<button class="btn right" onclick="sendReminders()">Disparar lembretes de prazo</button>':'')+(S.canAdmin?'<button class="btn" onclick="installReminders()">Ativar lembretes diários</button>':'')+'</div><div class="tablewrap"><table class="grid"><tr><th>Data</th><th>Destinatário</th><th>Assunto</th><th>Status</th><th>Enviado por</th></tr>'+S.emails.slice(0,120).map(function(e){return '<tr><td>'+fmt(e.DATA)+'</td><td>'+esc(e.DESTINATARIOS)+'</td><td class="title">'+esc(e.ASSUNTO)+'</td><td>'+badge(e.STATUS)+'</td><td>'+esc(person(e.ENVIADO_POR))+'</td></tr>'}).join('')+'</table>'+(S.emails.length?'':'<div class="empty">Nenhuma comunicação enviada ainda.</div>')+'</div></div>';
+}
+function genericView(root,table,items){
+ var col={AGENDA:['TITULO','TIPO','INICIO','RESPONSAVEL_ID','STATUS'],PENDENCIAS:['TITULO','PRIORIDADE','PRAZO','RESPONSAVEL_ID','STATUS'],MUDANCAS:['TITULO','IMPACTO','STATUS'],TREINAMENTOS:['TITULO','DATA','VIDEO_URL','STATUS']}[table]||[];
+ var labels={TITULO:'Título',TIPO:'Tipo',INICIO:'Data',RESPONSAVEL_ID:'Responsável',PRIORIDADE:'Prioridade',PRAZO:'Prazo',STATUS:'Status',IMPACTO:'Impacto',DATA:'Data',VIDEO_URL:'Material'};
+ root.innerHTML='<div class="toolbar"><span class="small muted">'+items.length+' registros</span><span class="spacer"></span>'+createButton(table)+'</div><div class="tablewrap"><table class="grid"><tr>'+col.map(function(c){return '<th>'+esc(labels[c]||c)+'</th>'}).join('')+'<th></th></tr>'+items.map(function(x){return '<tr>'+col.map(function(c){var v=x[c]||'';if(c==='RESPONSAVEL_ID')v=person(v);if(c==='STATUS')return '<td>'+badge(v)+'</td>';if(c==='VIDEO_URL')return '<td>'+evidenceLink(v)+'</td>';if(c==='DATA'||c==='PRAZO'||c==='INICIO')v=fmt(v);return '<td class="'+(c==='TITULO'?'title':'')+'">'+esc(v)+'</td>'}).join('')+'<td>'+(S.canEdit?'<button class="link" onclick="editItem(\''+table+'\',\''+x.ID+'\')">Abrir</button>':'')+'</td></tr>'}).join('')+'</table>'+(items.length?'':'<div class="empty">Ainda não há registros.</div>')+'</div>';
+}
+function goLiveView(root){
+ var accepted=S.goLive.filter(function(x){return x.STATUS==='Aprovado'}).length,total=S.goLive.filter(function(x){return x.OBRIGATORIO==='SIM'}).length,critical=S.pending.filter(function(x){return x.PRIORIDADE==='Crítica'&&!['Resolvida','Cancelada'].includes(x.STATUS)}).length;
+ root.innerHTML='<div class="card"><div class="flex wrap"><div><h2 class="sectiontitle">Critérios de prontidão</h2><p class="muted small">A decisão GO só pode ser registrada quando todos os critérios obrigatórios estiverem aprovados e não houver pendências críticas.</p></div><span class="right">'+badge(accepted+'/'+total+' aprovados')+'</span></div><div class="progress"><span style="width:'+(total?Math.round(accepted/total*100):0)+'%"></span></div><p class="small muted">Pendências críticas em aberto: <b>'+critical+'</b></p>'+S.goLive.map(function(g){return '<div class="listrow"><div class="small bold">'+esc(g.CRITERIO)+'</div>'+badge(g.STATUS)+'<span class="small muted">'+esc(person(g.RESPONSAVEL_ID))+'</span>'+(S.canEdit?'<button class="link" onclick="editItem(\'GO_LIVE\',\''+g.ID+'\')">Validar</button>':'')+'</div>'}).join('')+'<div class="toolbar" style="margin-top:22px">'+(S.canAdmin?'<button class="btn primary" onclick="goDecision(\'GO\')">Autorizar GO LIVE</button><button class="btn danger" onclick="goDecision(\'NO-GO\')">Registrar NO-GO</button>':'')+'</div></div>';
+}
+function historyView(root){
+ var items=S.logs||[];
+ root.innerHTML='<div class="toolbar"><input class="field search" placeholder="Filtrar logs..." id="logFilter"><span class="muted small">'+items.length+' registros recentes, histórico completo no Sheets</span></div><div id="logList"></div>';
+ function draw(){var q=(el('logFilter').value||'').toLowerCase();var filtered=items.filter(function(x){return (x.ATOR_EMAIL+' '+x.ENTIDADE+' '+x.ACAO+' '+x.DETALHE).toLowerCase().includes(q)});el('logList').innerHTML='<div class="tablewrap scroller"><table class="grid"><tr><th>Data/hora</th><th>Autor</th><th>Entidade</th><th>Evento</th><th>Registro</th><th></th></tr>'+filtered.map(function(x,i){return '<tr><td>'+esc(x.TIMESTAMP)+'</td><td>'+esc(x.ATOR_EMAIL)+'</td><td>'+esc(x.ENTIDADE)+'</td><td>'+esc(x.ACAO)+'</td><td>'+esc(x.ENTIDADE_ID)+'</td><td><button class="link" data-log="'+items.indexOf(x)+'">Detalhes</button></td></tr>'}).join('')+'</table></div>';document.querySelectorAll('[data-log]').forEach(function(btn){btn.onclick=function(){showLog(items[Number(this.dataset.log)])}})}
+ el('logFilter').oninput=draw;draw();
+}
+function showLog(x){modal('Registro de auditoria','<p><b>'+esc(x.ACAO)+'</b> · '+esc(x.TIMESTAMP)+'</p><p class="small muted">Autor: '+esc(x.ATOR_EMAIL)+' · '+esc(x.ENTIDADE)+' / '+esc(x.ENTIDADE_ID)+'</p><h4>Antes</h4><div class="code">'+esc(x.ANTES_JSON)+'</div><h4>Depois</h4><div class="code">'+esc(x.DEPOIS_JSON)+'</div><p>'+esc(x.DETALHE)+'</p>','<button class="btn" onclick="closePop()">Fechar</button>')}
+function evidenceLink(url){return /^https:\/\//i.test(url||'')?'<a href="'+attr(url)+'" target="_blank" rel="noopener">Abrir ↗</a>':'—'}
+function options(field,type){
+ var choices={person:[['','Não definido']].concat(S.people.map(function(p){return [p.ID,p.NOME+' — '+p.EMAIL]})),
+ stage:[['','Selecione']].concat(S.stages.map(function(p){return [p.ID,p.ORDEM+' — '+p.TITULO]})),
+ activity:[['','Não vincular']].concat(S.activities.map(function(p){return [p.ID,p.TITULO]})),
+ stagesStatus:['Não iniciada','Em andamento','Aguardando validação','Homologada','Cancelada'],
+ activityStatus:['Não iniciada','Orientada','Em execução','Aguardando validação','Devolvida','Homologada','Cancelada'],
+ priority:['Baixa','Normal','Alta','Crítica'],pendingStatus:['Aberta','Em tratamento','Resolvida','Cancelada'],
+ changeStatus:['Solicitada','Em análise','Aprovada','Rejeitada','Concluída'],
+ agendaType:['Visita','Orientação','Validação','Reunião','Treinamento','Outro'],
+ agendaStatus:['Agendado','Em andamento','Concluído','Cancelado'],
+ role:['Administrador','Consultor','Gestor','Usuário-chave'],bool:['SIM','NÃO'],goStatus:['Pendente','Em validação','Aprovado','Rejeitado']
+ };
+ return (choices[type]||[]).map(function(x){var v=Array.isArray(x)?x[0]:x,t=Array.isArray(x)?x[1]:x;return '<option value="'+attr(v)+'" '+(String(v)===String(field)?'selected':'')+'>'+esc(t)+'</option>'}).join('');
+}
+function formField(f,item,restricted){
+ var k=f[0],label=f[1],type=f[2],wide=f[3],v=item[k]||'';
+ if(type==='peopleMultiple'){
+   var selected=activityTeam(item.ID,'PARTICIPANTE');
+   var members=S.people.filter(function(p){return p.ATIVO==='SIM'});
+   return '<div class="fitem wide"><label>Participantes (várias pessoas)</label><div class="checkgrid" id="teamChecks" style="grid-template-columns:repeat(2,minmax(0,1fr));max-height:230px;overflow:auto">'+members.map(function(p){return '<label class="checkitem"><input type="checkbox" class="team-participant" value="'+attr(p.ID)+'" '+(selected.includes(p.ID)?'checked':'')+'>'+esc(p.NOME)+'<div class="tiny muted">'+esc(p.EMAIL)+'</div></label>'}).join('')+'</div><p class="small muted">Participantes podem executar e registrar evidências. Inclusões são notificadas por e-mail.</p></div>';
+ }
+ if(type==='homologator'){
+   var h=activityTeam(item.ID,'HOMOLOGADOR')[0]||'';
+   return '<div class="fitem wide"><label>Homologador responsável pelo aceite</label><select class="field" id="teamHomologator">'+options(h,'person')+'</select><p class="small muted">Recebe pedidos de validação e pode homologar ou devolver a atividade.</p></div>';
+ }
+ if(restricted&&['STATUS','OBSERVACAO','EVIDENCIA_URL'].indexOf(k)<0)return '';
+ var control;
+ if(['person','stage','activity','stagesStatus','activityStatus','priority','pendingStatus','changeStatus','agendaType','agendaStatus','role','bool','goStatus'].indexOf(type)>=0)control='<select class="field" name="'+k+'">'+options(v,type)+'</select>';
+ else if(type==='textarea')control='<textarea class="field" name="'+k+'" rows="3">'+esc(v)+'</textarea>';
+ else control='<input class="field" name="'+k+'" type="'+type+'" value="'+attr(v)+'">';
+ return '<div class="fitem '+(wide?'wide':'')+'"><label>'+esc(label)+'</label>'+control+'</div>';
+}
+function coll(table){return {ETAPAS:S.stages,ATIVIDADES:S.activities,PESSOAS:S.people,PENDENCIAS:S.pending,MUDANCAS:S.changes,AGENDA:S.agenda,TREINAMENTOS:S.trainings,GO_LIVE:S.goLive}[table]||[]}
+
+function noteClock(iso){
+ var x=String(iso||''),m=x.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
+ return m?m[3]+'/'+m[2]+'/'+m[1]+' '+m[4]+':'+m[5]+(m[6]?':'+m[6]:''):x;
+}
+function activityNotesHtml(activity){
+ var notes=(S.activityNotes&&S.activityNotes[activity.ID])||[];
+ if(!S.notesAppendOnly&&activity.OBSERVACAO)
+  notes=[{ID:'legacy',DATA:'',AUTOR_ID:'',AUTOR:'',TEXTO:activity.OBSERVACAO,TIPO:'LEGADO'}];
+ var cards=notes.map(function(n,i){
+  var author=person(n.AUTOR_ID);if(author==='—')author=n.AUTOR||'Registro anterior';
+  return '<div class="activity-note '+(i===0?'activity-note-latest':'')+'"><div class="activity-note-top"><b>'+esc(author)+'</b><span class="muted small">'+esc(noteClock(n.DATA)||'Data não informada')+'</span>'+(i===0?'<span class="pill ok right">Último registro</span>':'')+'</div><div class="activity-note-text">'+esc(n.TEXTO)+'</div></div>';
+ }).join('');
+ return '<section class="activity-note-history"><div class="activity-note-title"><h3>Histórico de observações</h3><span class="pill ok">'+notes.length+' registro(s)</span></div>'+(cards||'<div class="empty">Nenhuma observação registrada ainda.</div>')+'</section>';
+}
+function activityNewNoteHtml(activity){
+ return '<section class="activity-note-composer"><label class="small bold" for="newActivityNote">Nova observação</label><textarea class="field" id="newActivityNote" rows="3" maxlength="10000" placeholder="Registre uma nova orientação, atualização ou comentário. Cada envio é permanente e preserva os anteriores." '+(S.notesAppendOnly?'':'disabled')+'></textarea>'+(S.notesAppendOnly?'<p class="small muted">As observações são registradas com autor e data/hora e não podem ser editadas ou apagadas.</p>':'<div class="hint" style="margin-top:8px">Para liberar novas observações, publique a versão mais recente do Code.gs no Apps Script. Os registros anteriores permanecem protegidos.</div>')+'</section>'+(activity?activityNotesHtml(activity):'');
+}
+window.editItem=function(table,id,stageId,desiredStatus){
+ var row=id?coll(table).find(function(x){return x.ID===id}):null;
+ if(id&&!row){notify('Registro não disponível.',true);return}
+ if(!id&&!S.canEdit&&!(table==='PESSOAS'&&S.canAdmin)){notify('Você não tem permissão de cadastro.',true);return}
+ if(table==='PESSOAS'&&!S.canAdmin){notify('Cadastro restrito ao administrador.',true);return}
+ var meRestricted=table==='ATIVIDADES'&&!S.canEdit;
+ if(meRestricted&&!row)return;
+ var data=row?Object.assign({},row):{STATUS:'Não iniciada',PRIORIDADE:'Normal',OBRIGATORIA:'SIM',ATIVO:'SIM',PERFIL:'Usuário-chave'};
+ if(stageId)data.ETAPA_ID=stageId;
+ if(table==='ETAPAS'&&!row){data.ORDEM=String(S.stages.length+1);data.PROJETO_ID='PRJ-0001'}
+ var fields=defs[table]||[];
+ if(meRestricted)fields=fields.filter(function(f){return ['STATUS','EVIDENCIA_URL'].includes(f[0])});
+ var info=table==='ATIVIDADES'?'<div class="hint" style="margin-bottom:17px">Orientação na terça → validação na quinta-feira da semana seguinte. O sistema sugere prazo de 9 dias, editável. Anexe link de evidência e solicite validação.</div>':'';
+ if(row&&table==='ATIVIDADES')info+='<p class="small muted"><b>Responsável principal:</b> '+esc(person(row.RESPONSAVEL_ID))+' · <b>Participantes:</b> '+esc(activityTeam(row.ID,'PARTICIPANTE').map(person).join(', ')||'Nenhum')+' · <b>Homologador:</b> '+esc(person(activityTeam(row.ID,'HOMOLOGADOR')[0]))+' · <b>Homologada por:</b> '+esc(person(row.HOMOLOGADO_POR))+'</p>';
+ modal((row?'Editar ':'Nova ')+(tableNames[table]||table),info+'<form id="itemForm"><div class="formgrid">'+fields.map(function(f){return formField(f,data,meRestricted)}).join('')+'</div></form>'+(table==='ATIVIDADES'?activityNewNoteHtml(row):''),(row&&table==='ATIVIDADES'&&canApprove(row.ID)&&['Aguardando validação','Devolvida','Em execução'].includes(row.STATUS)?'<button class="btn" onclick="approveItem(\''+row.ID+'\')">Homologar / devolver</button>':'')+'<button class="btn" onclick="closePop()">Cancelar</button><button class="btn primary" data-save id="saveItem">Salvar alterações</button>');
+ if(desiredStatus){var statusField=el('itemForm').querySelector('[name="STATUS"]');if(statusField)statusField.value=desiredStatus;}
+ el('saveItem').onclick=async function(){
+   var body=row?{ID:row.ID}:{};if(data.PROJETO_ID)body.PROJETO_ID=data.PROJETO_ID;if(data.ETAPA_ID&&!row)body.ETAPA_ID=data.ETAPA_ID;
+   document.querySelectorAll('#itemForm [name]').forEach(function(c){body[c.name]=c.value});
+   if(table==='ATIVIDADES'){
+     var noteEditor=el('newActivityNote');
+     if(noteEditor&&noteEditor.value.trim()){
+       if(!S.notesAppendOnly){notify('Atualize o Apps Script para registrar novas observações sem perder as anteriores.',true);return;}
+       body.OBSERVACAO=noteEditor.value.trim();
+     }
+   }
+   var teamPayload={};
+   if(table==='ATIVIDADES'&&S.canEdit){
+     teamPayload.participantIds=Array.from(document.querySelectorAll('.team-participant:checked')).map(function(c){return c.value});
+     teamPayload.homologatorId=el('teamHomologator')?el('teamHomologator').value:'';
+   }
+   if(table==='ATIVIDADES'&&!body.STATUS&&!row)body.STATUS='Não iniciada';
+   if(!body.TITULO&&!row&&['ATIVIDADES','ETAPAS','PENDENCIAS','MUDANCAS','AGENDA','TREINAMENTOS'].includes(table)){notify('Informe o título.',true);return}
+   busy(true);
+   try{await api('save',Object.assign({table:table,item:body},teamPayload));closePop();await reload(true);notify('Salvo e registrado no histórico.')}
+   catch(e){notify(e.message,true)}finally{busy(false)}
+ };
+};
+window.closePop=function(){el('pop').classList.add('hidden')};
+function modal(title,body,actions){el('popTitle').textContent=title;el('popBody').innerHTML=body;el('popActions').innerHTML=actions;el('pop').classList.remove('hidden')}
+window.approveItem=function(id){
+ var x=S.activities.find(function(t){return t.ID===id});if(!x)return;
+ modal('Homologação • '+x.TITULO,'<div class="hint">Aprovação registra autor, data, decisão e justificativa. Para devolução, a justificativa é obrigatória.</div><div class="fitem" style="margin-top:17px"><label>Parecer / justificativa</label><textarea class="field" rows="5" id="decisionNote"></textarea></div>','<button class="btn" onclick="closePop()">Cancelar</button><button class="btn danger" id="rejectBtn" data-save>Devolver</button><button class="btn primary" id="approveBtn" data-save>Homologar</button>');
+ function decision(type){return async function(){busy(true);try{await api('approve',{id:id,decision:type,note:el('decisionNote').value});closePop();await reload(true);notify('Decisão registrada e auditada.')}catch(e){notify(e.message,true)}finally{busy(false)}}}
+ el('rejectBtn').onclick=decision('Devolvida');el('approveBtn').onclick=decision('Homologada');
+};
+window.invitePerson=async function(id){if(!confirm('Enviar link individual para definição de senha?'))return;try{var r=await api('invite',{id:id});await reload(true);notify(r.ok?'Convite enviado e registrado.':'Falha no envio. Confira a aba Comunicação.',!r.ok)}catch(e){notify(e.message,true)}};
+window.compose=function(){
+ modal('Nova comunicação','<p class="muted small">Selecione os destinatários. Cada envio será individual e terá registro detalhado em COMUNICACOES e LOGS.</p><div class="toolbar"><button class="btn" id="allPeople">Selecionar todos</button><button class="btn" id="nonePeople">Limpar seleção</button></div><div class="checkgrid" id="recipients">'+S.people.map(function(p){return '<label class="checkitem"><input type="checkbox" value="'+p.ID+'" class="recipient">'+esc(p.NOME)+'<div class="tiny muted">'+esc(p.EMAIL)+'</div></label>'}).join('')+'</div><div class="formgrid"><div class="fitem wide"><label>Assunto</label><input class="field" id="mailSubject" value="GRVMAX | Orientações da implantação"></div><div class="fitem wide"><label>Atividade vinculada (opcional)</label><select class="field" id="mailActivity">'+options('','activity')+'</select></div><div class="fitem wide"><label>Mensagem</label><textarea class="field" rows="7" id="mailBody" placeholder="Descreva as orientações e o prazo..."></textarea></div></div>','<button class="btn" onclick="closePop()">Cancelar</button><button class="btn primary" data-save id="sendBtn">Enviar e registrar</button>');
+ el('allPeople').onclick=function(){document.querySelectorAll('.recipient').forEach(function(c){c.checked=true})};el('nonePeople').onclick=function(){document.querySelectorAll('.recipient').forEach(function(c){c.checked=false})};
+ el('sendBtn').onclick=async function(){var peopleIds=Array.from(document.querySelectorAll('.recipient:checked')).map(function(c){return c.value});busy(true);try{var r=await api('sendEmail',{peopleIds:peopleIds,subject:el('mailSubject').value,body:el('mailBody').value,activityId:el('mailActivity').value});closePop();await reload(true);notify(r.results.filter(function(x){return x.status==='ENVIADO'}).length+' de '+r.results.length+' e-mails enviados e auditados.')}catch(e){notify(e.message,true)}finally{busy(false)}};
+};
+window.sendReminders=async function(){if(!confirm('Enviar lembretes dos prazos próximos/atrasados? Evita repetições no mesmo dia.'))return;try{var r=await api('reminders');await reload(true);notify(r.total+' lembretes processados; erros: '+r.errors)}catch(e){notify(e.message,true)}};
+window.installReminders=async function(){if(!confirm('Ativar disparo automático diário de lembretes às 8h?'))return;try{await api('installReminders');await reload(true);notify('Lembretes diários ativados.')}catch(e){notify(e.message,true)}};
+window.goDecision=async function(decision){var note=prompt('Justificativa da decisão '+decision+':');if(note===null)return;try{await api('goDecision',{decision:decision,note:note});await reload(true);notify('Decisão '+decision+' auditada.')}catch(e){notify(e.message,true)}};
+window.nav=nav;
+start();
+})();
+</script>
+</body></html>

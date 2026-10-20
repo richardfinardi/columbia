@@ -1,0 +1,7 @@
+name = "columbia-grvmax-api"
+main = "worker.js"
+compatibility_date = "2026-10-20"
+workers_dev = true
+
+# Configure no Cloudflare Dashboard: GRVMAX_SCRIPT_URL = URL .../exec
+# O hostname grvmax-api.consultoriarf.net exige domínio personalizado neste Worker.
