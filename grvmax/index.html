@@ -25,7 +25,7 @@ body.dark{--nav:#071526;--nav2:#102a45;--accent:#66b2ff;--bg:#101a27;--card:#192
 var token=sessionStorage.getItem('grvmax_session')||'';
 var S=null,screen='dashboard',search='',filterStage='',filterStatus='',filterResponsible='',filterDeadline='',taskScope='mine',inviteToken='',inviteEmail='',dark=localStorage.getItem('grvmax_dark')==='1';
 if(dark)document.body.classList.add('dark');
-var tabs=[['dashboard','◫','Dashboard'],['stages','▦','Etapas'],['activities','☷','Atividades'],['approvals','◈','Homologações'],['people','♙','Pessoas'],['emails','✉','Comunicação'],['agenda','▣','Agenda'],['pending','⚑','Pendências'],['changes','⇄','Mudanças'],['training','▤','Treinamentos'],['golive','◉','GO LIVE'],['history','≡','Histórico / Logs']];
+var tabs=[['dashboard','◫','Dashboard'],['plano','▤','Plano Diretor'],['stages','▦','Etapas'],['activities','☷','Atividades'],['approvals','◈','Homologações'],['people','♙','Pessoas'],['emails','✉','Comunicação'],['agenda','▣','Agenda'],['pending','⚑','Pendências'],['changes','⇄','Mudanças'],['training','▤','Treinamentos'],['golive','◉','GO LIVE'],['history','≡','Histórico / Logs']];
 var defs={
  ETAPAS:[['ORDEM','Ordem','number'],['TITULO','Título','text','wide'],['DESCRICAO','Descrição','textarea','wide'],['ENTREGAVEL','Entregável','textarea','wide'],['RESPONSAVEL_ID','Responsável','person'],['DATA_INICIO','Início previsto','date'],['DATA_FIM','Fim previsto','date'],['DEPENDE_DE','Etapas predecessoras','stageMultiple','wide'],['STATUS','Situação','stagesStatus'],['OBRIGATORIA','Obrigatória','bool']],
  ATIVIDADES:[['ETAPA_ID','Etapa','stage'],['TITULO','Atividade','text','wide'],['DESCRICAO','Instruções','textarea','wide'],['RESPONSAVEL_ID','Responsável principal','person'],['__PARTICIPANTES','Participantes da atividade','peopleMultiple','wide'],['__HOMOLOGADOR','Homologador designado','homologator','wide'],['STATUS','Situação','activityStatus'],['PRIORIDADE','Prioridade','priority'],['DATA_ORIENTACAO','Data da orientação','date'],['PRAZO','Prazo de validação','date'],['CRITERIO_ACEITE','Critério de aceite','textarea','wide'],['EVIDENCIA_URL','Link da evidência','text','wide'],['DEPENDE_DE','Depende de','activity'],['OBRIGATORIA','Obrigatória','bool']],
@@ -142,7 +142,7 @@ function decorateMobileTables(container){
 function render(){
  if(!S)return;
  document.body.classList.remove('mobile-menu-lock');
- var visibleTabs=S.me.PERFIL==='Usuário-chave'?tabs.map(function(t){return t[0]==='activities'?['activities',t[1],'Minhas atividades']:t}):tabs;
+ var visibleTabs=S.me.PERFIL==='Usuário-chave'?tabs.filter(function(t){return t[0]!=='plano'}).map(function(t){return t[0]==='activities'?['activities',t[1],'Minhas atividades']:t}):tabs;
   var tab=visibleTabs.find(function(t){return t[0]===screen})||visibleTabs[0];
  var m='<div class="shell"><div class="nav-overlay" id="navOverlay" aria-hidden="true"></div><aside class="nav" id="grvMainNav" aria-label="Menu principal"><div class="brand"><div class="brand-icon"><img src="https://consultoriarf.net/columbia/LOGO%20MINIMALISTA.png" alt="Consultoria RF"></div><div><b>GRVMAX</b><small>Gestão da Implantação</small></div></div><div class="navlinks">'+visibleTabs.map(function(t){return '<a class="'+(screen===t[0]?'active':'')+'" href="#" data-nav="'+t[0]+'"><span class="ico">'+t[1]+'</span>'+t[2]+'</a>'}).join('')+'</div><div class="navfoot"><strong>COLUMBIA MACHINE</strong><br>Implantação ERP • Ambiente independente</div></aside><div class="area"><header class="top"><button type="button" class="btn mobile-menu-btn" id="mobileMenuToggle" aria-label="Abrir menu" aria-controls="grvMainNav" aria-expanded="false">☰</button><div class="top-title"><h1>'+esc(tab[2])+'</h1><span class="small muted">Projeto GRVMAX ERP · Columbia Machine</span></div><div class="top-right"><span class="small muted" id="lastUpdate">Atualizado agora</span><button class="btn" id="refreshBtn" title="Atualizar">↻</button><button class="btn" id="themeBtn" title="Tema">◑</button><button class="btn" id="logoutBtn">Sair</button></div></header><main class="page" id="content"></main></div></div>';
  el('app').innerHTML=m;
@@ -162,7 +162,7 @@ function render(){
  el('logoutBtn').onclick=async function(){try{await api('logout')}catch(e){}token='';sessionStorage.removeItem('grvmax_session');S=null;authScreen('login')};
  var content=el('content');
  if(window.grvTableObserver)window.grvTableObserver.disconnect();
- switch(screen){case 'dashboard':dashboard(content);break;case 'stages':stagesView(content);break;case 'activities':activitiesView(content);break;case 'approvals':approvalsView(content);break;case 'people':peopleView(content);break;case 'emails':emailsView(content);break;case 'agenda':genericView(content,'AGENDA',S.agenda);break;case 'pending':genericView(content,'PENDENCIAS',S.pending);break;case 'changes':genericView(content,'MUDANCAS',S.changes);break;case 'training':genericView(content,'TREINAMENTOS',S.trainings);break;case 'golive':goLiveView(content);break;case 'history':historyView(content);break;}
+ switch(screen){case 'dashboard':dashboard(content);break;case 'plano':window.GRVMAX_PlanoDiretor?window.GRVMAX_PlanoDiretor.render(content,S,api):content.textContent='Carregando Plano Diretor...';break;case 'stages':stagesView(content);break;case 'activities':activitiesView(content);break;case 'approvals':approvalsView(content);break;case 'people':peopleView(content);break;case 'emails':emailsView(content);break;case 'agenda':genericView(content,'AGENDA',S.agenda);break;case 'pending':genericView(content,'PENDENCIAS',S.pending);break;case 'changes':genericView(content,'MUDANCAS',S.changes);break;case 'training':genericView(content,'TREINAMENTOS',S.trainings);break;case 'golive':goLiveView(content);break;case 'history':historyView(content);break;}
  decorateMobileTables(content);
  window.grvTableObserver=new MutationObserver(function(){decorateMobileTables(content)});
  window.grvTableObserver.observe(content,{subtree:true,childList:true});
@@ -412,4 +412,5 @@ window.nav=nav;
 start();
 })();
 </script>
+<script src="./plano-diretor.js?v=20261027-1"></script>
 </body></html>
