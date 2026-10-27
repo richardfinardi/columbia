@@ -106,8 +106,7 @@ function report(s){
  if((s.changes||[]).length)blocks.push('<table><thead><tr><th>Mudança / impacto</th><th style="width:30%">Etapa</th><th style="width:19%">Situação</th></tr></thead><tbody>'+s.changes.map(function(x){var st=stages.find(function(a){return a.ID===x.ETAPA_ID});return row([e(x.TITULO)+(x.IMPACTO?'<div class="note">'+e(x.IMPACTO)+'</div>':''),e(st?st.TITULO:'Não vinculada'),status(x.STATUS)])}).join('')+'</tbody></table>');
  else blocks.push('<p>Nenhuma solicitação de mudança cadastrada.</p>');
  blocks.push('<div class="foot">COLUMBIA · GRVMAX ERP · Documento de acompanhamento gerado automaticamente a partir dos registros vigentes na aplicação em '+e(moment())+'. Este PDF é uma fotografia da implantação na data de emissão; o histórico das alterações permanece na aplicação.</div>');
- return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GRVMAX | Plano Diretor | '+e(moment())+'</title><style>'+css+'</style></head><body><div class="tools"><span>PLANO DIRETOR · COLUMBIA · Emissão '+e(moment())+'</span><button type="button" onclick="window.print()">Imprimir / Salvar PDF</button></div><article class="paper">'+blocks.join('
-')+'</article></body></html>';
+ return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GRVMAX | Plano Diretor | '+e(moment())+'</title><style>'+css+'</style></head><body><div class="tools"><span>PLANO DIRETOR · COLUMBIA · Emissão '+e(moment())+'</span><button type="button" onclick="window.print()">Imprimir / Salvar PDF</button></div><article class="paper">'+blocks.join('\\n')+'</article></body></html>';
 }
 function render(root,s,api){
  if(s.me&&s.me.PERFIL==='Usuário-chave'){root.innerHTML='<div class="card">Acesso ao Plano Diretor restrito à coordenação do projeto.</div>';return}
