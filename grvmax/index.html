@@ -121,6 +121,16 @@ function stageDependencies(st){return String(st&&st.DEPENDE_DE||'').split(/[,;|]
 function stagePending(st){return stageDependencies(st).filter(function(d){return d.STATUS!=='Homologada'})}
 function stageHasPath(source,target,seen){if(source===target)return true;seen=seen||{};if(seen[source])return false;seen[source]=true;var st=S.stages.find(function(x){return x.ID===source});return st?stageDependencies(st).some(function(d){return stageHasPath(d.ID,target,seen)}):false}
 function stageCalendar(st){var deps=stageDependencies(st),pending=stagePending(st);return '<div class="small muted" style="margin-top:5px">Início: <b>'+fmt(st.DATA_INICIO)+'</b> · Fim: <b>'+fmt(st.DATA_FIM)+'</b>'+(deps.length?' · Depende das etapas '+esc(deps.map(function(d){return d.ORDEM}).join(', ')):' · Sem dependências')+'</div>'+(pending.length?'<div class="tiny" style="color:#b37320;margin-top:4px">Pendente: '+esc(pending.map(function(d){return 'etapa '+d.ORDEM}).join(', '))+'</div>':'');}
+function planValidationDate(orientation){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(orientation||'')))return '';
+  var d=new Date(orientation+'T12:00:00Z');
+  if(Number.isNaN(d.getTime()))return '';
+  d.setUTCDate(d.getUTCDate()+16);
+  // Duas semanas entre orientação na terça e validação na quinta (16 dias).
+  // Não agendar entregas presenciais durante o recesso da Columbia.
+  while(d.getUTCDay()!==4||(d.toISOString().slice(0,10)>='2026-12-20'&&d.toISOString().slice(0,10)<='2027-01-03'))d.setUTCDate(d.getUTCDate()+1);
+  return d.toISOString().slice(0,10);
+}
 function fmt(dt){if(!dt)return '—';var s=String(dt);if(s.length>=10&&s[4]==='-')return s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4);return s}
 function badge(s){var cls=/Homologada|Aprovad|Resolvida|Conclu/.test(s)?'ok':/Atrasada|Devolvida|Bloquead|Crítica|Cancelada/.test(s)?'bad':/Aguardando|Pendente|Em execução|Orientada|andamento/.test(s)?'warn':'neutral';return '<span class="pill '+cls+'">'+esc(s||'—')+'</span>'}
 function pct(stid){var xs=S.activities.filter(function(a){return a.ETAPA_ID===stid});return xs.length?Math.round(xs.filter(function(a){return a.STATUS==='Homologada'}).length*100/xs.length):0}
@@ -345,13 +355,31 @@ window.editItem=function(table,id,stageId,desiredStatus){
  if(meRestricted&&!row)return;
  var data=row?Object.assign({},row):{STATUS:'Não iniciada',PRIORIDADE:'Normal',OBRIGATORIA:'SIM',ATIVO:'SIM',PERFIL:'Usuário-chave'};
  if(stageId)data.ETAPA_ID=stageId;
+  if(table==='ATIVIDADES'&&!row&&stageId){
+    var stDefault=S.stages.find(function(x){return x.ID===stageId});
+    if(stDefault&&stDefault.DATA_INICIO){
+      data.DATA_ORIENTACAO=String(stDefault.DATA_INICIO).slice(0,10);
+      data.PRAZO=planValidationDate(data.DATA_ORIENTACAO);
+    }
+  }
  if(table==='ETAPAS'&&!row){data.ORDEM=String(S.stages.length+1);data.PROJETO_ID='PRJ-0001'}
  var fields=defs[table]||[];
  if(meRestricted)fields=fields.filter(function(f){return ['STATUS','EVIDENCIA_URL'].includes(f[0])});
- var info=table==='ATIVIDADES'?'<div class="hint" style="margin-bottom:17px">Orientação na terça → validação na quinta-feira da semana seguinte. O sistema sugere prazo de 9 dias, editável. Anexe link de evidência e solicite validação.</div>':'';
+ var info=table==='ATIVIDADES'?'<div class="hint" style="margin-bottom:17px">Orientação na terça → validação na quinta-feira duas semanas depois (16 dias). Exemplo: 03/11/2026 → 19/11/2026. O prazo sugerido é editável e respeita o recesso de fim de ano.</div>':'';
  if(row&&table==='ATIVIDADES')info+='<p class="small muted"><b>Responsável principal:</b> '+esc(person(row.RESPONSAVEL_ID))+' · <b>Participantes:</b> '+esc(activityTeam(row.ID,'PARTICIPANTE').map(person).join(', ')||'Nenhum')+' · <b>Homologador:</b> '+esc(person(activityTeam(row.ID,'HOMOLOGADOR')[0]))+' · <b>Homologada por:</b> '+esc(person(row.HOMOLOGADO_POR))+'</p>';
  modal((row?'Editar ':'Nova ')+(tableNames[table]||table),info+'<form id="itemForm"><div class="formgrid">'+fields.map(function(f){return formField(f,data,meRestricted)}).join('')+'</div></form>'+(table==='ATIVIDADES'?activityNewNoteHtml(row):''),(row&&table==='ATIVIDADES'&&canApprove(row.ID)&&['Aguardando validação','Devolvida','Em execução'].includes(row.STATUS)?'<button class="btn" onclick="approveItem(\''+row.ID+'\')">Homologar / devolver</button>':'')+'<button class="btn" onclick="closePop()">Cancelar</button><button class="btn primary" data-save id="saveItem">Salvar alterações</button>');
- if(desiredStatus){var statusField=el('itemForm').querySelector('[name="STATUS"]');if(statusField)statusField.value=desiredStatus;}
+ if(table==='ATIVIDADES'&&S.canEdit){
+    var orientationInput=el('itemForm').querySelector('[name="DATA_ORIENTACAO"]');
+    var validationInput=el('itemForm').querySelector('[name="PRAZO"]');
+    if(orientationInput&&validationInput){
+      var dueEdited=false;
+      validationInput.addEventListener('input',function(){dueEdited=true});
+      orientationInput.addEventListener('change',function(){
+        if(!dueEdited)validationInput.value=planValidationDate(orientationInput.value);
+      });
+    }
+  }
+  if(desiredStatus){var statusField=el('itemForm').querySelector('[name="STATUS"]');if(statusField)statusField.value=desiredStatus;}
  el('saveItem').onclick=async function(){
    var body=row?{ID:row.ID}:{};if(data.PROJETO_ID)body.PROJETO_ID=data.PROJETO_ID;if(data.ETAPA_ID&&!row)body.ETAPA_ID=data.ETAPA_ID;
    document.querySelectorAll('#itemForm [name]').forEach(function(c){body[c.name]=c.value});
@@ -412,5 +440,5 @@ window.nav=nav;
 start();
 })();
 </script>
-<script src="./plano-diretor.js?v=20261027-1"></script>
+<script src="./plano-diretor.js?v=20261027-2"></script>
 </body></html>
