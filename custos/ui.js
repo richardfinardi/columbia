@@ -43,7 +43,7 @@ function visibleDetailRows(){
   const out=detailRows.filter(r=>{
     for(const key in detailColumnFilters){
       const chosen=detailColumnFilters[key];
-      if(!chosen||!chosen.size)continue;
+      if(!chosen)continue;
       const col=DETAIL_COLS.find(c=>c.key===key);
       if(col&&!chosen.has(detailCell(r,col)))return false;
     }
@@ -62,7 +62,7 @@ function visibleDetailRows(){
   return out;
 }
 function detailFilterCount(){
-  return Object.values(detailColumnFilters).filter(s=>s&&s.size).length;
+  return Object.values(detailColumnFilters).filter(s=>s instanceof Set).length;
 }
 function renderDetailTable(){
   const data=visibleDetailRows();
@@ -84,7 +84,7 @@ function renderDetailTable(){
   out+=cols.map(c=>{
     const selected=detailSort.key===c.key;
     const order=selected?(detailSort.dir==='asc'?'▲':'▼'):'↕';
-    const filterActive=!!detailColumnFilters[c.key]?.size;
+    const filterActive=detailColumnFilters[c.key] instanceof Set;
     return '<th scope="col"><div class="detail-head"><button type="button" class="detail-sort" title="Ordenar por '+esc(c.label)+'" onclick="sortDetailBy(\''+c.key+'\')">'+esc(c.label)+' <span class="detail-order'+(selected?' active':'')+'">'+order+'</span></button><button type="button" class="detail-fbtn'+(filterActive?' active':'')+'" title="Filtrar '+esc(c.label)+'" aria-label="Filtrar '+esc(c.label)+'" onclick="openDetailFilter(\''+c.key+'\')">▼</button></div></th>';
   }).join('');
   out+='</tr></thead><tbody>';
@@ -139,7 +139,7 @@ function renderDetailFilterOptions(){
   document.getElementById('detailFilterOptions').innerHTML=vals.length?vals.map((v,i)=>'<label class="detail-filter-option"><input type="checkbox" data-detail-i="'+i+'" '+(detailTempSelection.has(v)?'checked':'')+'><span title="'+esc(v)+'">'+esc(v||'(em branco)')+'</span></label>').join(''):'<div class="p-3 text-xs text-slate-500">Nenhuma opção encontrada.</div>';
   document.getElementById('detailFilterOptions').querySelectorAll('input[data-detail-i]').forEach(box=>{
     const val=vals[Number(box.dataset.detailI)];
-    box.addEventListener('change',()=>{if(box.checked)detailTempSelection.add(val);else detailTempSelection.delete(val)});
+    box.addEventListener('change',()=>{if(box.checked)detailTempSelection.add(val);else detailTempSelection.delete(val);document.getElementById('detailFilterSelection').textContent=detailTempSelection.size+' de '+detailOptionsFor(detailActiveColumn).length+' selecionados'});
   });
   document.getElementById('detailFilterSelection').textContent=detailTempSelection.size+' de '+detailOptionsFor(detailActiveColumn).length+' selecionados';
 }
@@ -150,7 +150,7 @@ function selectAllDetailFilter(on){
 }
 function applyDetailFilter(){
   const all=detailOptionsFor(detailActiveColumn);
-  detailColumnFilters[detailActiveColumn]=detailTempSelection.size===all.length?new Set():new Set(detailTempSelection);
+  if(detailTempSelection.size===all.length)delete detailColumnFilters[detailActiveColumn];else detailColumnFilters[detailActiveColumn]=new Set(detailTempSelection);
   closeDetailFilter();
   renderDetailTable();
 }
