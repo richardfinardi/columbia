@@ -57,6 +57,7 @@ function api(action, payload, token) {
       case 'state': return grvState(who);
       case 'save': return grvSave(who,p);
       case 'recalculateSchedule': return grvRecalculateSchedule(who);
+      case 'syncStageDates': return grvSyncStagesNow(who);
       case 'deleteActivity': return grvDeleteActivity(who,p);
       case 'approve': return grvApprove(who,p);
       case 'sendEmail': return grvSendEmails(who,p);
@@ -199,6 +200,49 @@ function grvPlanActivityChain(rows,rootId,oldRoot,repairAll) {
   });
   return changed;
 }
+
+/**
+ * ETAPAS seguem o cronograma das atividades:
+ * DATA_INICIO = menor DATA_ORIENTACAO e DATA_FIM = maior PRAZO.
+ * Não cria nem altera datas de atividades; só reflete o planejamento atual.
+ * Etapas sem nenhuma atividade conservam datas manuais, exceto quando a
+ * última atividade é removida (nesse caso, limpa o período obsoleto).
+ */
+function grvStageActivityRange(stageId,activityRows){
+  const rows=activityRows.filter(x=>x.ETAPA_ID===stageId && x.STATUS!=='Cancelada');
+  if(!rows.length)return null;
+  const starts=rows.map(x=>x.DATA_ORIENTACAO).filter(grvValidPlanDate).sort();
+  const ends=rows.map(x=>x.PRAZO).filter(grvValidPlanDate).sort();
+  return {DATA_INICIO:starts[0]||'',DATA_FIM:ends.length?ends[ends.length-1]:''};
+}
+function grvSyncStageDates(who,activityRows,clearEmptyStageIds){
+  const stages=grvRows('ETAPAS');
+  const clearing=new Set(clearEmptyStageIds||[]);
+  const changed=[];
+  stages.forEach(st=>{
+    const active=grvStageActivityRange(st.ID,activityRows);
+    // Etapas sem atividades continuam editáveis, salvo exclusão da última.
+    if(!active&&!clearing.has(st.ID))return;
+    const newStart=active?active.DATA_INICIO:'';
+    const newFinish=active?active.DATA_FIM:'';
+    if((st.DATA_INICIO||'')===newStart&&(st.DATA_FIM||'')===newFinish)return;
+    const before={...st};
+    st.DATA_INICIO=newStart;st.DATA_FIM=newFinish;st.ATUALIZADO_EM=grvNow();
+    grvWrite('ETAPAS',st);
+    const clean=o=>{const {_row,...rest}=o;return rest;};
+    grvLog(who,'ETAPAS',st.ID,'DATAS_AJUSTADAS_PELAS_ATIVIDADES',
+      clean(before),clean(st),'Início = primeira orientação; fim = última validação.');
+    changed.push({ID:st.ID,DATA_INICIO:newStart,DATA_FIM:newFinish});
+  });
+  return changed;
+}
+function grvSyncStagesNow(who){
+  if(!GRV_MANAGERS.includes(who.PERFIL))
+    throw Error('Apenas consultores e administradores podem sincronizar etapas.');
+  const changed=grvLock(()=>grvSyncStageDates(who,grvRows('ATIVIDADES')));
+  return {ok:true,stagesUpdated:changed.length,stages:changed};
+}
+
 function grvApplyActivitySchedule(who,changes) {
   changes.forEach(x=>{
     grvWrite('ATIVIDADES',x.after);
@@ -209,13 +253,21 @@ function grvApplyActivitySchedule(who,changes) {
 }
 function grvRecalculateSchedule(who) {
   if(!GRV_MANAGERS.includes(who.PERFIL))throw Error('Apenas consultores e administradores podem recalcular o cronograma.');
-  const changes=grvLock(()=>{const rows=grvRows('ATIVIDADES'),plan=grvPlanActivityChain(rows,'',null,true);grvApplyActivitySchedule(who,plan);return plan;});
+  const updated=grvLock(()=>{
+    const rows=grvRows('ATIVIDADES'),plan=grvPlanActivityChain(rows,'',null,true);
+    grvApplyActivitySchedule(who,plan);
+    const latest=new Map(plan.map(x=>[x.after.ID,x.after]));
+    const activities=rows.map(x=>latest.get(x.ID)||x);
+    const stages=grvSyncStageDates(who,activities);
+    return {plan:plan,stages:stages};
+  });
+  const changes=updated.plan;
   changes.forEach(x=>{try{grvNotifyActivity(who,{
     id:x.after.ID,title:x.after.TITULO,owner:x.after.RESPONSAVEL_ID,
     previousOwner:x.before.RESPONSAVEL_ID,status:x.after.STATUS,previousStatus:x.before.STATUS,
     due:x.after.PRAZO,previousDue:x.before.PRAZO,previousTeam:[],currentTeam:[]
   });}catch(err){grvLog(who,'ATIVIDADES',x.after.ID,'NOTIFICACAO_FALHOU',null,null,String(err));}});
-  return {ok:true,reprogrammed:changes.length};
+  return {ok:true,reprogrammed:changes.length,stagesUpdated:updated.stages.length};
 }
 
 function grvJson(o){try{return JSON.stringify(o||{}).slice(0,30000);}catch(e){return '{}';}}
@@ -375,11 +427,17 @@ function grvSave(who,p){
     if(!next.ID)next.ID=grvId(({ETAPAS:'ETP',ATIVIDADES:'ATV',PESSOAS:'PES',PENDENCIAS:'PEND',MUDANCAS:'MUD',AGENDA:'AG',TREINAMENTOS:'TRE',GO_LIVE:'GOL'})[table]);
     if(!next.CRIADO_EM)next.CRIADO_EM=grvNow();
     next.ATUALIZADO_EM=grvNow();
-    let scheduleChanges=[];
+    let scheduleChanges=[],plannedActivities=null;
+    if(table==='ETAPAS'){
+      const range=grvStageActivityRange(next.ID,grvRows('ATIVIDADES'));
+      if(range){next.DATA_INICIO=range.DATA_INICIO;next.DATA_FIM=range.DATA_FIM;}
+    }
     if(table==='ATIVIDADES'&&full){
       const all=grvRows('ATIVIDADES').filter(x=>x.ID!==next.ID).concat([next]);
       grvPlanCheckDirectActivity(next,all);
       scheduleChanges=grvPlanActivityChain(all,next.ID,old,false);
+      const cascade=new Map(scheduleChanges.map(x=>[x.after.ID,x.after]));
+      plannedActivities=all.map(x=>cascade.get(x.ID)||x);
     }
     let previousTeam=[],currentTeam=[];
     if(changingTeam){
@@ -395,6 +453,12 @@ function grvSave(who,p){
     }
     grvWrite(table,next);
     if(scheduleChanges.length)grvApplyActivitySchedule(who,scheduleChanges);
+    let stageUpdates=[];
+    if(table==='ATIVIDADES'&&full){
+      // Inclui etapa anterior caso uma atividade tenha mudado de etapa.
+      const clearIds=old&&old.ETAPA_ID!==next.ETAPA_ID?[old.ETAPA_ID]:[];
+      stageUpdates=grvSyncStageDates(who,plannedActivities,clearIds);
+    }
     // Registro exclusivamente aditivo: nunca altera a mensagem anterior em ATIVIDADES.OBSERVACAO.
     if(table==='ATIVIDADES'&&incomingNote)
       grvLog(who,'ATIVIDADES',next.ID,'OBSERVACAO_REGISTRADA',null,null,incomingNote);
@@ -411,7 +475,7 @@ function grvSave(who,p){
     }
     const cleaned=o=>{if(!o)return null;const {SALT,HASH,SENHA_TEMPORARIA,_row,...safe}=o;return safe;};
     grvLog(who,table,next.ID,old?'ALTEROU':'CRIOU',cleaned(old),cleaned(next),'');
-    return {ok:true,id:next.ID,newPerson:table==='PESSOAS'&&!old,reprogrammed:scheduleChanges.length,cascadeNotifications:scheduleChanges.map(x=>({
+    return {ok:true,id:next.ID,newPerson:table==='PESSOAS'&&!old,reprogrammed:scheduleChanges.length,stagesUpdated:stageUpdates.length,cascadeNotifications:scheduleChanges.map(x=>({
       id:x.after.ID,title:x.after.TITULO,owner:x.after.RESPONSAVEL_ID,previousOwner:x.before.RESPONSAVEL_ID,
       status:x.after.STATUS,previousStatus:x.before.STATUS,due:x.after.PRAZO,previousDue:x.before.PRAZO,
       previousTeam:[],currentTeam:[]
@@ -420,7 +484,7 @@ function grvSave(who,p){
   if(saved.newPerson){try{grvInvite(who,{id:saved.id});}catch(err){grvLog(who,'PESSOAS',saved.id,'CONVITE_AUTOMATICO_FALHOU',null,null,String(err));}}
   if(saved.notification){try{grvNotifyActivity(who,saved.notification);}catch(err){grvLog(who,'ATIVIDADES',saved.id,'NOTIFICACAO_FALHOU',null,null,String(err));}}
   (saved.cascadeNotifications||[]).forEach(n=>{try{grvNotifyActivity(who,n);}catch(err){grvLog(who,'ATIVIDADES',n.id,'NOTIFICACAO_FALHOU',null,null,String(err));}});
-  return {ok:true,id:saved.id,reprogrammed:saved.reprogrammed||0};
+  return {ok:true,id:saved.id,reprogrammed:saved.reprogrammed||0,stagesUpdated:saved.stagesUpdated||0};
 }
 
 /**
@@ -457,7 +521,8 @@ function grvDeleteActivity(who,p) {
     team.sort((a,b)=>Number(b._row)-Number(a._row))
       .forEach(x=>membersTable.deleteRow(Number(x._row)));
     grvTable('ATIVIDADES').s.deleteRow(Number(activity._row));
-    return {ok:true,id:id};
+    const stageChanges=grvSyncStageDates(who,grvRows('ATIVIDADES'),[activity.ETAPA_ID]);
+    return {ok:true,id:id,stagesUpdated:stageChanges.length};
   });
 }
 
