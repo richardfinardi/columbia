@@ -56,6 +56,7 @@ function api(action, payload, token) {
     switch(action) {
       case 'state': return grvState(who);
       case 'save': return grvSave(who,p);
+      case 'recalculateSchedule': return grvRecalculateSchedule(who);
       case 'approve': return grvApprove(who,p);
       case 'sendEmail': return grvSendEmails(who,p);
       case 'invite': return grvInvite(who,p);
@@ -95,6 +96,127 @@ function grvLock(fn) {
   const lock=LockService.getScriptLock();if(!lock.tryLock(20000))throw Error('Sistema ocupado. Tente novamente.');
   try{return fn();}finally{lock.releaseLock();}
 }
+
+/**
+ * Dependencias do cronograma: o sucessor so pode iniciar depois da
+ * VALIDACAO (PRAZO) de sua predecessora. Datas autoajustadas usam
+ * orientacao na terca e validacao na quinta, 16 dias depois.
+ * O planejamento inteiro e calculado ANTES de gravar qualquer linha.
+ */
+function grvValidPlanDate(v) {
+  const d=String(v||'');
+  return /^\d{4}-\d{2}-\d{2}$/.test(d)&&!isNaN(Date.parse(d+'T12:00:00Z'))&&new Date(d+'T12:00:00Z').toISOString().slice(0,10)===d;
+}
+function grvPlanAddDays(v,days) {
+  if(!grvValidPlanDate(v))return '';
+  const d=new Date(v+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+days);
+  return d.toISOString().slice(0,10);
+}
+function grvPlanDiff(a,b) {
+  return grvValidPlanDate(a)&&grvValidPlanDate(b)
+    ?Math.round((Date.parse(a+'T12:00:00Z')-Date.parse(b+'T12:00:00Z'))/86400000):0;
+}
+function grvPlanRecess(v) {
+  const md=String(v||'').slice(5,10);
+  return md>='12-20'||md<='01-03';
+}
+function grvPlanWeekday(v,weekday,strict) {
+  let d=grvPlanAddDays(v,strict?1:0);
+  if(!d)return '';
+  for(let i=0;i<70;i++){
+    if(new Date(d+'T12:00:00Z').getUTCDay()===weekday&&!grvPlanRecess(d))return d;
+    d=grvPlanAddDays(d,1);
+  }
+  throw Error('Não foi possível encontrar uma data útil para o cronograma.');
+}
+function grvPlanValidation(orientation) {
+  return grvPlanWeekday(grvPlanAddDays(orientation,16),4,false);
+}
+function grvPlanCheckDirectActivity(a,rows) {
+  if(a.DATA_ORIENTACAO&&!grvValidPlanDate(a.DATA_ORIENTACAO))throw Error('Data da orientação inválida.');
+  if(a.PRAZO&&!grvValidPlanDate(a.PRAZO))throw Error('Data da validação inválida.');
+  if(a.DATA_ORIENTACAO&&a.PRAZO&&a.PRAZO<a.DATA_ORIENTACAO)
+    throw Error('A validação não pode anteceder a orientação.');
+  if(!a.DEPENDE_DE)return;
+  if(a.DEPENDE_DE===a.ID)throw Error('A atividade não pode depender dela mesma.');
+  const parent=rows.find(x=>x.ID===a.DEPENDE_DE);
+  if(!parent)throw Error('Atividade predecessora não encontrada.');
+  if(!grvValidPlanDate(parent.PRAZO))throw Error('Defina a data de validação da predecessora: '+parent.TITULO);
+  const min=grvPlanWeekday(parent.PRAZO,2,true);
+  if(!grvValidPlanDate(a.DATA_ORIENTACAO))throw Error('Informe a orientação da atividade dependente (a partir de '+min+').');
+  if(a.DATA_ORIENTACAO<min)
+    throw Error('Dependência inválida: "'+a.TITULO+'" só pode iniciar a partir de '+min+' (terça após a validação de "'+parent.TITULO+'", em '+parent.PRAZO+').');
+}
+/**
+ * Ordenacao topologica evita ciclos e garante que cadeias A -> B -> C
+ * sejam reajustadas na ordem correta. Mantem a folga existente quando
+ * possivel e respeita sempre a validacao da predecessora.
+ */
+function grvPlanActivityChain(rows,rootId,oldRoot,repairAll) {
+  const byId=new Map(rows.map(x=>[x.ID,{...x}]));
+  const original=new Map(rows.map(x=>[x.ID,{...x}]));
+  if(oldRoot)original.set(rootId,{...oldRoot});
+  const order=[],visiting=new Set(),visited=new Set();
+  function visit(id) {
+    if(visiting.has(id))throw Error('Dependência circular detectada entre atividades. Corrija antes de salvar.');
+    if(visited.has(id))return;
+    const a=byId.get(id);if(!a)return;
+    visiting.add(id);
+    if(a.DEPENDE_DE&&byId.has(a.DEPENDE_DE))visit(a.DEPENDE_DE);
+    visiting.delete(id);visited.add(id);order.push(id);
+  }
+  Array.from(byId.keys()).forEach(visit);
+  const touched=new Set(rootId?[rootId]:[]),changed=[];
+  order.forEach(id=>{
+    if(id===rootId&&!repairAll)return;
+    const a=byId.get(id),pid=String(a.DEPENDE_DE||'');
+    if(!pid||(!repairAll&&!touched.has(pid)))return;
+    const parent=byId.get(pid);
+    if(!parent)throw Error('A predecessora de "'+a.TITULO+'" não foi encontrada.');
+    if(!grvValidPlanDate(parent.PRAZO))throw Error('Defina a validação da predecessora "'+parent.TITULO+'" antes de reprogramar.');
+    const earliest=grvPlanWeekday(parent.PRAZO,2,true);
+    const oldParent=original.get(pid)||parent;
+    const delta=touched.has(pid)?grvPlanDiff(parent.PRAZO,oldParent.PRAZO):0;
+    const before={...a},completed=['Homologada','Cancelada'].includes(a.STATUS);
+    let newStart=a.DATA_ORIENTACAO||'';
+    if(!completed&&delta&&grvValidPlanDate(newStart))
+      newStart=grvPlanWeekday(grvPlanAddDays(newStart,delta),2,false);
+    if(!grvValidPlanDate(newStart)||newStart<earliest)newStart=earliest;
+    if(completed&&newStart!==a.DATA_ORIENTACAO)
+      throw Error('A atividade "'+a.TITULO+'" já foi concluída/cancelada e ficaria antes da predecessora. Revise o cronograma manualmente.');
+    if(!completed&&newStart!==a.DATA_ORIENTACAO){
+      a.DATA_ORIENTACAO=newStart;
+      a.PRAZO=grvPlanValidation(newStart);
+    }else if(!completed&&repairAll&&newStart&&(!grvValidPlanDate(a.PRAZO)||a.PRAZO<newStart)){
+      a.PRAZO=grvPlanValidation(newStart);
+    }
+    if(a.DATA_ORIENTACAO!==before.DATA_ORIENTACAO||a.PRAZO!==before.PRAZO){
+      a.ATUALIZADO_EM=grvNow();
+      changed.push({before:before,after:{...a}});
+    }
+    touched.add(id);
+  });
+  return changed;
+}
+function grvApplyActivitySchedule(who,changes) {
+  changes.forEach(x=>{
+    grvWrite('ATIVIDADES',x.after);
+    const clean=o=>{const {_row,...safe}=o;return safe;};
+    grvLog(who,'ATIVIDADES',x.after.ID,'REPROGRAMOU_DEPENDENCIA',clean(x.before),clean(x.after),
+      'Reprogramação automática após alteração de predecessora. Orientação: '+x.after.DATA_ORIENTACAO+'; validação: '+x.after.PRAZO);
+  });
+}
+function grvRecalculateSchedule(who) {
+  if(!GRV_MANAGERS.includes(who.PERFIL))throw Error('Apenas consultores e administradores podem recalcular o cronograma.');
+  const changes=grvLock(()=>{const rows=grvRows('ATIVIDADES'),plan=grvPlanActivityChain(rows,'',null,true);grvApplyActivitySchedule(who,plan);return plan;});
+  changes.forEach(x=>{try{grvNotifyActivity(who,{
+    id:x.after.ID,title:x.after.TITULO,owner:x.after.RESPONSAVEL_ID,
+    previousOwner:x.before.RESPONSAVEL_ID,status:x.after.STATUS,previousStatus:x.before.STATUS,
+    due:x.after.PRAZO,previousDue:x.before.PRAZO,previousTeam:[],currentTeam:[]
+  });}catch(err){grvLog(who,'ATIVIDADES',x.after.ID,'NOTIFICACAO_FALHOU',null,null,String(err));}});
+  return {ok:true,reprogrammed:changes.length};
+}
+
 function grvJson(o){try{return JSON.stringify(o||{}).slice(0,30000);}catch(e){return '{}';}}
 function grvLog(who,table,id,action,before,after,detail){
   const w=who||{ID:'SISTEMA',EMAIL:'sistema'};
@@ -234,7 +356,7 @@ function grvSave(who,p){
       if(!GRV_ACTIVITY_STATUS.includes(next.STATUS||'Não iniciada'))throw Error('Situação inválida.');
       if(next.STATUS==='Homologada'&&(!old||old.STATUS!=='Homologada'))throw Error('Use a homologação formal para aprovar.');
       if(next.DATA_ORIENTACAO && !next.PRAZO && /^\d{4}-\d\d-\d\d$/.test(next.DATA_ORIENTACAO)){
-        const date=new Date(next.DATA_ORIENTACAO+'T12:00:00Z');date.setUTCDate(date.getUTCDate()+9);next.PRAZO=date.toISOString().slice(0,10);
+        next.PRAZO=grvPlanValidation(next.DATA_ORIENTACAO);
       }
       if(next.STATUS==='Aguardando validação'&&(!next.EVIDENCIA_URL&&!next.OBSERVACAO&&!incomingNote))throw Error('Informe uma evidência ou observação antes de solicitar validação.');
       if(next.EVIDENCIA_URL&&!/^https:\/\//i.test(next.EVIDENCIA_URL))throw Error('Evidência deve ser um link HTTPS.');
@@ -252,6 +374,12 @@ function grvSave(who,p){
     if(!next.ID)next.ID=grvId(({ETAPAS:'ETP',ATIVIDADES:'ATV',PESSOAS:'PES',PENDENCIAS:'PEND',MUDANCAS:'MUD',AGENDA:'AG',TREINAMENTOS:'TRE',GO_LIVE:'GOL'})[table]);
     if(!next.CRIADO_EM)next.CRIADO_EM=grvNow();
     next.ATUALIZADO_EM=grvNow();
+    let scheduleChanges=[];
+    if(table==='ATIVIDADES'&&full){
+      const all=grvRows('ATIVIDADES').filter(x=>x.ID!==next.ID).concat([next]);
+      grvPlanCheckDirectActivity(next,all);
+      scheduleChanges=grvPlanActivityChain(all,next.ID,old,false);
+    }
     let previousTeam=[],currentTeam=[];
     if(changingTeam){
       const valid=grvRows('PESSOAS').filter(x=>x.ATIVO==='SIM').map(x=>x.ID);
@@ -265,6 +393,7 @@ function grvSave(who,p){
       if(homologator)currentTeam.push({PESSOA_ID:homologator,TIPO:'HOMOLOGADOR'});
     }
     grvWrite(table,next);
+    if(scheduleChanges.length)grvApplyActivitySchedule(who,scheduleChanges);
     // Registro exclusivamente aditivo: nunca altera a mensagem anterior em ATIVIDADES.OBSERVACAO.
     if(table==='ATIVIDADES'&&incomingNote)
       grvLog(who,'ATIVIDADES',next.ID,'OBSERVACAO_REGISTRADA',null,null,incomingNote);
@@ -281,11 +410,16 @@ function grvSave(who,p){
     }
     const cleaned=o=>{if(!o)return null;const {SALT,HASH,SENHA_TEMPORARIA,_row,...safe}=o;return safe;};
     grvLog(who,table,next.ID,old?'ALTEROU':'CRIOU',cleaned(old),cleaned(next),'');
-    return {ok:true,id:next.ID,newPerson:table==='PESSOAS'&&!old,notification:table==='ATIVIDADES'?{id:next.ID,title:next.TITULO,owner:next.RESPONSAVEL_ID,previousOwner:old?.RESPONSAVEL_ID||'',status:next.STATUS,previousStatus:old?.STATUS||'',due:next.PRAZO,previousDue:old?.PRAZO||'',previousTeam:previousTeam.map(x=>x.PESSOA_ID+'|'+x.TIPO),currentTeam:currentTeam.map(x=>x.PESSOA_ID+'|'+x.TIPO)}:null};
+    return {ok:true,id:next.ID,newPerson:table==='PESSOAS'&&!old,reprogrammed:scheduleChanges.length,cascadeNotifications:scheduleChanges.map(x=>({
+      id:x.after.ID,title:x.after.TITULO,owner:x.after.RESPONSAVEL_ID,previousOwner:x.before.RESPONSAVEL_ID,
+      status:x.after.STATUS,previousStatus:x.before.STATUS,due:x.after.PRAZO,previousDue:x.before.PRAZO,
+      previousTeam:[],currentTeam:[]
+    })),notification:table==='ATIVIDADES'?{id:next.ID,title:next.TITULO,owner:next.RESPONSAVEL_ID,previousOwner:old?.RESPONSAVEL_ID||'',status:next.STATUS,previousStatus:old?.STATUS||'',due:next.PRAZO,previousDue:old?.PRAZO||'',previousTeam:previousTeam.map(x=>x.PESSOA_ID+'|'+x.TIPO),currentTeam:currentTeam.map(x=>x.PESSOA_ID+'|'+x.TIPO)}:null};
   });
   if(saved.newPerson){try{grvInvite(who,{id:saved.id});}catch(err){grvLog(who,'PESSOAS',saved.id,'CONVITE_AUTOMATICO_FALHOU',null,null,String(err));}}
   if(saved.notification){try{grvNotifyActivity(who,saved.notification);}catch(err){grvLog(who,'ATIVIDADES',saved.id,'NOTIFICACAO_FALHOU',null,null,String(err));}}
-  return {ok:true,id:saved.id};
+  (saved.cascadeNotifications||[]).forEach(n=>{try{grvNotifyActivity(who,n);}catch(err){grvLog(who,'ATIVIDADES',n.id,'NOTIFICACAO_FALHOU',null,null,String(err));}});
+  return {ok:true,id:saved.id,reprogrammed:saved.reprogrammed||0};
 }
 function grvApprove(who,p){
   if(!GRV_MANAGERS.includes(who.PERFIL) && !grvRows('VINCULOS').some(v=>v.TIPO==='HOMOLOGADOR'&&v.ATIVIDADE_ID===String(p.id||'')&&v.PESSOA_ID===who.ID))throw Error('Apenas consultoria ou homologador designado pode aprovar.');
