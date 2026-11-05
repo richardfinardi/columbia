@@ -401,6 +401,33 @@ window.editItem=function(table,id,stageId,desiredStatus){
       });
     }
   }
+
+ if(table==='ATIVIDADES'&&S.canEdit){
+   var depInput=el('itemForm').querySelector('[name="DEPENDE_DE"]');
+   var orientationField=el('itemForm').querySelector('[name="DATA_ORIENTACAO"]');
+   var validationField=el('itemForm').querySelector('[name="PRAZO"]');
+   if(depInput&&orientationField&&validationField){
+     if(row){var ownOption=Array.from(depInput.options).find(function(o){return o.value===row.ID});if(ownOption)ownOption.remove();}
+     var depNote=document.createElement('p');
+     depNote.id='activityDependencyHint';depNote.className='small muted';
+     depInput.closest('.fitem').appendChild(depNote);
+     function updateDependencyHint(adjust){
+       var suggestion=activityEarliestStart(depInput.value);
+       if(!depInput.value){depNote.textContent='Sem predecessora vinculada.';depNote.style.color='var(--sub)';return}
+       if(!suggestion){depNote.textContent='A predecessora precisa ter data de validação definida.';depNote.style.color='var(--bad)';return}
+       if(adjust&&(!orientationField.value||orientationField.value<suggestion.date)){
+         orientationField.value=suggestion.date;
+         validationField.value=planValidationDate(suggestion.date);
+       }
+       var invalid=!orientationField.value||orientationField.value<suggestion.date;
+       depNote.style.color=invalid?'var(--bad)':'var(--sub)';
+       depNote.textContent=(invalid?'Data inválida. ':'')+'Início permitido a partir de '+fmt(suggestion.date)+', após validar "'+suggestion.parent.TITULO+'" em '+fmt(suggestion.parent.PRAZO)+'.';
+     }
+     depInput.addEventListener('change',function(){updateDependencyHint(true)});
+     orientationField.addEventListener('change',function(){updateDependencyHint(false)});
+     updateDependencyHint(false);
+   }
+ }
   if(desiredStatus){var statusField=el('itemForm').querySelector('[name="STATUS"]');if(statusField)statusField.value=desiredStatus;}
  el('saveItem').onclick=async function(){
    var body=row?{ID:row.ID}:{};if(data.PROJETO_ID)body.PROJETO_ID=data.PROJETO_ID;if(data.ETAPA_ID&&!row)body.ETAPA_ID=data.ETAPA_ID;
@@ -417,6 +444,14 @@ window.editItem=function(table,id,stageId,desiredStatus){
    }
    if(table==='ATIVIDADES'){
      if(body.DATA_ORIENTACAO&&body.PRAZO&&body.PRAZO<body.DATA_ORIENTACAO){notify('Prazo anterior à orientação.',true);return;}
+     if(body.DEPENDE_DE){
+       if(row&&body.DEPENDE_DE===row.ID){notify('Uma atividade não pode depender dela mesma.',true);return}
+       var earliest=activityEarliestStart(body.DEPENDE_DE);
+       if(!earliest){notify('Defina antes a data da validação da predecessora.',true);return}
+       if(!body.DATA_ORIENTACAO||body.DATA_ORIENTACAO<earliest.date){
+         notify('Dependência inválida: orientação permitida somente a partir de '+fmt(earliest.date)+'.',true);return;
+       }
+     }
      var parent=S.stages.find(function(st){return st.ID===(body.ETAPA_ID||data.ETAPA_ID)});
      if(parent&&['Orientada','Em execução','Aguardando validação'].includes(body.STATUS)&&(!row||row.STATUS!==body.STATUS)&&stagePending(parent).length){
        notify('Etapa bloqueada por dependências não homologadas.',true);return;
@@ -437,7 +472,7 @@ window.editItem=function(table,id,stageId,desiredStatus){
    if(table==='ATIVIDADES'&&!body.STATUS&&!row)body.STATUS='Não iniciada';
    if(!body.TITULO&&!row&&['ATIVIDADES','ETAPAS','PENDENCIAS','MUDANCAS','AGENDA','TREINAMENTOS'].includes(table)){notify('Informe o título.',true);return}
    busy(true);
-   try{await api('save',Object.assign({table:table,item:body},teamPayload));closePop();await reload(true);notify('Salvo e registrado no histórico.')}
+   try{var saved=await api('save',Object.assign({table:table,item:body},teamPayload));closePop();await reload(true);notify('Salvo e registrado no histórico.'+(saved&&saved.reprogrammed?' '+saved.reprogrammed+' atividade(s) dependente(s) reajustada(s) automaticamente.':''))}
    catch(e){notify(e.message,true)}finally{busy(false)}
  };
 };
