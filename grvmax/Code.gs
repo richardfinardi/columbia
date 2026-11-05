@@ -222,7 +222,7 @@ function grvSyncStageDates(who,activityRows,clearEmptyStageIds){
   stages.forEach(st=>{
     const active=grvStageActivityRange(st.ID,activityRows);
     // Etapas sem atividades continuam editáveis, salvo exclusão da última.
-    if(!active&&!clearing.has(st.ID))return;
+    if(!active&&!clearing.has(st.ID)&&!activityRows.some(a=>a.ETAPA_ID===st.ID))return;
     const newStart=active?active.DATA_INICIO:'';
     const newFinish=active?active.DATA_FIM:'';
     if((st.DATA_INICIO||'')===newStart&&(st.DATA_FIM||'')===newFinish)return;
