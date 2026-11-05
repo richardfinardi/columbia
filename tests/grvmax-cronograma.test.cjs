@@ -6,8 +6,8 @@ const vm=require('node:vm');
 
 const code=fs.readFileSync(path.join(__dirname,'../grvmax/Code.gs'),'utf8');
 const ctx=vm.createContext({Utilities:{formatDate:()=> '2026-11-05T10:00:00-03:00'}});
-vm.runInContext(code+'\nthis.helpers={check:grvPlanCheckDirectActivity,plan:grvPlanActivityChain,validation:grvPlanValidation}',ctx);
-const {check,plan,validation}=ctx.helpers;
+vm.runInContext(code+'\nthis.helpers={check:grvPlanCheckDirectActivity,plan:grvPlanActivityChain,validation:grvPlanValidation,stageRange:grvStageActivityRange}',ctx);
+const {check,plan,validation,stageRange}=ctx.helpers;
 const task=(id,start,end,dep='',status='Não iniciada')=>({
   ID:id,TITULO:id,DATA_ORIENTACAO:start,PRAZO:end,DEPENDE_DE:dep,STATUS:status
 });
@@ -39,4 +39,20 @@ assert.equal(earlier[0].after.DATA_ORIENTACAO,'2026-11-24');
 assert.throws(()=>plan([{...a,DEPENDE_DE:'C'},b,c],'A',a,false),/circular/);
 const completed=task('B','2026-11-17','2026-12-03','A','Homologada');
 assert.throws(()=>plan([{...a,PRAZO:'2026-11-26'},completed],'A',a,false),/concluída\/cancelada/);
-console.log('GRVMAX: 13 verificações de datas e dependências passaram.');
+
+const mapping=[
+  {...a,ETAPA_ID:'ETP-02'},
+  {...b,ETAPA_ID:'ETP-02'},
+  {...c,ETAPA_ID:'ETP-03'}
+];
+const m=stageRange('ETP-02',mapping);
+assert.equal(m.DATA_INICIO,'2026-10-20');
+assert.equal(m.DATA_FIM,'2026-11-12');
+const afterRepair=mapping.map(x=>fixed.find(p=>p.after.ID===x.ID)?.after||x);
+const repairedStage=stageRange('ETP-02',afterRepair);
+assert.equal(repairedStage.DATA_INICIO,'2026-11-10');
+assert.equal(repairedStage.DATA_FIM,'2026-12-03');
+assert.equal(stageRange('ETP-99',afterRepair),null);
+assert.equal(stageRange('ETP-02',mapping.map(x=>({...x,STATUS:'Cancelada'}))),null);
+console.log('GRVMAX: validação de dependências e datas automáticas das etapas passou.');
+
