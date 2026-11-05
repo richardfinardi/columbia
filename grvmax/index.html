@@ -131,6 +131,19 @@ function planValidationDate(orientation){
   while(d.getUTCDay()!==4||(d.toISOString().slice(0,10)>='2026-12-20'&&d.toISOString().slice(0,10)<='2027-01-03'))d.setUTCDate(d.getUTCDate()+1);
   return d.toISOString().slice(0,10);
 }
+
+function activityEarliestStart(id){
+  var parent=(S.activities||[]).find(function(a){return a.ID===id});
+  if(!parent||!/^\d{4}-\d{2}-\d{2}$/.test(parent.PRAZO||''))return null;
+  var d=new Date(parent.PRAZO+'T12:00:00Z');
+  d.setUTCDate(d.getUTCDate()+1);
+  for(var i=0;i<70;i++){
+    var key=d.toISOString().slice(0,10),monthDay=key.slice(5,10);
+    if(d.getUTCDay()===2&&!(monthDay>='12-20'||monthDay<='01-03'))return {date:key,parent:parent};
+    d.setUTCDate(d.getUTCDate()+1);
+  }
+  return null;
+}
 function fmt(dt){if(!dt)return '—';var s=String(dt);if(s.length>=10&&s[4]==='-')return s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4);return s}
 function badge(s){var cls=/Homologada|Aprovad|Resolvida|Conclu/.test(s)?'ok':/Atrasada|Devolvida|Bloquead|Crítica|Cancelada/.test(s)?'bad':/Aguardando|Pendente|Em execução|Orientada|andamento/.test(s)?'warn':'neutral';return '<span class="pill '+cls+'">'+esc(s||'—')+'</span>'}
 function pct(stid){var xs=S.activities.filter(function(a){return a.ETAPA_ID===stid});return xs.length?Math.round(xs.filter(function(a){return a.STATUS==='Homologada'}).length*100/xs.length):0}
@@ -225,8 +238,17 @@ function activitiesView(root){
  var statuses=['Não iniciada','Orientada','Em execução','Aguardando validação','Devolvida','Homologada','Cancelada'];
  var stat='<option value="">Todas as situações</option>'+statuses.map(function(x){return '<option value="'+attr(x)+'" '+(filterStatus===x?'selected':'')+'>'+esc(x)+'</option>'}).join('');
  var responsible='<option value="">Todos os responsáveis</option>'+S.people.map(function(x){return '<option value="'+attr(x.ID)+'" '+(filterResponsible===x.ID?'selected':'')+'>'+esc(x.NOME)+'</option>'}).join('');
- root.innerHTML='<div class="task-header"><div class="taskviews" role="group" aria-label="Visualização de atividades">'+(S.me.PERFIL==='Usuário-chave'?'<span class="muted small">Atividades atribuídas a você, como responsável, participante ou homologador.</span>':scopes.map(function(v){return '<button type="button" class="btn '+(taskScope===v[0]?'taskview-active':'')+'" data-scope="'+v[0]+'" aria-pressed="'+(taskScope===v[0])+'">'+v[1]+'</button>'}).join(''))+'</div><span class="spacer"></span>'+createButton('ATIVIDADES')+'</div><div class="taskstats" id="taskStats"></div><div class="mobile-filter-toggle"><button class="btn" type="button" id="taskFilterToggle" aria-expanded="false">☷ Filtros</button></div><div class="toolbar taskfilters" id="taskFilters">'+searchbar()+'<select id="filterStage" class="field task-filter" aria-label="Etapa">'+stages+'</select><select id="filterResponsible" class="field task-filter" aria-label="Responsável">'+responsible+'</select><select id="filterStatus" class="field task-filter" aria-label="Situação">'+stat+'</select><select id="filterDeadline" class="field task-filter" aria-label="Prazo"><option value="">Todos os prazos</option><option value="late" '+(filterDeadline==='late'?'selected':'')+'>Atrasadas</option><option value="today" '+(filterDeadline==='today'?'selected':'')+'>Vencem hoje</option><option value="week" '+(filterDeadline==='week'?'selected':'')+'>Próximos 7 dias</option><option value="none" '+(filterDeadline==='none'?'selected':'')+'>Sem prazo</option></select><button class="btn" id="clearTaskFilters">Limpar filtros</button></div><div id="taskList"></div>';
+ root.innerHTML='<div class="task-header"><div class="taskviews" role="group" aria-label="Visualização de atividades">'+(S.me.PERFIL==='Usuário-chave'?'<span class="muted small">Atividades atribuídas a você, como responsável, participante ou homologador.</span>':scopes.map(function(v){return '<button type="button" class="btn '+(taskScope===v[0]?'taskview-active':'')+'" data-scope="'+v[0]+'" aria-pressed="'+(taskScope===v[0])+'">'+v[1]+'</button>'}).join(''))+'</div><span class="spacer"></span>'+(S.canEdit?'<button type="button" class="btn" id="fixSchedule">Corrigir cronograma</button>':'')+createButton('ATIVIDADES')+'</div><div class="taskstats" id="taskStats"></div><div class="mobile-filter-toggle"><button class="btn" type="button" id="taskFilterToggle" aria-expanded="false">☷ Filtros</button></div><div class="toolbar taskfilters" id="taskFilters">'+searchbar()+'<select id="filterStage" class="field task-filter" aria-label="Etapa">'+stages+'</select><select id="filterResponsible" class="field task-filter" aria-label="Responsável">'+responsible+'</select><select id="filterStatus" class="field task-filter" aria-label="Situação">'+stat+'</select><select id="filterDeadline" class="field task-filter" aria-label="Prazo"><option value="">Todos os prazos</option><option value="late" '+(filterDeadline==='late'?'selected':'')+'>Atrasadas</option><option value="today" '+(filterDeadline==='today'?'selected':'')+'>Vencem hoje</option><option value="week" '+(filterDeadline==='week'?'selected':'')+'>Próximos 7 dias</option><option value="none" '+(filterDeadline==='none'?'selected':'')+'>Sem prazo</option></select><button class="btn" id="clearTaskFilters">Limpar filtros</button></div><div id="taskList"></div>';
  root.querySelectorAll('[data-scope]').forEach(function(b){b.onclick=function(){taskScope=this.dataset.scope;activitiesView(root)}});
+ var fixSchedule=el('fixSchedule');
+ if(fixSchedule)fixSchedule.onclick=async function(){
+   if(!confirm('Recalcular as atividades que estão antes de suas predecessoras? As alterações ficarão no histórico.'))return;
+   fixSchedule.disabled=true;
+   try{
+     var result=await api('recalculateSchedule',{});await reload(true);
+     notify((result.reprogrammed||0)+' atividade(s) reajustada(s) conforme as dependências.');
+   }catch(e){notify(e.message,true)}finally{fixSchedule.disabled=false}
+ };
  ['q','filterStage','filterResponsible','filterStatus','filterDeadline'].forEach(function(id){var x=el(id);x[id==='q'?'oninput':'onchange']=function(){if(id==='q')search=this.value;else if(id==='filterStage')filterStage=this.value;else if(id==='filterResponsible')filterResponsible=this.value;else if(id==='filterStatus')filterStatus=this.value;else filterDeadline=this.value;taskRows()}});
  el('clearTaskFilters').onclick=function(){search='';filterStage='';filterStatus='';filterResponsible='';filterDeadline='';activitiesView(root)};
  var taskToggle=el('taskFilterToggle');if(taskToggle)taskToggle.onclick=function(){
