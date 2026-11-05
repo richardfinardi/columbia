@@ -389,7 +389,28 @@ window.editItem=function(table,id,stageId,desiredStatus){
  if(meRestricted)fields=fields.filter(function(f){return ['STATUS','EVIDENCIA_URL'].includes(f[0])});
  var info=table==='ATIVIDADES'?'<div class="hint" style="margin-bottom:17px">Orientação na terça → validação na quinta-feira duas semanas depois (16 dias). Exemplo: 03/11/2026 → 19/11/2026. O prazo sugerido é editável e respeita o recesso de fim de ano.</div>':'';
  if(row&&table==='ATIVIDADES')info+='<p class="small muted"><b>Responsável principal:</b> '+esc(person(row.RESPONSAVEL_ID))+' · <b>Participantes:</b> '+esc(activityTeam(row.ID,'PARTICIPANTE').map(person).join(', ')||'Nenhum')+' · <b>Homologador:</b> '+esc(person(activityTeam(row.ID,'HOMOLOGADOR')[0]))+' · <b>Homologada por:</b> '+esc(person(row.HOMOLOGADO_POR))+'</p>';
- modal((row?'Editar ':'Nova ')+(tableNames[table]||table),info+'<form id="itemForm"><div class="formgrid">'+fields.map(function(f){return formField(f,data,meRestricted)}).join('')+'</div></form>'+(table==='ATIVIDADES'?activityNewNoteHtml(row):''),(row&&table==='ATIVIDADES'&&canApprove(row.ID)&&['Aguardando validação','Devolvida','Em execução'].includes(row.STATUS)?'<button class="btn" onclick="approveItem(\''+row.ID+'\')">Homologar / devolver</button>':'')+'<button class="btn" onclick="closePop()">Cancelar</button><button class="btn primary" data-save id="saveItem">Salvar alterações</button>');
+ modal((row?'Editar ':'Nova ')+(tableNames[table]||table),info+'<form id="itemForm"><div class="formgrid">'+fields.map(function(f){return formField(f,data,meRestricted)}).join('')+'</div></form>'+(table==='ATIVIDADES'?activityNewNoteHtml(row):''),(row&&table==='ATIVIDADES'&&canApprove(row.ID)&&['Aguardando validação','Devolvida','Em execução'].includes(row.STATUS)?'<button class="btn" onclick="approveItem(\''+row.ID+'\')">Homologar / devolver</button>':'')+(row&&table==='ATIVIDADES'&&S.canEdit?'<button class="btn danger" type="button" id="deleteActivityBtn">Excluir atividade</button>':'')+'<button class="btn" onclick="closePop()">Cancelar</button><button class="btn primary" data-save id="saveItem">Salvar alterações</button>');
+
+ if(row&&table==='ATIVIDADES'&&S.canEdit){
+   var deleteButton=el('deleteActivityBtn');
+   deleteButton.onclick=async function(){
+     var dependents=(S.activities||[]).filter(function(a){return a.DEPENDE_DE===row.ID});
+     if(dependents.length){
+       notify('Esta atividade possui '+dependents.length+' dependente(s). Remova primeiro os vínculos.',true);return;
+     }
+     if(!['Não iniciada','Cancelada'].includes(row.STATUS)){
+       notify('Só é possível excluir atividades não iniciadas ou canceladas.',true);return;
+     }
+     var confirmText=prompt('Excluir definitivamente a atividade "'+row.TITULO+'"?\nDigite EXCLUIR para confirmar. O histórico será preservado.');
+     if(confirmText!=='EXCLUIR')return;
+     deleteButton.disabled=true;
+     try{
+       await api('deleteActivity',{id:row.ID});
+       closePop();await reload(true);notify('Atividade excluída. Histórico preservado.');
+     }catch(e){notify(e.message,true);deleteButton.disabled=false}
+   };
+ }
+
  if(table==='ATIVIDADES'&&S.canEdit){
     var orientationInput=el('itemForm').querySelector('[name="DATA_ORIENTACAO"]');
     var validationInput=el('itemForm').querySelector('[name="PRAZO"]');
