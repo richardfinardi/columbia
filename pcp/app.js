@@ -8,7 +8,7 @@
   const SEGMENT_EMPTY = "Sem segmento";
   const moneyFormatter = new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"});
   const countFormatter = new Intl.NumberFormat("pt-BR");
-  const labels = {os:"Nº OS",orc:"Orçamento",item:"Item",cliente:"Cliente",segmento:"Segmento",entrega:"Entrega vigente",original:"Original (referência)",valor:"Valor",pend:"Processos pendentes"};
+  const labels = {os:"Nº OS",orc:"Orçamento",item:"Item",cliente:"Cliente",segmento:"Segmento",abertura:"Abertura OS",entrega:"Entrega vigente",original:"Original (referência)",valor:"Valor",pend:"Processos pendentes"};
   const cols = Object.keys(labels);
   const $ = id => document.getElementById(id);
   const str = v => v == null ? "" : String(v).trim();
@@ -18,7 +18,7 @@
   const money = v => v == null ? "—" : moneyFormatter.format(v);
   const store = {rows:[],filtered:[],selected:new Set(),authorized:false,ready:false,editOS:null,pageSize:100,shown:100,sortKey:"entrega",sortAsc:true,shareIds:null,filters:{},popupKey:null,popupChoices:null,attachmentOS:null,attachmentBlobUrl:null,weekLinks:[],view:"planilha",month:new Date(new Date().getFullYear(),new Date().getMonth(),1),movingOS:new Set()};
   const numberFields = new Set(["valor"]);
-  const dateFields = new Set(["original","entrega"]);
+  const dateFields = new Set(["abertura","original","entrega"]);
 
   function normalizeDate(v) {
     if (blank(v)) return "";
@@ -87,6 +87,7 @@
         item:str(first(lower,["titulo","descricao","cod_interno","tiposervico"])),
         cliente:str(first(lower,["cliente","nome_cliente"])),
         segmento:str(first(lower,["segmento","segmento_cliente","u_segmento","classificacao_segmento"])),
+        abertura:normalizeDate(first(lower,["abertura_os","dt_abertura_os"])),
         original:normalizeDate(first(lower,["prev_entrega_os","dt_previsao_entrega","dt_prevista"])),
         reneg:normalizeDate(first(lower,["dt_renegociada","u_data_renegociacao"])),
         manual:normalizeDate(first(lower,["u_dt_rep_manual"])),
@@ -98,7 +99,7 @@
       row.entrega=deliveryDate(row);row.fonte=deliverySource(row);
       if (!seen.has(os)) {seen.set(os,row);continue;}
       const old=seen.get(os);
-      for (const f of ["empresa","codOS","orc","item","cliente","segmento","original","reneg","manual"]) if (!old[f] && row[f]) old[f]=row[f];
+      for (const f of ["empresa","codOS","orc","item","cliente","segmento","abertura","original","reneg","manual"]) if (!old[f] && row[f]) old[f]=row[f];
       if(!old.manualFlag && row.manualFlag)old.manualFlag=true;
       old.entrega=deliveryDate(old);old.fonte=deliverySource(old);
       if (old.valor==null && row.valor!=null) old.valor=row.valor;
@@ -164,7 +165,7 @@
       const s=JSON.parse(localStorage.getItem(FILTER_KEY)||"null");
       if (!s || typeof s!=="object") return;
       store.savedSelections={client:str(s.client),segment:str(s.segment)};
-      for (const id of ["search","client","segment","status","from","to"]) if (typeof s[id]==="string") $(id).value=s[id];
+      for (const id of ["search","client","segment","status","from","to","openFrom","openTo"]) if (typeof s[id]==="string") $(id).value=s[id];
       if (cols.includes(s.sortKey)) store.sortKey=s.sortKey;
       store.sortAsc=!!s.sortAsc;
       if (s.columns && typeof s.columns==="object") for (const k of cols)
@@ -173,7 +174,7 @@
   }
   function saveFilters() {
     const data={sortKey:store.sortKey,sortAsc:store.sortAsc,columns:{}};
-    for (const id of ["search","client","segment","status","from","to"]) data[id]=$(id).value;
+    for (const id of ["search","client","segment","status","from","to","openFrom","openTo"]) data[id]=$(id).value;
     for (const k of cols) data.columns[k]=[...(store.filters[k]||[])];
     try { localStorage.setItem(FILTER_KEY,JSON.stringify(data)); } catch(e) {}
   }
@@ -218,7 +219,7 @@
     $("sync").textContent="ACESSO BLOQUEADO";
     updateKanbanLoadStatus(msg);
     setMessage(msg,true);
-    $("rows").innerHTML='<tr><td colspan="11" class="p-12 text-center text-red-700 font-bold text-sm">'+esc(msg)+'</td></tr>';
+    $("rows").innerHTML='<tr><td colspan="12" class="p-12 text-center text-red-700 font-bold text-sm">'+esc(msg)+'</td></tr>';
   }
   async function authorize() {
     const token=localStorage.getItem(TOKEN_KEY);
@@ -273,7 +274,7 @@
   function passBase(r, ignoreDates=false) {
     if (store.shareIds && !store.shareIds.has(r.os)) return false;
     const q=clean($("search").value);
-    if (q && ![r.os,r.orc,r.item,r.cliente,r.segmento||SEGMENT_EMPTY,dateBR(r.original),dateBR(deliveryDate(r)),money(r.valor),r.pend].some(v=>clean(v).includes(q))) return false;
+    if (q && ![r.os,r.orc,r.item,r.cliente,r.segmento||SEGMENT_EMPTY,dateBR(r.abertura),dateBR(r.original),dateBR(deliveryDate(r)),money(r.valor),r.pend].some(v=>clean(v).includes(q))) return false;
     if ($("client").value && r.cliente!==$("client").value) return false;
     if ($("segment").value && (r.segmento||SEGMENT_EMPTY)!==$("segment").value) return false;
     // Filtra pela data de entrega vigente: reprogramada primeiro; original só se não houver reprogramação.
@@ -282,6 +283,10 @@
     if(!ignoreDates && (start||end)){
       const delivery=deliveryDate(r);
       if(!delivery || (start&&delivery<start) || (end&&delivery>end))return false;
+    }
+    const openFrom=$("openFrom").value,openTo=$("openTo").value;
+    if(openFrom||openTo){
+      if(!r.abertura || (openFrom&&r.abertura<openFrom) || (openTo&&r.abertura>openTo))return false;
     }
     const s=$("status").value;
     if (s==="overdue"&&!isOverdue(r)) return false;
@@ -643,7 +648,7 @@
     $("countText").textContent="· "+countFormatter.format(count)+" de "+countFormatter.format(store.rows.length);
     $("selectedCount").textContent=countFormatter.format(store.selected.size)+" selecionadas";
     const visible=store.filtered.slice(0,store.shown);
-    if(!visible.length) $("rows").innerHTML='<tr><td colspan="11" class="p-12 text-center text-slate-500 text-sm">Nenhuma OS encontrada com os filtros atuais.</td></tr>';
+    if(!visible.length) $("rows").innerHTML='<tr><td colspan="12" class="p-12 text-center text-slate-500 text-sm">Nenhuma OS encontrada com os filtros atuais.</td></tr>';
     else $("rows").innerHTML=visible.map(r=>{
       const overdueClass=isOverdue(r)?"text-red-700 font-extrabold":"text-slate-700";
       const selected=store.selected.has(r.os);
@@ -654,6 +659,7 @@
         '<td class="cell max-w-[350px] whitespace-normal">'+esc(r.item||"—")+'</td>'+
         '<td class="cell whitespace-normal">'+esc(r.cliente||"—")+'</td>'+
         '<td class="cell whitespace-normal">'+(r.segmento?esc(r.segmento):'<span class="inline-block bg-amber-50 text-amber-700 rounded-lg px-2 py-1 text-[11px] font-bold">Sem segmento</span>')+'</td>'+
+        '<td class="cell whitespace-nowrap text-slate-500">'+esc(dateBR(r.abertura))+'</td>'+
         '<td class="cell whitespace-nowrap '+overdueClass+'"><div class="font-black">'+esc(dateBR(deliveryDate(r)))+'</div>'+
           '<span class="kb-badge">'+(r.fonte==="manual"?"KANBAN":r.fonte==="grv"?"GRV":"ORIGINAL")+'</span>'+
           '<button class="text-[10px] text-purple-700 font-bold underline ml-1" data-edit="'+esc(r.os)+'" title="Editar data de reprogramação no GRV, mesmo com Kanban ativo">✎ Editar GRV</button>'+
@@ -711,11 +717,11 @@
       $("sync").textContent=store.ready?"DADOS ANTERIORES":"FALHA NA ATUALIZAÇÃO";
       setMessage("Não foi possível atualizar: "+e.message+(store.ready?". Mantendo dados em memória.":""),true);
       updateKanbanLoadStatus(e.message);
-      if (!store.ready) $("rows").innerHTML='<tr><td colspan="11" class="p-12 text-center text-red-700">'+esc(e.message)+'</td></tr>';
+      if (!store.ready) $("rows").innerHTML='<tr><td colspan="12" class="p-12 text-center text-red-700">'+esc(e.message)+'</td></tr>';
     } finally {$("refresh").disabled=false;}
   }
   function resetFilters() {
-    for (const id of ["search","client","segment","status","from","to"]) $(id).value="";
+    for (const id of ["search","client","segment","status","from","to","openFrom","openTo"]) $(id).value="";
     store.filters={};store.sortKey="entrega";store.sortAsc=true;store.shown=100;
     syncKanbanFilters();saveFilters();render();
   }
@@ -1000,12 +1006,12 @@
     if (!window.XLSX) return alert("Não foi possível preparar a planilha. Atualize a página e tente novamente.");
     const records=store.filtered.map(r=>({
       "Nº OS":r.os,"Orçamento":r.orc,"Item":r.item,"Cliente":r.cliente,"Segmento":r.segmento||SEGMENT_EMPTY,
-      "Semana de entrega":deliveryWeek(r).label,"Entrega vigente":dateBR(deliveryDate(r)),
+      "Abertura OS":dateBR(r.abertura),"Semana de entrega":deliveryWeek(r).label,"Entrega vigente":dateBR(deliveryDate(r)),
       "Fonte da data":r.fonte==="manual"?"KANBAN":r.fonte==="grv"?"GRV":"ORIGINAL","Original (referência)":dateBR(r.original),
       "Valor":r.valor,"Processos pendentes":r.pend
     }));
     const sheet=XLSX.utils.json_to_sheet(records);
-    sheet["!cols"]=[{wch:13},{wch:15},{wch:38},{wch:29},{wch:24},{wch:35},{wch:19},{wch:19},{wch:20},{wch:16},{wch:45}];
+    sheet["!cols"]=[{wch:13},{wch:15},{wch:38},{wch:29},{wch:24},{wch:16},{wch:35},{wch:19},{wch:19},{wch:20},{wch:16},{wch:45}];
     const book=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(book,sheet,"Carteira PCP");
     XLSX.writeFile(book,"Carteira_PCP_Columbia_"+localToday()+".xlsx");
@@ -1048,7 +1054,7 @@
       location.href="../login.html";
     });
     let debounce;
-    for (const id of ["search","client","segment","status","from","to"]) {
+    for (const id of ["search","client","segment","status","from","to","openFrom","openTo"]) {
       $(id).addEventListener(id==="search"?"input":"change",()=>{
         clearTimeout(debounce);
         debounce=setTimeout(()=>{
