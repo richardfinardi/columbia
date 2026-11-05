@@ -198,10 +198,19 @@ function dashboard(root){
  root.innerHTML='<div class="flex wrap"><div><h2 class="sectiontitle" style="font-size:23px;margin:0">Visão geral da implantação</h2><p class="muted small">Acompanhamento em tempo real com rastreabilidade de cada ação.</p></div><span class="right">'+badge(S.project[0]?S.project[0].STATUS:'Em andamento')+'</span></div><div class="statgrid">'+cards.map(function(c){return '<div class="stat"><span class="muted">'+esc(c[0])+'</span><div class="value">'+c[1]+'</div><span class="small muted">'+esc(c[2])+'</span></div>'}).join('')+'</div><div class="twocol"><section class="card"><h3 class="sectiontitle">Progresso por etapa</h3>'+S.stages.map(function(st){return '<div class="listrow"><div style="flex:1"><div class="flex" style="justify-content:space-between;margin-bottom:8px"><span class="small bold">'+esc(st.ORDEM+' · '+st.TITULO)+'</span><span class="small muted">'+pct(st.ID)+'%</span></div><div class="progress"><span style="width:'+pct(st.ID)+'%"></span></div></div></div>'}).join('')+'</section><section class="card"><h3 class="sectiontitle">Exige atenção</h3>'+a.filter(function(x){return x.STATUS==='Aguardando validação'||x.PRAZO&&x.PRAZO<today&&!['Homologada','Cancelada'].includes(x.STATUS)}).slice(0,12).map(function(x){return '<div class="listrow"><div><div class="small bold">'+esc(x.TITULO)+'</div><div class="tiny muted">'+esc(person(x.RESPONSAVEL_ID))+' · '+fmt(x.PRAZO)+'</div></div><button class="link" onclick="editItem(\'ATIVIDADES\',\''+x.ID+'\')">Abrir</button></div>'}).join('')+(waiting+late===0?'<div class="empty">Nenhuma pendência urgente.</div>':'')+'<div style="margin-top:18px"><button class="btn" onclick="nav(\'approvals\')">Ver homologações →</button></div></section></div>';
 }
 function stagesView(root){
- root.innerHTML='<div class="toolbar"><span class="muted small">'+S.stages.length+' etapas · '+S.activities.length+' atividades</span><span class="spacer"></span>'+createButton('ETAPAS')+'</div>'+S.stages.map(function(s,i){
+ root.innerHTML='<div class="toolbar"><span class="muted small">'+S.stages.length+' etapas · '+S.activities.length+' atividades</span><span class="spacer"></span>'+(S.canEdit?'<button class="btn" id="syncStageDates">Atualizar datas das etapas</button>':'')+createButton('ETAPAS')+'</div>'+S.stages.map(function(s,i){
    var tasks=S.activities.filter(function(a){return a.ETAPA_ID===s.ID});
    return '<section class="stage"><div class="stage-head" data-stage="'+esc(s.ID)+'"><span class="num">'+String(s.ORDEM).padStart(2,'0')+'</span><div style="flex:1"><h3>'+esc(s.TITULO)+'</h3><div class="small muted">'+esc(s.ENTREGAVEL||'')+'</div>'+stageCalendar(s)+'</div><span class="small bold">'+pct(s.ID)+'%</span><div style="width:100px" class="progress"><span style="width:'+pct(s.ID)+'%"></span></div><span>⌄</span></div><div id="stage-'+s.ID+'" class="stage-content hidden"><div class="toolbar" style="margin:14px 0">'+badge(s.STATUS)+'<span class="spacer"></span>'+(S.canEdit?'<button class="btn" onclick="editItem(\'ETAPAS\',\''+s.ID+'\')">Editar etapa</button><button class="btn primary" onclick="editItem(\'ATIVIDADES\',null,\''+s.ID+'\')">+ Atividade</button>':'')+'</div>'+tasks.map(function(a){return '<div class="listrow"><div style="flex:1"><div class="small bold">'+esc(a.TITULO)+'</div><div class="tiny muted">'+person(a.RESPONSAVEL_ID)+' · Orientação '+fmt(a.DATA_ORIENTACAO)+' · Validação '+fmt(a.PRAZO)+'</div></div>'+badge(a.STATUS)+'<button class="link" onclick="editItem(\'ATIVIDADES\',\''+a.ID+'\')">Abrir</button></div>'}).join('')+(tasks.length?'':'<div class="empty">Nenhuma atividade cadastrada.</div>')+'</div></section>';
  }).join('');
+ var syncStageButton=el('syncStageDates');
+ if(syncStageButton)syncStageButton.onclick=async function(){
+   syncStageButton.disabled=true;
+   try{
+     var result=await api('syncStageDates',{});
+     await reload(true);
+     notify((result.stagesUpdated||0)+' etapa(s) atualizada(s) com as datas das atividades.');
+   }catch(e){notify(e.message,true);syncStageButton.disabled=false}
+ };
  document.querySelectorAll('[data-stage]').forEach(function(a){a.onclick=function(){el('stage-'+a.dataset.stage).classList.toggle('hidden')}});
 }
 function searchbar(){return '<input id="q" class="field search" placeholder="Pesquisar..." value="'+attr(search)+'">'}
@@ -344,6 +353,14 @@ function formField(f,item,restricted){
  }
  if(restricted&&['STATUS','OBSERVACAO','EVIDENCIA_URL'].indexOf(k)<0)return '';
  var control;
+ // As datas são campos calculados quando existem atividades na etapa.
+ if((k==='DATA_INICIO'||k==='DATA_FIM')&&type==='date'&&item.ID&&
+    S.stages.some(function(st){return st.ID===item.ID})&&
+    S.activities.some(function(a){return a.ETAPA_ID===item.ID&&a.STATUS!=='Cancelada'})){
+   return '<div class="fitem"><label>'+esc(label)+' (automático)</label>'+
+     '<input class="field" name="'+k+'" type="date" value="'+attr(v)+'" readonly title="Altere as datas nas atividades da etapa">'+
+     '<div class="tiny muted" style="margin-top:6px">Calculado pelas atividades desta etapa.</div></div>';
+ }
  if(['person','stage','activity','stagesStatus','activityStatus','priority','pendingStatus','changeStatus','agendaType','agendaStatus','role','bool','goStatus'].indexOf(type)>=0)control='<select class="field" name="'+k+'">'+options(v,type)+'</select>';
  else if(type==='textarea')control='<textarea class="field" name="'+k+'" rows="3">'+esc(v)+'</textarea>';
  else control='<input class="field" name="'+k+'" type="'+type+'" value="'+attr(v)+'">';
@@ -388,6 +405,9 @@ window.editItem=function(table,id,stageId,desiredStatus){
  var fields=defs[table]||[];
  if(meRestricted)fields=fields.filter(function(f){return ['STATUS','EVIDENCIA_URL'].includes(f[0])});
  var info=table==='ATIVIDADES'?'<div class="hint" style="margin-bottom:17px">Orientação na terça → validação na quinta-feira duas semanas depois (16 dias). Exemplo: 03/11/2026 → 19/11/2026. O prazo sugerido é editável e respeita o recesso de fim de ano.</div>':'';
+ if(table==='ETAPAS'&&row&&S.activities.some(function(a){return a.ETAPA_ID===row.ID&&a.STATUS!=='Cancelada'}))
+   info='<div class="hint" style="margin-bottom:17px">Período automático: início = primeira orientação; fim = última validação. Para mudar as datas, altere as atividades da etapa.</div>';
+
  if(row&&table==='ATIVIDADES')info+='<p class="small muted"><b>Responsável principal:</b> '+esc(person(row.RESPONSAVEL_ID))+' · <b>Participantes:</b> '+esc(activityTeam(row.ID,'PARTICIPANTE').map(person).join(', ')||'Nenhum')+' · <b>Homologador:</b> '+esc(person(activityTeam(row.ID,'HOMOLOGADOR')[0]))+' · <b>Homologada por:</b> '+esc(person(row.HOMOLOGADO_POR))+'</p>';
  modal((row?'Editar ':'Nova ')+(tableNames[table]||table),info+'<form id="itemForm"><div class="formgrid">'+fields.map(function(f){return formField(f,data,meRestricted)}).join('')+'</div></form>'+(table==='ATIVIDADES'?activityNewNoteHtml(row):''),(row&&table==='ATIVIDADES'&&canApprove(row.ID)&&['Aguardando validação','Devolvida','Em execução'].includes(row.STATUS)?'<button class="btn" onclick="approveItem(\''+row.ID+'\')">Homologar / devolver</button>':'')+(row&&table==='ATIVIDADES'&&S.canEdit?'<button class="btn danger" type="button" id="deleteActivityBtn">Excluir atividade</button>':'')+'<button class="btn" onclick="closePop()">Cancelar</button><button class="btn primary" data-save id="saveItem">Salvar alterações</button>');
 
