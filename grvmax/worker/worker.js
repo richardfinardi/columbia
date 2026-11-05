@@ -4,7 +4,7 @@
  * Configure GRVMAX_SCRIPT_URL como secret/var do Worker, sem publicar senhas.
  */
 const ORIGINS = new Set(["https://consultoriarf.net", "https://www.consultoriarf.net"]);
-const ACTIONS = new Set(["bootstrap","setup","login","forgot","setPassword","state","save","approve","sendEmail","invite","reminders","installReminders","goDecision","logout","recalculateSchedule"]);
+const ACTIONS = new Set(["bootstrap","setup","login","forgot","setPassword","state","save","approve","sendEmail","invite","reminders","installReminders","goDecision","logout","recalculateSchedule","deleteActivity"]);
 function responseJson(value,status,origin) {
   const headers = {
     "Content-Type":"application/json; charset=utf-8",
