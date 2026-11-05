@@ -57,6 +57,7 @@ function api(action, payload, token) {
       case 'state': return grvState(who);
       case 'save': return grvSave(who,p);
       case 'recalculateSchedule': return grvRecalculateSchedule(who);
+      case 'deleteActivity': return grvDeleteActivity(who,p);
       case 'approve': return grvApprove(who,p);
       case 'sendEmail': return grvSendEmails(who,p);
       case 'invite': return grvInvite(who,p);
@@ -421,6 +422,45 @@ function grvSave(who,p){
   (saved.cascadeNotifications||[]).forEach(n=>{try{grvNotifyActivity(who,n);}catch(err){grvLog(who,'ATIVIDADES',n.id,'NOTIFICACAO_FALHOU',null,null,String(err));}});
   return {ok:true,id:saved.id,reprogrammed:saved.reprogrammed||0};
 }
+
+/**
+ * Excluir atividade cadastral sem apagar seu historico. Nao elimina atividades
+ * homologadas, ja iniciadas, com sucessoras ou com registros operacionais
+ * vinculados. A trilha de auditoria registra o snapshot antes da remocao.
+ */
+function grvDeleteActivity(who,p) {
+  if(!GRV_MANAGERS.includes(who.PERFIL))
+    throw Error('Somente consultores e administradores podem excluir atividades.');
+  const id=String(p.id||'').trim();
+  if(!/^[A-Za-z0-9_-]{3,80}$/.test(id))throw Error('Identificador da atividade inválido.');
+  return grvLock(()=>{
+    const activity=grvFind('ATIVIDADES',id);
+    if(!activity)throw Error('Atividade não encontrada. Atualize a tela.');
+    if(!['Não iniciada','Cancelada'].includes(activity.STATUS))
+      throw Error('Esta atividade já tem execução registrada. Cancele a atividade antes de excluí-la.');
+    const linked=grvRows('ATIVIDADES').filter(x=>String(x.DEPENDE_DE||'').trim()===id);
+    if(linked.length)
+      throw Error('Não é possível excluir: outras atividades dependem desta ('+
+        linked.slice(0,3).map(x=>x.TITULO).join('; ')+
+        (linked.length>3?' e mais '+(linked.length-3):'')+'). Remova primeiro essas dependências.');
+    for(const table of ['HOMOLOGACOES','PENDENCIAS','MUDANCAS','AGENDA']){
+      if(grvRows(table).some(x=>x.ATIVIDADE_ID===id))
+        throw Error('Não é possível excluir: existem registros vinculados em '+table+'. Preserve o histórico e use Cancelada.');
+    }
+    // O historico de e-mails e observacoes e imutavel: COMUNICACOES e LOGS
+    // permanecem para auditoria. Apenas os vinculos ativos sao removidos.
+    const team=grvRows('VINCULOS').filter(x=>x.ATIVIDADE_ID===id);
+    const {_row,...snapshot}=activity;
+    grvLog(who,'ATIVIDADES',id,'EXCLUIU',snapshot,null,
+      'Exclusão solicitada pelo usuário. Vínculos removidos: '+team.length+'. Histórico preservado.');
+    const membersTable=grvTable('VINCULOS').s;
+    team.sort((a,b)=>Number(b._row)-Number(a._row))
+      .forEach(x=>membersTable.deleteRow(Number(x._row)));
+    grvTable('ATIVIDADES').s.deleteRow(Number(activity._row));
+    return {ok:true,id:id};
+  });
+}
+
 function grvApprove(who,p){
   if(!GRV_MANAGERS.includes(who.PERFIL) && !grvRows('VINCULOS').some(v=>v.TIPO==='HOMOLOGADOR'&&v.ATIVIDADE_ID===String(p.id||'')&&v.PESSOA_ID===who.ID))throw Error('Apenas consultoria ou homologador designado pode aprovar.');
   const id=String(p.id||''),decision=String(p.decision||''),note=String(p.note||'').trim();
