@@ -82,7 +82,7 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
       <div class="table-scroll"><table id="resultTable" class="w-full min-w-[1120px] text-left border-collapse">
         <thead><tr>
           <th data-sort="os">OS ↕</th><th data-sort="orc">Orçamento ↕</th><th data-sort="item">Item ↕</th><th data-sort="cliente">Cliente ↕</th><th data-sort="segmento">Segmento ↕</th>
-          <th data-sort="entrega">Entrega vigente ↕</th><th data-sort="original">Original (ref.) ↕</th><th data-sort="valor" class="valuecol">Valor ↕</th><th data-sort="pend">Processos pendentes ↕</th><th>Anexos</th>
+          <th data-sort="abertura">Abertura OS ↕</th><th data-sort="entrega">Entrega vigente ↕</th><th data-sort="original">Original (ref.) ↕</th><th data-sort="valor" class="valuecol">Valor ↕</th><th data-sort="pend">Processos pendentes ↕</th><th>Anexos</th>
         </tr></thead>
         <tbody id="rows"></tbody></table></div>
     </section>
@@ -159,7 +159,7 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
       if(cli&&r.cliente!==cli)return false;
       if(seg&&(r.segmento||'Sem segmento')!==seg)return false;
       if(wk&&weekOf(r).key!==wk)return false;
-      return !q||[r.os,r.orc,r.item,r.cliente,r.segmento,r.original,delivery(r),r.pend].some(v=>String(v||'').toLocaleLowerCase('pt-BR').includes(q));
+      return !q||[r.os,r.orc,r.item,r.cliente,r.segmento,r.abertura,r.original,delivery(r),r.pend].some(v=>String(v||'').toLocaleLowerCase('pt-BR').includes(q));
     });
     const grouped=weeks(view.filtered);
     const numeric=new Set(['valor']);
@@ -199,7 +199,7 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
       const value=view.portal?.mostrar_valores?'<span class="font-black text-emerald-800 text-sm whitespace-nowrap" title="'+(g.knownValues<count?'Total parcial: '+g.knownValues+' OS com valor':'Valor total da semana')+'">'+(g.knownValues?esc(currency.format(g.total)):'Valor não informado')+'</span>':'';
       const lateCount=g.rows.filter(r=>delivery(r)&&delivery(r)<todayIso).length;
       const lateBadge=lateCount?'<span class="pill late">'+lateCount+' vencida(s)</span>':'';
-      body+='<tr class="week-title"><td colspan="'+(view.portal?.mostrar_valores?10:9)+'">'+
+      body+='<tr class="week-title"><td colspan="'+(view.portal?.mostrar_valores?11:10)+'">'+
         '<div class="week-card '+cls+'"><button type="button" class="week-toggle" data-week-toggle="'+esc(g.key)+'" aria-expanded="'+active+'" aria-label="'+esc((active?'Recolher':'Expandir')+' '+g.label)+'">'+
         '<div class="flex flex-wrap items-center gap-3">'+
         '<span class="week-chevron" aria-hidden="true">'+chevron+'</span>'+
@@ -224,6 +224,7 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
           '<td class="wrap">'+esc(r.item||'—')+'</td>'+
           '<td class="wrap">'+esc(r.cliente||'—')+'</td>'+
           '<td>'+esc(r.segmento||'Sem segmento')+'</td>'+
+          '<td class="text-slate-500 whitespace-nowrap">'+dateBR(r.abertura)+'</td>'+ 
           '<td class="font-bold text-columbia-700 whitespace-nowrap">'+dateBR(delivery(r))+
             '<span class="block text-[10px] text-slate-400 font-medium">'+
             (r.origem_entrega==="manual"?"KANBAN":r.origem_entrega==="reprogramada"?"GRV":"ORIGINAL")+'</span></td>'+
@@ -233,14 +234,14 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
           '<td class="whitespace-nowrap"><div class="flex flex-wrap gap-1">'+(links.join('')||'<span class="text-slate-400">—</span>')+'</div></td></tr>';
       }
     }
-    $('rows').innerHTML=body||'<tr><td colspan="10" class="text-center text-slate-500 p-10">Nenhuma OS encontrada.</td></tr>';
+    $('rows').innerHTML=body||'<tr><td colspan="11" class="text-center text-slate-500 p-10">Nenhuma OS encontrada.</td></tr>';
     $('openAllWeeks').disabled=searching||!grouped.length;
     $('closeAllWeeks').disabled=searching||!grouped.length;
   }
   function excel(){
     if(!view.portal?.permitir_excel||!window.XLSX)return;
     const out=view.filtered.map(r=>{
-      const o={Semana:weekOf(r).label,'Nº OS':r.os,'Orçamento':r.orc,Item:r.item,Cliente:r.cliente,Segmento:r.segmento||'Sem segmento','Entrega vigente':dateBR(delivery(r)),'Origem entrega':r.origem_entrega==="manual"?"KANBAN":r.origem_entrega==="reprogramada"?"GRV":"ORIGINAL",'Original (referência)':dateBR(r.original),'Processos pendentes':r.pend};
+      const o={Semana:weekOf(r).label,'Nº OS':r.os,'Orçamento':r.orc,Item:r.item,Cliente:r.cliente,Segmento:r.segmento||'Sem segmento','Abertura OS':dateBR(r.abertura),'Entrega vigente':dateBR(delivery(r)),'Origem entrega':r.origem_entrega==="manual"?"KANBAN":r.origem_entrega==="reprogramada"?"GRV":"ORIGINAL",'Original (referência)':dateBR(r.original),'Processos pendentes':r.pend};
       if(view.portal?.mostrar_valores)o.Valor=hasValue(r.valor)?Number(r.valor):null;
       return o;
     });
@@ -260,7 +261,7 @@ thead th{position:sticky;top:0;z-index:5;background:#e2e8f0;font-size:10px;color
       if(!response.ok)throw Error(response.status===410?'A validade deste link terminou ou ele foi desativado.':response.status===404?'Este planejamento não foi encontrado.':data.detail||'Não foi possível consultar este planejamento.');
       const portal=data.portal||{};
       const rows=Array.isArray(data.dados)?data.dados:[];
-      view.portal=portal;view.rows=rows.map(r=>({os:String(r.os||''),orc:String(r.orc||''),item:String(r.item||''),cliente:String(r.cliente||''),segmento:String(r.segmento||''),original:String(r.original||'').slice(0,10),reneg:String(r.reneg||'').slice(0,10),manual:String(r.manual||'').slice(0,10),manualFlag:Number(r.u_reprogramado_manual)===1,entrega:String(r.entrega||'').slice(0,10),origem_entrega:String(r.origem_entrega||''),valor:portal.mostrar_valores&&hasValue(r.valor)?Number(r.valor):null,pend:String(r.pend||''),anexos:Array.isArray(r.anexos)?r.anexos:[]}));
+      view.portal=portal;view.rows=rows.map(r=>({os:String(r.os||''),orc:String(r.orc||''),item:String(r.item||''),cliente:String(r.cliente||''),segmento:String(r.segmento||''),abertura:String(r.abertura||r.abertura_os||'').slice(0,10),original:String(r.original||'').slice(0,10),reneg:String(r.reneg||'').slice(0,10),manual:String(r.manual||'').slice(0,10),manualFlag:Number(r.u_reprogramado_manual)===1,entrega:String(r.entrega||'').slice(0,10),origem_entrega:String(r.origem_entrega||''),valor:portal.mostrar_valores&&hasValue(r.valor)?Number(r.valor):null,pend:String(r.pend||''),anexos:Array.isArray(r.anexos)?r.anexos:[]}));
       $('title').textContent=portal.nome||'Planejamento de Entregas';
       $('expiry').textContent=portal.validade_ate?'Disponível até '+dt(portal.validade_ate):'Link sem vencimento';
       $('updated').textContent='Atualizado em '+dt(data.atualizado_em||new Date().toISOString());
