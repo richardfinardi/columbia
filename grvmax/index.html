@@ -458,10 +458,14 @@ function activityNewNoteHtml(activity){
 window.editItem=function(table,id,stageId,desiredStatus){
  var row=id?coll(table).find(function(x){return x.ID===id}):null;
  if(id&&!row){notify('Registro não disponível.',true);return}
- if(!id&&!S.canEdit&&!(table==='PESSOAS'&&S.canAdmin)){notify('Você não tem permissão de cadastro.',true);return}
- if(table==='PESSOAS'&&!S.canAdmin){notify('Cadastro restrito ao administrador.',true);return}
- var meRestricted=table==='ATIVIDADES'&&!S.canEdit;
- if(meRestricted&&!row)return;
+ var module=tableModules[table]||'';
+ if(!can(module+'.view')){notify('Sem acesso a este módulo.',true);return}
+ var fullEdit=can(module+'.'+(row?'edit':'create'));
+ var limited=table==='ATIVIDADES'&&!!row&&(can('activities.status')||can('activities.comment'));
+ if(!id&&!fullEdit){notify('Você não tem permissão de cadastro.',true);return}
+ var maySave=fullEdit||limited;
+ if(table==='PESSOAS'&&row&&row.PERFIL==='Administrador'&&!S.canAdmin)maySave=false;
+ var meRestricted=table==='ATIVIDADES'&&!fullEdit;
  var data=row?Object.assign({},row):{STATUS:'Não iniciada',PRIORIDADE:'Normal',OBRIGATORIA:'SIM',ATIVO:'SIM',PERFIL:'Usuário-chave'};
  if(stageId)data.ETAPA_ID=stageId;
   if(table==='ATIVIDADES'&&!row&&stageId){
@@ -473,15 +477,26 @@ window.editItem=function(table,id,stageId,desiredStatus){
   }
  if(table==='ETAPAS'&&!row){data.ORDEM=String(S.stages.length+1);data.PROJETO_ID='PRJ-0001'}
  var fields=defs[table]||[];
- if(meRestricted)fields=fields.filter(function(f){return ['STATUS','EVIDENCIA_URL'].includes(f[0])});
+ if(table==='ATIVIDADES'){
+   if(meRestricted&&maySave)fields=fields.filter(function(f){return can('activities.status')&&['STATUS','EVIDENCIA_URL'].includes(f[0])});
+   else fields=fields.filter(function(f){
+     return (can('activities.assign')||!['__PARTICIPANTES','__HOMOLOGADOR'].includes(f[0])) &&
+       (can('activities.status')||f[0]!=='STATUS');
+   });
+ }
+ if(table==='PESSOAS'&&!S.canAdmin)fields=fields.filter(function(f){return !['PERFIL','ATIVO'].includes(f[0])});
  var info=table==='ATIVIDADES'?'<div class="hint" style="margin-bottom:17px">Orientação na terça → validação na quinta-feira duas semanas depois (16 dias). Exemplo: 03/11/2026 → 19/11/2026. O prazo sugerido é editável e respeita o recesso de fim de ano.</div>':'';
  if(table==='ETAPAS'&&row&&S.activities.some(function(a){return a.ETAPA_ID===row.ID&&a.STATUS!=='Cancelada'}))
    info='<div class="hint" style="margin-bottom:17px">Período automático: início = primeira orientação; fim = última validação. Para mudar as datas, altere as atividades da etapa.</div>';
 
- if(row&&table==='ATIVIDADES')info+='<p class="small muted"><b>Responsável principal:</b> '+esc(person(row.RESPONSAVEL_ID))+' · <b>Participantes:</b> '+esc(activityTeam(row.ID,'PARTICIPANTE').map(person).join(', ')||'Nenhum')+' · <b>Homologador:</b> '+esc(person(activityTeam(row.ID,'HOMOLOGADOR')[0]))+' · <b>Homologada por:</b> '+esc(person(row.HOMOLOGADO_POR))+'</p>';
- modal((row?'Editar ':'Nova ')+(tableNames[table]||table),info+'<form id="itemForm"><div class="formgrid">'+fields.map(function(f){return formField(f,data,meRestricted)}).join('')+'</div></form>'+(table==='ATIVIDADES'?activityNewNoteHtml(row):''),(row&&table==='ATIVIDADES'&&canApprove(row.ID)&&['Aguardando validação','Devolvida','Em execução'].includes(row.STATUS)?'<button class="btn" onclick="approveItem(\''+row.ID+'\')">Homologar / devolver</button>':'')+(row&&table==='ATIVIDADES'&&S.canEdit?'<button class="btn danger" type="button" id="deleteActivityBtn">Excluir atividade</button>':'')+'<button class="btn" onclick="closePop()">Cancelar</button><button class="btn primary" data-save id="saveItem">Salvar alterações</button>');
+ if(row&&table==='ATIVIDADES')info+='<p class="small muted"><b>Status:</b> '+esc(row.STATUS)+' · <b>Responsável principal:</b> '+esc(person(row.RESPONSAVEL_ID))+' · <b>Participantes:</b> '+esc(activityTeam(row.ID,'PARTICIPANTE').map(person).join(', ')||'Nenhum')+' · <b>Homologador:</b> '+esc(person(activityTeam(row.ID,'HOMOLOGADOR')[0]))+' · <b>Homologada por:</b> '+esc(person(row.HOMOLOGADO_POR))+'</p>';
+ modal((row?(maySave?'Editar ':'Detalhes de '):'Nova ')+(tableNames[table]||table),info+'<form id="itemForm"><div class="formgrid">'+fields.map(function(f){return formField(f,data,meRestricted)}).join('')+'</div></form>'+(table==='ATIVIDADES'?(row?(can('activities.comment')&&maySave?activityNewNoteHtml(row):activityNotesHtml(row)):(can('activities.comment')?activityNewNoteHtml(null):'')):''),(row&&table==='ATIVIDADES'&&canApprove(row.ID)&&['Aguardando validação','Devolvida','Em execução'].includes(row.STATUS)?'<button class="btn" onclick="approveItem(\''+row.ID+'\')">Homologar / devolver</button>':'')+(row&&table==='ATIVIDADES'&&can('activities.delete')?'<button class="btn danger" type="button" id="deleteActivityBtn">Excluir atividade</button>':'')+'<button class="btn" onclick="closePop()">'+(maySave?'Cancelar':'Fechar')+'</button>'+(maySave?'<button class="btn primary" data-save id="saveItem">Salvar alterações</button>':''));
 
- if(row&&table==='ATIVIDADES'&&S.canEdit){
+ if(!maySave){
+   el('itemForm').querySelectorAll('input,select,textarea,button').forEach(function(x){x.disabled=true});
+   return;
+ }
+ if(row&&table==='ATIVIDADES'&&can('activities.delete')){
    var deleteButton=el('deleteActivityBtn');
    deleteButton.onclick=async function(){
      var dependents=(S.activities||[]).filter(function(a){return a.DEPENDE_DE===row.ID});
@@ -501,7 +516,7 @@ window.editItem=function(table,id,stageId,desiredStatus){
    };
  }
 
- if(table==='ATIVIDADES'&&S.canEdit){
+ if(table==='ATIVIDADES'&&fullEdit){
     var orientationInput=el('itemForm').querySelector('[name="DATA_ORIENTACAO"]');
     var validationInput=el('itemForm').querySelector('[name="PRAZO"]');
     if(orientationInput&&validationInput){
@@ -513,7 +528,7 @@ window.editItem=function(table,id,stageId,desiredStatus){
     }
   }
 
- if(table==='ATIVIDADES'&&S.canEdit){
+ if(table==='ATIVIDADES'&&fullEdit){
    var depInput=el('itemForm').querySelector('[name="DEPENDE_DE"]');
    var orientationField=el('itemForm').querySelector('[name="DATA_ORIENTACAO"]');
    var validationField=el('itemForm').querySelector('[name="PRAZO"]');
@@ -576,7 +591,7 @@ window.editItem=function(table,id,stageId,desiredStatus){
      }
    }
    var teamPayload={};
-   if(table==='ATIVIDADES'&&S.canEdit){
+   if(table==='ATIVIDADES'&&fullEdit&&can('activities.assign')){
      teamPayload.participantIds=Array.from(document.querySelectorAll('.team-participant:checked')).map(function(c){return c.value});
      teamPayload.homologatorId=el('teamHomologator')?el('teamHomologator').value:'';
    }
