@@ -74,3 +74,12 @@ O banco foi criado na pasta BANCO_DADOS com 16 tabelas, 19 etapas, 70 atividades
 - **Publicação do backend obrigatória:** atualizar o arquivo Code.gs no projeto Google Apps Script e fazer Gerenciar implantações → Editar → Nova versão → Implantar, mantendo a URL /exec. Antes do deploy, a interface impede novos comentários para não sobrescrever conteúdo com a API antiga; as demais telas permanecem disponíveis.
 - Backup antes das alterações: backup/grvmax-antes-historico-observacoes-20261020.
 - Testes feitos em ambiente simulado: preservação de observação antiga, inclusão de dois novos registros, ordenação cronológica, atualização de status por usuário-chave, bloqueio de acesso a atividade não atribuída, modal de histórico e filtros de usuário-chave.
+
+## ATUALIZAÇÃO DE 10/11 — Gestão de permissões por perfil
+- Nova tela **Permissões**, exclusiva do perfil **Administrador**.
+- Selecione Consultor, Gestor, Usuário-chave ou Administrador e marque/desmarque o que cada perfil pode **visualizar** e **executar** em cada módulo. O perfil Administrador é protegido contra alterações, evitando bloqueio acidental do acesso.
+- Permissões granulares: visualização, criação, edição, situação de atividades, observações, equipe, exclusão, homologação de atividades designadas ou geral, e-mails, lembretes, Plano Diretor, GO LIVE e cronograma.
+- **Não é somente ocultar botões:** o Apps Script verifica as permissões de escrita em cada chamada. A API devolve a matriz efetiva e restringe registros conforme o perfil. A alteração vale para todos os usuários do perfil.
+- O banco Sheets cria automaticamente a aba **PERMISSOES** na primeira gravação feita pelo administrador. Uma linha JSON por perfil, com usuário e data de alteração; a auditoria append-only continua na aba LOGS. Antes da primeira gravação são mantidas as permissões anteriores.
+- O frontend usa a ação `save` já permitida pelo Cloudflare Worker: **não precisa republicar o Worker** para usar a tela.
+- **Para ativar:** no Apps Script `COLUMBIA_GRVMAX_API`, substitua o conteúdo de `Código.gs` pelo conteúdo atualizado de `grvmax/Code.gs` e use **Implantar → Gerenciar implantações → Editar → Nova versão → Implantar**. Não é necessário criar nova URL. Em seguida atualize `https://consultoriarf.net/columbia/grvmax/` com Ctrl+Shift+R. A interface anterior continua funcionando até a atualização do backend.
