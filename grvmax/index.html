@@ -33,8 +33,8 @@ var defs={
  PESSOAS:[['NOME','Nome','text','wide'],['EMAIL','E-mail de acesso','email','wide'],['EMPRESA','Empresa','text'],['DEPARTAMENTO','Departamento','text'],['CARGO','Cargo','text'],['PERFIL','Perfil','role'],['ATIVO','Ativo','bool']],
  PENDENCIAS:[['ATIVIDADE_ID','Atividade','activity'],['TITULO','Título','text','wide'],['DESCRICAO','Descrição','textarea','wide'],['RESPONSAVEL_ID','Responsável','person'],['PRIORIDADE','Prioridade','priority'],['STATUS','Situação','pendingStatus'],['IMPACTO','Impacto','textarea','wide'],['PRAZO','Prazo','date']],
  MUDANCAS:[['ETAPA_ID','Etapa','stage'],['ATIVIDADE_ID','Atividade','activity'],['TITULO','Solicitação','text','wide'],['DESCRICAO','Descrição','textarea','wide'],['IMPACTO','Impacto','textarea','wide'],['STATUS','Situação','changeStatus']],
- AGENDA:[['TIPO','Tipo','agendaType'],['TITULO','Compromisso','text','wide'],['DESCRICAO','Descrição','textarea','wide'],['INICIO','Data inicial','date'],['FIM','Data final','date'],['RESPONSAVEL_ID','Responsável','person'],['PARTICIPANTES','Participantes (IDs / observação)','text','wide'],['ATIVIDADE_ID','Atividade','activity'],['STATUS','Situação','agendaStatus']],
- TREINAMENTOS:[['ETAPA_ID','Etapa','stage'],['TITULO','Treinamento','text','wide'],['VIDEO_URL','URL do vídeo','text','wide'],['PARTICIPANTES','Participantes','text','wide'],['DATA','Data','date'],['STATUS','Situação','agendaStatus'],['EVIDENCIA_URL','Evidência','text','wide']],
+ AGENDA:[['TIPO','Tipo','agendaType'],['TITULO','Compromisso','text','wide'],['DESCRICAO','Descrição','textarea','wide'],['INICIO','Data inicial','date'],['FIM','Data final','date'],['RESPONSAVEL_ID','Responsável','person'],['PARTICIPANTES','Participantes','peopleIdsMultiple','wide'],['ATIVIDADE_ID','Atividade','activity'],['STATUS','Situação','agendaStatus']],
+ TREINAMENTOS:[['ETAPA_ID','Etapa','stage'],['TITULO','Treinamento','text','wide'],['VIDEO_URL','URL do vídeo','text','wide'],['PARTICIPANTES','Participantes','peopleIdsMultiple','wide'],['DATA','Data','date'],['STATUS','Situação','agendaStatus'],['EVIDENCIA_URL','Evidência','text','wide']],
  GO_LIVE:[['CRITERIO','Critério','textarea','wide'],['STATUS','Situação','goStatus'],['RESPONSAVEL_ID','Responsável','person'],['EVIDENCIA_URL','Link da evidência','text','wide'],['OBRIGATORIO','Obrigatório','bool']]
 };
 var tableNames={ETAPAS:'Etapa',ATIVIDADES:'Atividade',PESSOAS:'Pessoa',PENDENCIAS:'Pendência',MUDANCAS:'Mudança',AGENDA:'Agenda',TREINAMENTOS:'Treinamento',GO_LIVE:'Critério GO LIVE'};
@@ -60,14 +60,16 @@ function can(key){
  if(S.permissions)return !!S.permissions[key];
  // Compatibilidade durante a publicação da nova versão do Apps Script.
  if(key.startsWith('permissions.'))return false;
- var role=S.me.PERFIL,parts=key.split('.'),mod=parts[0],action=parts[1];
+ var role=S.me.PERFIL==='Usuário-chave'?'Usuário':S.me.PERFIL,parts=key.split('.'),mod=parts[0],action=parts[1];
  if(role==='Administrador')return true;
- if(action==='view')return !(role==='Usuário-chave'&&mod==='plano');
+ if(key.startsWith('approvals.decide')&&!['Administrador','Gestor'].includes(role))return false;
+ if(action==='view')return !(role==='Usuário'&&mod==='plano');
  if(key==='activities.view_all')return role==='Consultor'||role==='Gestor';
- if(['activities.status','activities.comment','approvals.decide','emails.send'].includes(key))return true;
+ if(['activities.status','activities.comment','emails.send'].includes(key))return true;
+ if(key==='approvals.decide')return role==='Gestor';
  if(role!=='Consultor')return false;
  return ['stages.create','stages.edit','stages.schedule','activities.create','activities.edit',
-  'activities.assign','activities.delete','activities.schedule','approvals.decide_all',
+  'activities.assign','activities.delete','activities.schedule',
   'emails.reminders','agenda.create','agenda.edit','pending.create','pending.edit',
   'changes.create','changes.edit','training.create','training.edit','golive.edit'].includes(key);
 }
@@ -231,16 +233,17 @@ function createButton(tbl){return can((tableModules[tbl]||'')+'.create')?'<butto
 
 function permissionsView(root){
  if(!S.canAdmin||!S.permissionMatrix){root.innerHTML='<div class="card">Acesso restrito ao administrador.</div>';return}
- var roles=['Administrador','Consultor','Gestor','Usuário-chave'],locked=permissionsRole==='Administrador';
+ var roles=['Administrador','Consultor','Gestor','Usuário'],locked=permissionsRole==='Administrador';
  var values=S.permissionMatrix[permissionsRole]||{};
+ var approvalForbidden=!['Administrador','Gestor'].includes(permissionsRole);
  root.innerHTML='<div class="card perm-controls"><div><h2 class="sectiontitle">Controle de acesso por perfil</h2><p class="small muted">Marque o que cada perfil pode visualizar e executar. As mudanças valem para todos os usuários desse perfil, inclusive sessões já abertas, e são verificadas no servidor.</p></div>'+
  '<div class="perm-toolbar"><label class="small bold" for="permissionRole">Perfil</label><select class="field" id="permissionRole">'+roles.map(function(role){return '<option value="'+attr(role)+'" '+(role===permissionsRole?'selected':'')+'>'+esc(role)+'</option>'}).join('')+'</select>'+
  (locked?'<span class="pill ok">Administrador: acesso total protegido</span>':'<button type="button" class="btn" id="permAll">Marcar tudo</button><button type="button" class="btn" id="permNone">Desmarcar tudo</button>')+'</div></div>'+
  '<div class="perm-grid">'+permissionGroups.map(function(group){
   return '<section class="card perm-card"><h3>'+esc(group[0])+'</h3><div class="perm-options">'+group[2].map(function(action){
    var key=group[1]+'.'+action[0];
-   return '<label class="perm-item '+(action[0]==='view'?'perm-view':'')+'"><input type="checkbox" data-permission="'+attr(key)+'" data-module="'+attr(group[1])+'" data-action="'+attr(action[0])+'" '+(values[key]?'checked':'')+' '+(locked?'disabled':'')+'><span>'+esc(action[1])+'</span></label>';
-  }).join('')+'</div></section>';
+   return '<label class="perm-item '+(action[0]==='view'?'perm-view':'')+'"><input type="checkbox" data-permission="'+attr(key)+'" data-module="'+attr(group[1])+'" data-action="'+attr(action[0])+'" '+(values[key]&&!((key==='approvals.decide'||key==='approvals.decide_all')&&approvalForbidden)?'checked':'')+' '+(locked||(approvalForbidden&&group[1]==='approvals'&&action[0]!=='view')?'disabled':'')+'><span>'+esc(action[1])+'</span></label>';
+  }).join('')+'</div>'+(approvalForbidden&&group[1]==='approvals'?'<p class="small muted" style="margin-bottom:0">Homologações só podem ser atribuídas a Gestores e Administradores.</p>':'')+'</section>';
  }).join('')+'</div>'+
  '<div class="perm-footer card"><span class="small muted">'+(locked?'O administrador não pode perder o acesso.':'Desmarcar Visualizar bloqueia automaticamente as ações desse módulo. Toda alteração fica registrada no histórico.')+'</span>'+
  (!locked?'<button type="button" class="btn primary" id="savePermissions">Salvar permissões</button>':'')+'</div>';
@@ -250,6 +253,9 @@ function permissionsView(root){
   root.querySelectorAll('input[data-permission]').forEach(function(box){
    var groupView=root.querySelector('input[data-permission="'+box.dataset.module+'.view"]');
    if(box.dataset.action!=='view'){
+    if(box.dataset.module==='approvals'&&approvalForbidden){
+      box.checked=false;box.disabled=true;return;
+    }
     if(groupView&&!groupView.checked)box.checked=false;
     box.disabled=!!groupView&&!groupView.checked;
    }
@@ -409,6 +415,9 @@ function showLog(x){modal('Registro de auditoria','<p><b>'+esc(x.ACAO)+'</b> · 
 function evidenceLink(url){return /^https:\/\//i.test(url||'')?'<a href="'+attr(url)+'" target="_blank" rel="noopener">Abrir ↗</a>':'—'}
 function options(field,type){
  var choices={person:[['','Não definido']].concat(S.people.map(function(p){return [p.ID,p.NOME+' — '+p.EMAIL]})),
+ homologator:[['','Não definido']].concat(S.people.filter(function(p){
+   return p.ATIVO==='SIM'&&['Gestor','Administrador'].includes(p.PERFIL);
+ }).map(function(p){return [p.ID,p.NOME+' — '+p.EMAIL]})),
  stage:[['','Selecione']].concat(S.stages.map(function(p){return [p.ID,p.ORDEM+' — '+p.TITULO]})),
  activity:[['','Não vincular']].concat(S.activities.map(function(p){return [p.ID,p.TITULO]})),
  stagesStatus:['Não iniciada','Em andamento','Aguardando validação','Homologada','Cancelada'],
@@ -417,7 +426,7 @@ function options(field,type){
  changeStatus:['Solicitada','Em análise','Aprovada','Rejeitada','Concluída'],
  agendaType:['Visita','Orientação','Validação','Reunião','Treinamento','Outro'],
  agendaStatus:['Agendado','Em andamento','Concluído','Cancelado'],
- role:['Administrador','Consultor','Gestor','Usuário-chave'],bool:['SIM','NÃO'],goStatus:['Pendente','Em validação','Aprovado','Rejeitado']
+ role:['Administrador','Consultor','Gestor','Usuário'],bool:['SIM','NÃO'],goStatus:['Pendente','Em validação','Aprovado','Rejeitado']
  };
  return (choices[type]||[]).map(function(x){var v=Array.isArray(x)?x[0]:x,t=Array.isArray(x)?x[1]:x;return '<option value="'+attr(v)+'" '+(String(v)===String(field)?'selected':'')+'>'+esc(t)+'</option>'}).join('');
 }
@@ -434,7 +443,8 @@ function formField(f,item,restricted){
  }
  if(type==='homologator'){
    var h=activityTeam(item.ID,'HOMOLOGADOR')[0]||'';
-   return '<div class="fitem wide"><label>Homologador responsável pelo aceite</label><select class="field" id="teamHomologator">'+options(h,'person')+'</select><p class="small muted">Recebe pedidos de validação e pode homologar ou devolver a atividade.</p></div>';
+   var isEligible=S.people.some(function(p){return p.ID===h&&p.ATIVO==='SIM'&&['Gestor','Administrador'].includes(p.PERFIL)});
+   return '<div class="fitem wide"><label>Homologador responsável pelo aceite</label><select class="field" id="teamHomologator">'+options(h,'homologator')+'</select><p class="small muted">Somente Gestores e Administradores ativos podem ser designados.</p>'+(h&&!isEligible?'<div class="hint">O homologador anterior não possui perfil permitido. Selecione um Gestor ou Administrador.</div>':'')+'</div>';
  }
  if(restricted&&['STATUS','OBSERVACAO','EVIDENCIA_URL'].indexOf(k)<0)return '';
  var control;
@@ -481,7 +491,7 @@ window.editItem=function(table,id,stageId,desiredStatus){
  var maySave=fullEdit||limited;
  if(table==='PESSOAS'&&row&&row.PERFIL==='Administrador'&&!S.canAdmin)maySave=false;
  var meRestricted=table==='ATIVIDADES'&&!fullEdit;
- var data=row?Object.assign({},row):{STATUS:'Não iniciada',PRIORIDADE:'Normal',OBRIGATORIA:'SIM',ATIVO:'SIM',PERFIL:'Usuário-chave'};
+ var data=row?Object.assign({},row):{STATUS:'Não iniciada',PRIORIDADE:'Normal',OBRIGATORIA:'SIM',ATIVO:'SIM',PERFIL:'Usuário'};
  if(stageId)data.ETAPA_ID=stageId;
   if(table==='ATIVIDADES'&&!row&&stageId){
     var stDefault=S.stages.find(function(x){return x.ID===stageId});
