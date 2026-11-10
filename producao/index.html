@@ -462,7 +462,7 @@
             <!-- RODAPÉ DO MODAL -->
             <div class="bg-slate-50 px-3.5 sm:px-5 py-2.5 sm:py-3 border-t border-slate-200 flex flex-wrap justify-between items-center gap-2 shrink-0">
                 <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
-                    <button onclick="openAltRenegociationFormModal()" class="px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white rounded-xl font-bold text-xs transition shadow-sm flex items-center gap-1">
+                    <button id="btnAlterarRenegociacao" onclick="openAltRenegociationFormModal()" class="px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white rounded-xl font-bold text-xs transition shadow-sm flex items-center gap-1">
                         <i data-lucide="calendar-cog" class="w-3.5 h-3.5"></i>
                         <span>Alterar Renegociação</span>
                     </button>
@@ -479,7 +479,7 @@
         </div>
     </div>
 
-    <!-- O antigo controle de produção executa somente DEPOIS de validar U_PCP=1.
+    <!-- O controle de produção executa somente após validar U_PCP=1 ou U_VENDEDOR=1.
          O script principal é carregado dinamicamente; a validação não depende do localStorage. -->
     <script>
     (async function validarControleProducao() {
@@ -513,14 +513,18 @@
                 return;
             }
             const permissoes=await response.json();
-            if(Number(permissoes.u_pcp)!==1){
-                bloquear('Acesso restrito a usuários com permissão U_PCP = 1.');
+            if(Number(permissoes.u_pcp)!==1 && Number(permissoes.u_vendedor)!==1){
+                bloquear('Acesso permitido somente a usuários com U_PCP = 1 ou U_VENDEDOR = 1.');
+                return;
+            }
+            if(Number(permissoes.u_vendedor)===1 && !String(permissoes.cod_responsavel??'').trim()){
+                bloquear('Usuário vendedor sem código de responsável na sessão. Saia, entre novamente e, se persistir, confira o cadastro no GRV.');
                 return;
             }
             window.__COL_PROD_PERMISSIONS=permissoes;
             document.body.style.visibility='visible';
             const controle=document.createElement('script');
-            controle.src='./controle.js?v=7.6.8';
+            controle.src='./controle.js?v=7.6.9';
             controle.onload=()=>{
                 if(typeof inicializarProducao==='function')inicializarProducao();
                 else bloquear('O Controle de Produção não pôde ser inicializado.');
