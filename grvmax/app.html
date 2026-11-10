@@ -31,8 +31,8 @@ var defs={
  PESSOAS:[['NOME','Nome','text','wide'],['EMAIL','E-mail de acesso','email','wide'],['EMPRESA','Empresa','text'],['DEPARTAMENTO','Departamento','text'],['CARGO','Cargo','text'],['PERFIL','Perfil','role'],['ATIVO','Ativo','bool']],
  PENDENCIAS:[['ATIVIDADE_ID','Atividade','activity'],['TITULO','Título','text','wide'],['DESCRICAO','Descrição','textarea','wide'],['RESPONSAVEL_ID','Responsável','person'],['PRIORIDADE','Prioridade','priority'],['STATUS','Situação','pendingStatus'],['IMPACTO','Impacto','textarea','wide'],['PRAZO','Prazo','date']],
  MUDANCAS:[['ETAPA_ID','Etapa','stage'],['ATIVIDADE_ID','Atividade','activity'],['TITULO','Solicitação','text','wide'],['DESCRICAO','Descrição','textarea','wide'],['IMPACTO','Impacto','textarea','wide'],['STATUS','Situação','changeStatus']],
- AGENDA:[['TIPO','Tipo','agendaType'],['TITULO','Compromisso','text','wide'],['DESCRICAO','Descrição','textarea','wide'],['INICIO','Data inicial','date'],['FIM','Data final','date'],['RESPONSAVEL_ID','Responsável','person'],['PARTICIPANTES','Participantes (IDs / observação)','text','wide'],['ATIVIDADE_ID','Atividade','activity'],['STATUS','Situação','agendaStatus']],
- TREINAMENTOS:[['ETAPA_ID','Etapa','stage'],['TITULO','Treinamento','text','wide'],['VIDEO_URL','URL do vídeo','text','wide'],['PARTICIPANTES','Participantes','text','wide'],['DATA','Data','date'],['STATUS','Situação','agendaStatus'],['EVIDENCIA_URL','Evidência','text','wide']],
+ AGENDA:[['TIPO','Tipo','agendaType'],['TITULO','Compromisso','text','wide'],['DESCRICAO','Descrição','textarea','wide'],['INICIO','Data inicial','date'],['FIM','Data final','date'],['RESPONSAVEL_ID','Responsável','person'],['PARTICIPANTES','Participantes','peopleIdsMultiple','wide'],['ATIVIDADE_ID','Atividade','activity'],['STATUS','Situação','agendaStatus']],
+ TREINAMENTOS:[['ETAPA_ID','Etapa','stage'],['TITULO','Treinamento','text','wide'],['VIDEO_URL','URL do vídeo','text','wide'],['PARTICIPANTES','Participantes','peopleIdsMultiple','wide'],['DATA','Data','date'],['STATUS','Situação','agendaStatus'],['EVIDENCIA_URL','Evidência','text','wide']],
  GO_LIVE:[['CRITERIO','Critério','textarea','wide'],['STATUS','Situação','goStatus'],['RESPONSAVEL_ID','Responsável','person'],['EVIDENCIA_URL','Link da evidência','text','wide'],['OBRIGATORIO','Obrigatório','bool']]
 };
 var tableNames={ETAPAS:'Etapa',ATIVIDADES:'Atividade',PESSOAS:'Pessoa',PENDENCIAS:'Pendência',MUDANCAS:'Mudança',AGENDA:'Agenda',TREINAMENTOS:'Treinamento',GO_LIVE:'Critério GO LIVE'};
@@ -85,7 +85,7 @@ async function reload(silent){
 }
 function nav(name){if(name==='mine')name='activities';if(name==='activities'&&screen!=='activities')taskScope='mine';screen=name;search='';filterStage='';filterStatus='';filterResponsible='';filterDeadline='';render();}
 function activityTeam(id,type){return (S.vinculos||[]).filter(function(v){return v.ATIVIDADE_ID===id&&v.TIPO===type}).map(function(v){return v.PESSOA_ID})}
-function canApprove(id){return S.canEdit||activityTeam(id,'HOMOLOGADOR').includes(S.me.ID)}
+function canApprove(id){return ['Administrador','Gestor'].includes(S.me.PERFIL)&&(S.me.PERFIL==='Administrador'||activityTeam(id,'HOMOLOGADOR').includes(S.me.ID))}
 function person(id){var x=S.people.find(function(p){return p.ID===id});return x?x.NOME:'—'}
 function stage(id){var x=S.stages.find(function(p){return p.ID===id});return x?x.TITULO:'—'}
 function stageDependencies(st){return String(st&&st.DEPENDE_DE||'').split(/[,;|]/).map(function(id){return S.stages.find(function(x){return x.ID===id.trim()})}).filter(Boolean)}
@@ -99,7 +99,7 @@ function overall(){return S.activities.length?Math.round(S.activities.filter(fun
 function authorized(){return S.canEdit}
 function render(){
  if(!S)return;
- var visibleTabs=S.me.PERFIL==='Usuário-chave'?tabs.map(function(t){return t[0]==='activities'?['activities',t[1],'Minhas atividades']:t}):tabs;
+ var visibleTabs=S.me.PERFIL==='Usuário'?tabs.map(function(t){return t[0]==='activities'?['activities',t[1],'Minhas atividades']:t}):tabs;
   var tab=visibleTabs.find(function(t){return t[0]===screen})||visibleTabs[0];
  var m='<div class="shell"><aside class="nav"><div class="brand"><div class="brand-icon"><img src="https://consultoriarf.net/columbia/LOGO%20MINIMALISTA.png" alt="Consultoria RF"></div><div><b>GRVMAX</b><small>Gestão da Implantação</small></div></div><div class="navlinks">'+visibleTabs.map(function(t){return '<a class="'+(screen===t[0]?'active':'')+'" href="#" data-nav="'+t[0]+'"><span class="ico">'+t[1]+'</span>'+t[2]+'</a>'}).join('')+'</div><div class="navfoot"><strong>COLUMBIA MACHINE</strong><br>Implantação ERP • Ambiente independente</div></aside><div class="area"><header class="top"><div><h1>'+esc(tab[2])+'</h1><span class="small muted">Projeto GRVMAX ERP · Columbia Machine</span></div><div class="top-right"><span class="small muted" id="lastUpdate">Atualizado agora</span><button class="btn" id="refreshBtn" title="Atualizar">↻</button><button class="btn" id="themeBtn" title="Tema">◑</button><button class="btn" id="logoutBtn">Sair</button></div></header><main class="page" id="content"></main></div></div>';
  el('app').innerHTML=m;
@@ -136,7 +136,7 @@ function taskCreator(a){
  if(a.CRIADO_POR_ID)return a.CRIADO_POR_ID;
  var l=(S.logs||[]).find(function(x){return x.ENTIDADE==='ATIVIDADES'&&x.ENTIDADE_ID===a.ID&&x.ACAO==='CRIOU'});return l?l.ATOR_ID:'';
 }
-function taskScopeList(){if(S.me.PERFIL==='Usuário-chave')return S.activities.filter(taskMine);return S.activities.filter(function(a){return taskScope==='all'||taskScope==='mine'&&taskMine(a)||taskScope==='created'&&taskCreator(a)===S.me.ID})}
+function taskScopeList(){if(S.me.PERFIL==='Usuário')return S.activities.filter(taskMine);return S.activities.filter(function(a){return taskScope==='all'||taskScope==='mine'&&taskMine(a)||taskScope==='created'&&taskCreator(a)===S.me.ID})}
 function taskFiltered(xs,includeStatus){
  var today=taskToday(),todayMs=Date.parse(today+'T12:00:00Z'),needle=search.trim().toLocaleLowerCase('pt-BR');
  return xs.filter(function(a){
@@ -153,12 +153,12 @@ function taskFiltered(xs,includeStatus){
  });
 }
 function activitiesView(root){
- var scopes=S.me.PERFIL==='Usuário-chave'?[]:[['mine','Minhas atividades'],['all','Todas as atividades'],['created','Criadas por mim']];
+ var scopes=S.me.PERFIL==='Usuário'?[]:[['mine','Minhas atividades'],['all','Todas as atividades'],['created','Criadas por mim']];
  var stages='<option value="">Todas as etapas</option>'+S.stages.map(function(x){return '<option value="'+attr(x.ID)+'" '+(filterStage===x.ID?'selected':'')+'>'+esc(x.TITULO)+'</option>'}).join('');
  var statuses=['Não iniciada','Orientada','Em execução','Aguardando validação','Devolvida','Homologada','Cancelada'];
  var stat='<option value="">Todas as situações</option>'+statuses.map(function(x){return '<option value="'+attr(x)+'" '+(filterStatus===x?'selected':'')+'>'+esc(x)+'</option>'}).join('');
  var responsible='<option value="">Todos os responsáveis</option>'+S.people.map(function(x){return '<option value="'+attr(x.ID)+'" '+(filterResponsible===x.ID?'selected':'')+'>'+esc(x.NOME)+'</option>'}).join('');
- root.innerHTML='<div class="task-header"><div class="taskviews" role="group" aria-label="Visualização de atividades">'+(S.me.PERFIL==='Usuário-chave'?'<span class="muted small">Atividades atribuídas a você, como responsável, participante ou homologador.</span>':scopes.map(function(v){return '<button type="button" class="btn '+(taskScope===v[0]?'taskview-active':'')+'" data-scope="'+v[0]+'" aria-pressed="'+(taskScope===v[0])+'">'+v[1]+'</button>'}).join(''))+'</div><span class="spacer"></span>'+createButton('ATIVIDADES')+'</div><div class="taskstats" id="taskStats"></div><div class="toolbar taskfilters">'+searchbar()+'<select id="filterStage" class="field task-filter" aria-label="Etapa">'+stages+'</select><select id="filterResponsible" class="field task-filter" aria-label="Responsável">'+responsible+'</select><select id="filterStatus" class="field task-filter" aria-label="Situação">'+stat+'</select><select id="filterDeadline" class="field task-filter" aria-label="Prazo"><option value="">Todos os prazos</option><option value="late" '+(filterDeadline==='late'?'selected':'')+'>Atrasadas</option><option value="today" '+(filterDeadline==='today'?'selected':'')+'>Vencem hoje</option><option value="week" '+(filterDeadline==='week'?'selected':'')+'>Próximos 7 dias</option><option value="none" '+(filterDeadline==='none'?'selected':'')+'>Sem prazo</option></select><button class="btn" id="clearTaskFilters">Limpar filtros</button></div><div id="taskList"></div>';
+ root.innerHTML='<div class="task-header"><div class="taskviews" role="group" aria-label="Visualização de atividades">'+(S.me.PERFIL==='Usuário'?'<span class="muted small">Atividades atribuídas a você, como responsável, participante ou homologador.</span>':scopes.map(function(v){return '<button type="button" class="btn '+(taskScope===v[0]?'taskview-active':'')+'" data-scope="'+v[0]+'" aria-pressed="'+(taskScope===v[0])+'">'+v[1]+'</button>'}).join(''))+'</div><span class="spacer"></span>'+createButton('ATIVIDADES')+'</div><div class="taskstats" id="taskStats"></div><div class="toolbar taskfilters">'+searchbar()+'<select id="filterStage" class="field task-filter" aria-label="Etapa">'+stages+'</select><select id="filterResponsible" class="field task-filter" aria-label="Responsável">'+responsible+'</select><select id="filterStatus" class="field task-filter" aria-label="Situação">'+stat+'</select><select id="filterDeadline" class="field task-filter" aria-label="Prazo"><option value="">Todos os prazos</option><option value="late" '+(filterDeadline==='late'?'selected':'')+'>Atrasadas</option><option value="today" '+(filterDeadline==='today'?'selected':'')+'>Vencem hoje</option><option value="week" '+(filterDeadline==='week'?'selected':'')+'>Próximos 7 dias</option><option value="none" '+(filterDeadline==='none'?'selected':'')+'>Sem prazo</option></select><button class="btn" id="clearTaskFilters">Limpar filtros</button></div><div id="taskList"></div>';
  root.querySelectorAll('[data-scope]').forEach(function(b){b.onclick=function(){taskScope=this.dataset.scope;activitiesView(root)}});
  ['q','filterStage','filterResponsible','filterStatus','filterDeadline'].forEach(function(id){var x=el(id);x[id==='q'?'oninput':'onchange']=function(){if(id==='q')search=this.value;else if(id==='filterStage')filterStage=this.value;else if(id==='filterResponsible')filterResponsible=this.value;else if(id==='filterStatus')filterStatus=this.value;else filterDeadline=this.value;taskRows()}});
  el('clearTaskFilters').onclick=function(){search='';filterStage='';filterStatus='';filterResponsible='';filterDeadline='';activitiesView(root)};
@@ -221,6 +221,7 @@ function showLog(x){modal('Registro de auditoria','<p><b>'+esc(x.ACAO)+'</b> · 
 function evidenceLink(url){return /^https:\/\//i.test(url||'')?'<a href="'+attr(url)+'" target="_blank" rel="noopener">Abrir ↗</a>':'—'}
 function options(field,type){
  var choices={person:[['','Não definido']].concat(S.people.map(function(p){return [p.ID,p.NOME+' — '+p.EMAIL]})),
+ homologator:[['','Não definido']].concat(S.people.filter(function(p){return p.ATIVO==='SIM'&&['Gestor','Administrador'].includes(p.PERFIL)}).map(function(p){return [p.ID,p.NOME+' — '+p.EMAIL]})),
  stage:[['','Selecione']].concat(S.stages.map(function(p){return [p.ID,p.ORDEM+' — '+p.TITULO]})),
  activity:[['','Não vincular']].concat(S.activities.map(function(p){return [p.ID,p.TITULO]})),
  stagesStatus:['Não iniciada','Em andamento','Aguardando validação','Homologada','Cancelada'],
@@ -229,9 +230,19 @@ function options(field,type){
  changeStatus:['Solicitada','Em análise','Aprovada','Rejeitada','Concluída'],
  agendaType:['Visita','Orientação','Validação','Reunião','Treinamento','Outro'],
  agendaStatus:['Agendado','Em andamento','Concluído','Cancelado'],
- role:['Administrador','Consultor','Gestor','Usuário-chave'],bool:['SIM','NÃO'],goStatus:['Pendente','Em validação','Aprovado','Rejeitado']
+ role:['Administrador','Consultor','Gestor','Usuário'],bool:['SIM','NÃO'],goStatus:['Pendente','Em validação','Aprovado','Rejeitado']
  };
  return (choices[type]||[]).map(function(x){var v=Array.isArray(x)?x[0]:x,t=Array.isArray(x)?x[1]:x;return '<option value="'+attr(v)+'" '+(String(v)===String(field)?'selected':'')+'>'+esc(t)+'</option>'}).join('');
+}
+function grvParseLegacyParticipants(raw){
+ var text=String(raw||''),mark='\nOBS:',idx=text.indexOf(mark),memo='',main=text;
+ if(idx>=0){main=text.slice(0,idx);memo=text.slice(idx+mark.length).trim()}
+ var ids=[],notes=[];
+ main.split(/[,;|\n]/).map(function(x){return x.trim()}).filter(Boolean).forEach(function(x){
+  var found=S.people.find(function(p){return p.ID===x||String(p.EMAIL||'').toLowerCase()===x.toLowerCase()||String(p.NOME||'').toLowerCase()===x.toLowerCase()});
+  if(found){if(!ids.includes(found.ID))ids.push(found.ID)}else notes.push(x);
+ });
+ return {ids:ids,memo:[notes.join('; '),memo].filter(Boolean).join('; ')};
 }
 function formField(f,item,restricted){
  var k=f[0],label=f[1],type=f[2],wide=f[3],v=item[k]||'';
@@ -239,14 +250,20 @@ function formField(f,item,restricted){
     var selected=String(v).split(/[,;|]/).map(function(x){return x.trim()}).filter(Boolean);
     return '<div class="fitem wide"><label>Etapas anteriores obrigatórias</label><div class="checkgrid" style="grid-template-columns:repeat(2,minmax(0,1fr));max-height:210px;overflow:auto">'+S.stages.filter(function(st){return st.ID!==item.ID}).map(function(st){return '<label class="checkitem"><input type="checkbox" class="stage-dependency" value="'+attr(st.ID)+'" '+(selected.includes(st.ID)?'checked':'')+'>'+esc(st.ORDEM+' · '+st.TITULO)+'</label>'}).join('')+'</div><p class="small muted">Selecione as predecessoras; é exigida a homologação delas antes de iniciar a etapa.</p></div>';
   }
-  if(type==='peopleMultiple'){
+  if(type==='peopleIdsMultiple'){
+   var parsed=grvParseLegacyParticipants(v),selected=parsed.ids;
+   return '<div class="fitem wide"><label>'+esc(label)+' (selecione as pessoas)</label><div class="checkgrid" style="grid-template-columns:repeat(2,minmax(0,1fr));max-height:230px;overflow:auto">'+S.people.filter(function(p){return p.ATIVO==='SIM'||selected.includes(p.ID)}).map(function(p){
+    return '<label class="checkitem"><input type="checkbox" class="grv-participant-choice" value="'+attr(p.ID)+'" '+(selected.includes(p.ID)?'checked':'')+'>'+esc(p.NOME)+'<div class="tiny muted">'+esc(p.EMAIL||'')+'</div></label>';
+   }).join('')+'</div><label style="margin-top:12px">Observações (opcional)</label><textarea class="field" id="participantNotes" rows="2">'+esc(parsed.memo)+'</textarea></div>';
+ }
+ if(type==='peopleMultiple'){
    var selected=activityTeam(item.ID,'PARTICIPANTE');
    var members=S.people.filter(function(p){return p.ATIVO==='SIM'});
    return '<div class="fitem wide"><label>Participantes (várias pessoas)</label><div class="checkgrid" id="teamChecks" style="grid-template-columns:repeat(2,minmax(0,1fr));max-height:230px;overflow:auto">'+members.map(function(p){return '<label class="checkitem"><input type="checkbox" class="team-participant" value="'+attr(p.ID)+'" '+(selected.includes(p.ID)?'checked':'')+'>'+esc(p.NOME)+'<div class="tiny muted">'+esc(p.EMAIL)+'</div></label>'}).join('')+'</div><p class="small muted">Participantes podem executar e registrar evidências. Inclusões são notificadas por e-mail.</p></div>';
  }
  if(type==='homologator'){
    var h=activityTeam(item.ID,'HOMOLOGADOR')[0]||'';
-   return '<div class="fitem wide"><label>Homologador responsável pelo aceite</label><select class="field" id="teamHomologator">'+options(h,'person')+'</select><p class="small muted">Recebe pedidos de validação e pode homologar ou devolver a atividade.</p></div>';
+   return '<div class="fitem wide"><label>Homologador responsável pelo aceite</label><select class="field" id="teamHomologator">'+options(h,'homologator')+'</select><p class="small muted">Somente Gestores e Administradores ativos podem ser designados.</p></div>';
  }
  if(restricted&&['STATUS','OBSERVACAO','EVIDENCIA_URL'].indexOf(k)<0)return '';
  var control;
@@ -281,7 +298,7 @@ window.editItem=function(table,id,stageId,desiredStatus){
  if(table==='PESSOAS'&&!S.canAdmin){notify('Cadastro restrito ao administrador.',true);return}
  var meRestricted=table==='ATIVIDADES'&&!S.canEdit;
  if(meRestricted&&!row)return;
- var data=row?Object.assign({},row):{STATUS:'Não iniciada',PRIORIDADE:'Normal',OBRIGATORIA:'SIM',ATIVO:'SIM',PERFIL:'Usuário-chave'};
+ var data=row?Object.assign({},row):{STATUS:'Não iniciada',PRIORIDADE:'Normal',OBRIGATORIA:'SIM',ATIVO:'SIM',PERFIL:'Usuário'};
  if(stageId)data.ETAPA_ID=stageId;
  if(table==='ETAPAS'&&!row){data.ORDEM=String(S.stages.length+1);data.PROJETO_ID='PRJ-0001'}
  var fields=defs[table]||[];
@@ -293,6 +310,11 @@ window.editItem=function(table,id,stageId,desiredStatus){
  el('saveItem').onclick=async function(){
    var body=row?{ID:row.ID}:{};if(data.PROJETO_ID)body.PROJETO_ID=data.PROJETO_ID;if(data.ETAPA_ID&&!row)body.ETAPA_ID=data.ETAPA_ID;
    document.querySelectorAll('#itemForm [name]').forEach(function(c){body[c.name]=c.value});
+   if(table==='AGENDA'||table==='TREINAMENTOS'){
+     var participantIds=Array.from(document.querySelectorAll('#itemForm .grv-participant-choice:checked')).map(function(c){return c.value});
+     var participantMemo=(el('participantNotes')&&el('participantNotes').value||'').trim();
+     body.PARTICIPANTES=participantIds.join(',')+(participantMemo?'\nOBS:'+participantMemo:'');
+   }
    if(table==='ETAPAS'){
      body.DEPENDE_DE=Array.from(document.querySelectorAll('#itemForm .stage-dependency:checked')).map(function(c){return c.value}).join(',');
      if(body.DATA_INICIO&&body.DATA_FIM&&body.DATA_FIM<body.DATA_INICIO){notify('Fim previsto anterior ao início.',true);return;}
