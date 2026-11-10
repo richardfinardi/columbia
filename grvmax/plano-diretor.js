@@ -109,7 +109,7 @@ function report(s){
  return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GRVMAX | Plano Diretor | '+e(moment())+'</title><style>'+css+'</style></head><body><div class="tools"><span>PLANO DIRETOR · COLUMBIA · Emissão '+e(moment())+'</span><button type="button" onclick="window.print()">Imprimir / Salvar PDF</button></div><article class="paper">'+blocks.join(String.fromCharCode(10))+'</article></body></html>';
 }
 function render(root,s,api){
- if(!s.permissions||!s.permissions['plano.view']){root.innerHTML='<div class="card">Acesso ao Plano Diretor restrito à coordenação do projeto.</div>';return}
+ if(s.permissions?!s.permissions['plano.view']:(s.me&&s.me.PERFIL==='Usuário-chave')){root.innerHTML='<div class="card">Acesso ao Plano Diretor restrito à coordenação do projeto.</div>';return}
  var stages=sortedStages(s),stats=finishStatus(s),due=(s.activities||[]).filter(late).length;
  root.innerHTML='<div class="card" style="margin-bottom:18px"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:15px;flex-wrap:wrap"><div><div style="font-size:12px;color:var(--sub);font-weight:bold">COLUMBIA · GRVMAX ERP</div><h2 style="font-size:23px;margin:7px 0">Plano Diretor integrado</h2><p class="muted small">O documento reúne o escopo original, o cronograma vigente, as etapas, atividades, dependências, homologações, pendências e condições do GO LIVE.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" id="grvPlanPreview">Visualizar</button><button type="button" class="btn primary" id="grvPlanPrint">Imprimir / PDF</button></div></div><p class="small muted">Ao abrir o documento, os dados são consultados novamente na API. Altere as datas e situações nas telas de Etapas, Atividades e GO LIVE; a próxima emissão refletirá as mudanças.</p></div>';
  root.innerHTML+='<div class="statgrid"><div class="stat"><div class="muted">Execução geral</div><div class="value">'+stats.pct+'%</div></div><div class="stat"><div class="muted">Etapas</div><div class="value">'+stages.length+'</div></div><div class="stat"><div class="muted">Atividades</div><div class="value">'+stats.total+'</div></div><div class="stat"><div class="muted">Atrasadas</div><div class="value">'+due+'</div></div><div class="stat"><div class="muted">Pendências abertas</div><div class="value">'+(s.pending||[]).filter(function(x){return !['Resolvida','Cancelada'].includes(x.STATUS)}).length+'</div></div></div>';
@@ -124,7 +124,7 @@ async function launch(s,api,printNow){
  try{
   var current=await api('state',{});
   if(!current || !current.ok && !current.project)throw Error('Dados da aplicação indisponíveis.');
-  if(!current.permissions||!current.permissions['plano.view'])throw Error('Acesso não autorizado ao Plano Diretor completo.');
+  if(current.permissions?!current.permissions['plano.view']:(current.me&&current.me.PERFIL==='Usuário-chave'))throw Error('Acesso não autorizado ao Plano Diretor completo.');
   var html=report(current);
   win.document.open();win.document.write(html);win.document.close();
   if(printNow)win.setTimeout(function(){win.focus();win.print()},900);
