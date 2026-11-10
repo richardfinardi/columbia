@@ -397,9 +397,9 @@ function emailsView(root){
  root.innerHTML='<div class="toolbar"><span class="small muted">Envie mensagens aos participantes. Toda tentativa, sucesso e falha ficam registrados.</span><span class="spacer"></span>'+(can('emails.send')?'<button class="btn primary" onclick="compose()">✉ Nova comunicação</button>':'')+'</div><div class="card"><div class="flex wrap"><h3 class="sectiontitle">Histórico de envios</h3>'+(can('emails.reminders')?'<button class="btn right" onclick="sendReminders()">Disparar lembretes de prazo</button>':'')+(can('emails.schedule')?'<button class="btn" onclick="installReminders()">Ativar lembretes diários</button>':'')+'</div><div class="tablewrap"><table class="grid"><tr><th>Data</th><th>Destinatário</th><th>Assunto</th><th>Status</th><th>Enviado por</th></tr>'+S.emails.slice(0,120).map(function(e){return '<tr><td>'+fmt(e.DATA)+'</td><td>'+esc(e.DESTINATARIOS)+'</td><td class="title">'+esc(e.ASSUNTO)+'</td><td>'+badge(e.STATUS)+'</td><td>'+esc(person(e.ENVIADO_POR))+'</td></tr>'}).join('')+'</table>'+(S.emails.length?'':'<div class="empty">Nenhuma comunicação enviada ainda.</div>')+'</div></div>';
 }
 function genericView(root,table,items){
- var col={AGENDA:['TITULO','TIPO','INICIO','RESPONSAVEL_ID','STATUS'],PENDENCIAS:['TITULO','PRIORIDADE','PRAZO','RESPONSAVEL_ID','STATUS'],MUDANCAS:['TITULO','IMPACTO','STATUS'],TREINAMENTOS:['TITULO','DATA','VIDEO_URL','STATUS']}[table]||[];
- var labels={TITULO:'Título',TIPO:'Tipo',INICIO:'Data',RESPONSAVEL_ID:'Responsável',PRIORIDADE:'Prioridade',PRAZO:'Prazo',STATUS:'Status',IMPACTO:'Impacto',DATA:'Data',VIDEO_URL:'Material'};
- root.innerHTML='<div class="toolbar"><span class="small muted">'+items.length+' registros</span><span class="spacer"></span>'+createButton(table)+'</div><div class="tablewrap"><table class="grid"><tr>'+col.map(function(c){return '<th>'+esc(labels[c]||c)+'</th>'}).join('')+'<th></th></tr>'+items.map(function(x){return '<tr>'+col.map(function(c){var v=x[c]||'';if(c==='RESPONSAVEL_ID')v=person(v);if(c==='STATUS')return '<td>'+badge(v)+'</td>';if(c==='VIDEO_URL')return '<td>'+evidenceLink(v)+'</td>';if(c==='DATA'||c==='PRAZO'||c==='INICIO')v=fmt(v);return '<td class="'+(c==='TITULO'?'title':'')+'">'+esc(v)+'</td>'}).join('')+'<td>'+(can((tableModules[table]||'')+'.view')?'<button class="link" onclick="editItem(\''+table+'\',\''+x.ID+'\')">Abrir</button>':'')+'</td></tr>'}).join('')+'</table>'+(items.length?'':'<div class="empty">Ainda não há registros.</div>')+'</div>';
+ var col={AGENDA:['TITULO','TIPO','INICIO','RESPONSAVEL_ID','PARTICIPANTES','STATUS'],PENDENCIAS:['TITULO','PRIORIDADE','PRAZO','RESPONSAVEL_ID','STATUS'],MUDANCAS:['TITULO','IMPACTO','STATUS'],TREINAMENTOS:['TITULO','DATA','PARTICIPANTES','VIDEO_URL','STATUS']}[table]||[];
+ var labels={TITULO:'Título',TIPO:'Tipo',INICIO:'Data',RESPONSAVEL_ID:'Responsável',PRIORIDADE:'Prioridade',PRAZO:'Prazo',STATUS:'Status',IMPACTO:'Impacto',DATA:'Data',VIDEO_URL:'Material',PARTICIPANTES:'Participantes'};
+ root.innerHTML='<div class="toolbar"><span class="small muted">'+items.length+' registros</span><span class="spacer"></span>'+createButton(table)+'</div><div class="tablewrap"><table class="grid"><tr>'+col.map(function(c){return '<th>'+esc(labels[c]||c)+'</th>'}).join('')+'<th></th></tr>'+items.map(function(x){return '<tr>'+col.map(function(c){var v=x[c]||'';if(c==='RESPONSAVEL_ID')v=person(v);if(c==='PARTICIPANTES')v=participantsLabel(v);if(c==='STATUS')return '<td>'+badge(v)+'</td>';if(c==='VIDEO_URL')return '<td>'+evidenceLink(v)+'</td>';if(c==='DATA'||c==='PRAZO'||c==='INICIO')v=fmt(v);return '<td class="'+(c==='TITULO'?'title':'')+'">'+esc(v)+'</td>'}).join('')+'<td>'+(can((tableModules[table]||'')+'.view')?'<button class="link" onclick="editItem(\''+table+'\',\''+x.ID+'\')">Abrir</button>':'')+'</td></tr>'}).join('')+'</table>'+(items.length?'':'<div class="empty">Ainda não há registros.</div>')+'</div>';
 }
 function goLiveView(root){
  var accepted=S.goLive.filter(function(x){return x.STATUS==='Aprovado'}).length,total=S.goLive.filter(function(x){return x.OBRIGATORIO==='SIM'}).length,critical=S.pending.filter(function(x){return x.PRIORIDADE==='Crítica'&&!['Resolvida','Cancelada'].includes(x.STATUS)}).length;
@@ -430,13 +430,48 @@ function options(field,type){
  };
  return (choices[type]||[]).map(function(x){var v=Array.isArray(x)?x[0]:x,t=Array.isArray(x)?x[1]:x;return '<option value="'+attr(v)+'" '+(String(v)===String(field)?'selected':'')+'>'+esc(t)+'</option>'}).join('');
 }
+
+/* Normaliza a lista de pessoas e preserva observações legadas em PARTiCIPANTES. */
+function parseParticipants(raw){
+ var text=String(raw||''),mark='\nOBS:',idx=text.indexOf(mark),memo='',main=text;
+ if(idx>=0){main=text.slice(0,idx);memo=text.slice(idx+mark.length).trim()}
+ var ids=[],unknown=[],users=S&&S.people||[];
+ main.split(/[,;|\n]/).map(function(x){return x.trim()}).filter(Boolean).forEach(function(x){
+  var match=users.find(function(p){
+   return p.ID===x||String(p.EMAIL||'').toLocaleLowerCase('pt-BR')===x.toLocaleLowerCase('pt-BR')||
+    String(p.NOME||'').toLocaleLowerCase('pt-BR')===x.toLocaleLowerCase('pt-BR');
+  });
+  if(match){if(!ids.includes(match.ID))ids.push(match.ID)}
+  else unknown.push(x);
+ });
+ return {ids:ids,memo:[unknown.join('; '),memo].filter(Boolean).join('; ')};
+}
+function participantsLabel(raw){
+ var parsed=parseParticipants(raw),text=parsed.ids.map(person).join(', ');
+ return [text,parsed.memo].filter(Boolean).join(' • ')||'—';
+}
+
 function formField(f,item,restricted){
  var k=f[0],label=f[1],type=f[2],wide=f[3],v=item[k]||'';
  if(type==='stageMultiple'){
     var selected=String(v).split(/[,;|]/).map(function(x){return x.trim()}).filter(Boolean);
     return '<div class="fitem wide"><label>Etapas anteriores obrigatórias</label><div class="checkgrid" style="grid-template-columns:repeat(2,minmax(0,1fr));max-height:210px;overflow:auto">'+S.stages.filter(function(st){return st.ID!==item.ID}).map(function(st){return '<label class="checkitem"><input type="checkbox" class="stage-dependency" value="'+attr(st.ID)+'" '+(selected.includes(st.ID)?'checked':'')+'>'+esc(st.ORDEM+' · '+st.TITULO)+'</label>'}).join('')+'</div><p class="small muted">Selecione as predecessoras; é exigida a homologação delas antes de iniciar a etapa.</p></div>';
   }
-  if(type==='peopleMultiple'){
+  if(type==='peopleIdsMultiple'){
+   var parsed=parseParticipants(v),selected=parsed.ids;
+   var members=S.people.filter(function(p){return p.ATIVO==='SIM'||selected.includes(p.ID)});
+   return '<div class="fitem wide"><label>'+esc(label)+' (selecione as pessoas)</label>'+
+    '<div class="toolbar" style="margin:10px 0"><input class="field search" type="search" id="participantPeopleSearch" placeholder="Buscar pessoa..." aria-label="Buscar participante">'+
+    '<button type="button" class="btn" id="participantSelectAll">Selecionar todos</button>'+
+    '<button type="button" class="btn" id="participantClear">Limpar</button></div>'+
+    '<div class="checkgrid" id="participantChoices" style="grid-template-columns:repeat(2,minmax(0,1fr));max-height:230px;overflow:auto">'+members.map(function(p){
+      return '<label class="checkitem grv-participant-person"><input type="checkbox" class="grv-participant-choice" value="'+attr(p.ID)+'" '+(selected.includes(p.ID)?'checked':'')+'>'+esc(p.NOME)+'<div class="tiny muted">'+esc(p.EMAIL||'')+(p.ATIVO!=='SIM'?' • Inativo':'')+'</div></label>';
+    }).join('')+'</div>'+
+    '<p class="small muted" id="participantCount">'+selected.length+' pessoa(s) selecionada(s)</p>'+
+    '<label style="margin-top:12px">Observações (opcional)</label>'+
+    '<textarea class="field" rows="2" maxlength="1800" id="participantNotes" placeholder="Informações adicionais sobre os participantes">'+esc(parsed.memo)+'</textarea></div>';
+ }
+ if(type==='peopleMultiple'){
    var selected=activityTeam(item.ID,'PARTICIPANTE');
    var members=S.people.filter(function(p){return p.ATIVO==='SIM'});
    return '<div class="fitem wide"><label>Participantes (várias pessoas)</label><div class="checkgrid" id="teamChecks" style="grid-template-columns:repeat(2,minmax(0,1fr));max-height:230px;overflow:auto">'+members.map(function(p){return '<label class="checkitem"><input type="checkbox" class="team-participant" value="'+attr(p.ID)+'" '+(selected.includes(p.ID)?'checked':'')+'>'+esc(p.NOME)+'<div class="tiny muted">'+esc(p.EMAIL)+'</div></label>'}).join('')+'</div><p class="small muted">Participantes podem executar e registrar evidências. Inclusões são notificadas por e-mail.</p></div>';
@@ -537,6 +572,28 @@ window.editItem=function(table,id,stageId,desiredStatus){
    };
  }
 
+ var participantSearch=el('participantPeopleSearch'),partGrid=el('participantChoices');
+ if(participantSearch&&partGrid){
+   var participantCount=function(){
+     var selected=partGrid.querySelectorAll('.grv-participant-choice:checked').length;
+     if(el('participantCount'))el('participantCount').textContent=selected+' pessoa(s) selecionada(s)';
+   };
+   participantSearch.oninput=function(){
+     var q=this.value.trim().toLocaleLowerCase('pt-BR');
+     partGrid.querySelectorAll('.grv-participant-person').forEach(function(label){
+       label.classList.toggle('hidden',!!q&&!label.textContent.toLocaleLowerCase('pt-BR').includes(q));
+     });
+   };
+   el('participantSelectAll').onclick=function(){
+     partGrid.querySelectorAll('.grv-participant-person:not(.hidden) input').forEach(function(x){x.checked=true});
+     participantCount();
+   };
+   el('participantClear').onclick=function(){
+     partGrid.querySelectorAll('input').forEach(function(x){x.checked=false});
+     participantCount();
+   };
+   partGrid.onchange=participantCount;
+ }
  if(!maySave){
    el('itemForm').querySelectorAll('input,select,textarea,button').forEach(function(x){x.disabled=true});
    return;
@@ -583,6 +640,11 @@ window.editItem=function(table,id,stageId,desiredStatus){
  el('saveItem').onclick=async function(){
    var body=row?{ID:row.ID}:{};if(data.PROJETO_ID)body.PROJETO_ID=data.PROJETO_ID;if(data.ETAPA_ID&&!row)body.ETAPA_ID=data.ETAPA_ID;
    document.querySelectorAll('#itemForm [name]').forEach(function(c){body[c.name]=c.value});
+   if(table==='AGENDA'||table==='TREINAMENTOS'){
+     var ids=Array.from(el('itemForm').querySelectorAll('.grv-participant-choice:checked')).map(function(c){return c.value});
+     var memo=(el('participantNotes')&&el('participantNotes').value||'').trim();
+     body.PARTICIPANTES=ids.join(',')+(memo?'\nOBS:'+memo:'');
+   }
    if(table==='ETAPAS'){
      body.DEPENDE_DE=Array.from(document.querySelectorAll('#itemForm .stage-dependency:checked')).map(function(c){return c.value}).join(',');
      if(body.DATA_INICIO&&body.DATA_FIM&&body.DATA_FIM<body.DATA_INICIO){notify('Fim previsto anterior ao início.',true);return;}
