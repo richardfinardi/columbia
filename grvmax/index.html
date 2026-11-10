@@ -490,12 +490,8 @@ window.editItem=function(table,id,stageId,desiredStatus){
    info='<div class="hint" style="margin-bottom:17px">Período automático: início = primeira orientação; fim = última validação. Para mudar as datas, altere as atividades da etapa.</div>';
 
  if(row&&table==='ATIVIDADES')info+='<p class="small muted"><b>Status:</b> '+esc(row.STATUS)+' · <b>Responsável principal:</b> '+esc(person(row.RESPONSAVEL_ID))+' · <b>Participantes:</b> '+esc(activityTeam(row.ID,'PARTICIPANTE').map(person).join(', ')||'Nenhum')+' · <b>Homologador:</b> '+esc(person(activityTeam(row.ID,'HOMOLOGADOR')[0]))+' · <b>Homologada por:</b> '+esc(person(row.HOMOLOGADO_POR))+'</p>';
- modal((row?(maySave?'Editar ':'Detalhes de '):'Nova ')+(tableNames[table]||table),info+'<form id="itemForm"><div class="formgrid">'+fields.map(function(f){return formField(f,data,meRestricted)}).join('')+'</div></form>'+(table==='ATIVIDADES'?(row?(can('activities.comment')&&maySave?activityNewNoteHtml(row):activityNotesHtml(row)):(can('activities.comment')?activityNewNoteHtml(null):'')):''),(row&&table==='ATIVIDADES'&&canApprove(row.ID)&&['Aguardando validação','Devolvida','Em execução'].includes(row.STATUS)?'<button class="btn" onclick="approveItem(\''+row.ID+'\')">Homologar / devolver</button>':'')+(row&&table==='ATIVIDADES'&&can('activities.delete')?'<button class="btn danger" type="button" id="deleteActivityBtn">Excluir atividade</button>':'')+'<button class="btn" onclick="closePop()">'+(maySave?'Cancelar':'Fechar')+'</button>'+(maySave?'<button class="btn primary" data-save id="saveItem">Salvar alterações</button>':''));
+ modal((row?(maySave?'Editar ':'Detalhes de '):'Nova ')+(tableNames[table]||table),info+'<form id="itemForm"><div class="formgrid">'+fields.map(function(f){return formField(f,data,meRestricted&&maySave)}).join('')+'</div></form>'+(table==='ATIVIDADES'?(row?(can('activities.comment')&&maySave?activityNewNoteHtml(row):activityNotesHtml(row)):(can('activities.comment')?activityNewNoteHtml(null):'')):''),(row&&table==='ATIVIDADES'&&canApprove(row.ID)&&['Aguardando validação','Devolvida','Em execução'].includes(row.STATUS)?'<button class="btn" onclick="approveItem(\''+row.ID+'\')">Homologar / devolver</button>':'')+(row&&table==='ATIVIDADES'&&can('activities.delete')?'<button class="btn danger" type="button" id="deleteActivityBtn">Excluir atividade</button>':'')+'<button class="btn" onclick="closePop()">'+(maySave?'Cancelar':'Fechar')+'</button>'+(maySave?'<button class="btn primary" data-save id="saveItem">Salvar alterações</button>':''));
 
- if(!maySave){
-   el('itemForm').querySelectorAll('input,select,textarea,button').forEach(function(x){x.disabled=true});
-   return;
- }
  if(row&&table==='ATIVIDADES'&&can('activities.delete')){
    var deleteButton=el('deleteActivityBtn');
    deleteButton.onclick=async function(){
@@ -516,6 +512,10 @@ window.editItem=function(table,id,stageId,desiredStatus){
    };
  }
 
+ if(!maySave){
+   el('itemForm').querySelectorAll('input,select,textarea,button').forEach(function(x){x.disabled=true});
+   return;
+ }
  if(table==='ATIVIDADES'&&fullEdit){
     var orientationInput=el('itemForm').querySelector('[name="DATA_ORIENTACAO"]');
     var validationInput=el('itemForm').querySelector('[name="PRAZO"]');
