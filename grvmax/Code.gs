@@ -13,7 +13,13 @@ const GRV_ENTITIES = ['PROJETOS','ETAPAS','ATIVIDADES','PESSOAS','VINCULOS','HOM
 const GRV_EDITABLE = ['ETAPAS','ATIVIDADES','PESSOAS','PENDENCIAS','MUDANCAS','AGENDA','TREINAMENTOS','GO_LIVE'];
 const GRV_MANAGERS = ['Administrador','Consultor'];
 const GRV_ACTIVITY_STATUS = ['Não iniciada','Orientada','Em execução','Aguardando validação','Devolvida','Homologada','Cancelada'];
-const GRV_ROLES = ['Administrador','Consultor','Gestor','Usuário-chave'];
+const GRV_ROLES = ['Administrador','Consultor','Gestor','Usuário'];
+function grvNormalizeRole(role){
+  return String(role||'').trim()==='Usuário-chave'?'Usuário':String(role||'').trim();
+}
+function grvHomologatorRole(role){
+  return ['Administrador','Gestor'].includes(grvNormalizeRole(role));
+}
 
 /* Permissões persistidas em aba PERMISSOES: uma linha JSON por perfil. */
 const GRV_PERMISSION_MODULES={
@@ -38,13 +44,12 @@ function grvPermissionDefaults(role){
   if(role==='Administrador')return result;
   const views=['dashboard','stages','activities','approvals','people','emails',
     'agenda','pending','changes','training','golive','history'];
-  if(role!=='Usuário-chave')views.push('plano');
+  if(role!=='Usuário')views.push('plano');
   views.forEach(m=>result[m+'.view']=true);
   if(['Consultor','Gestor'].includes(role))result['activities.view_all']=true;
-  ['activities.status','activities.comment','approvals.decide','emails.send']
-    .forEach(k=>result[k]=true);
+  ['activities.status','activities.comment','emails.send'].forEach(k=>result[k]=true);
+  if(role==='Gestor')result['approvals.decide']=true;
   if(role==='Consultor'){
-    result['approvals.decide_all']=true;
     ['stages.create','stages.edit','stages.schedule','activities.create',
       'activities.edit','activities.assign','activities.delete','activities.schedule',
       'emails.reminders','agenda.create','agenda.edit','pending.create','pending.edit',
@@ -58,33 +63,49 @@ function grvPermissionMatrix(){
   const matrix={};GRV_ROLES.forEach(role=>matrix[role]=grvPermissionDefaults(role));
   const sheet=grvSS().getSheetByName('PERMISSOES');
   if(sheet&&sheet.getLastRow()>1){
+    const preferred={};
     sheet.getRange(2,1,sheet.getLastRow()-1,2).getDisplayValues().forEach(row=>{
-      const role=row[0];if(!GRV_ROLES.includes(role)||role==='Administrador')return;
+      const role=grvNormalizeRole(row[0]);
+      if(!GRV_ROLES.includes(role)||role==='Administrador')return;
+      // Preferir registro com nome atual caso existam linhas antigas e novas.
+      if(!preferred[role]||row[0]===role)preferred[role]=row;
+    });
+    Object.keys(preferred).forEach(role=>{
       try{
-        const data=JSON.parse(row[1]||'{}');
+        const data=JSON.parse(preferred[role][1]||'{}');
         if(!data||typeof data!=='object'||Array.isArray(data))return;
         grvPermissionKeys().forEach(k=>{if(typeof data[k]==='boolean')matrix[role][k]=data[k];});
       }catch(ignored){}
     });
   }
+  // Homologação é prerrogativa obrigatória de Gestor ou Administrador.
+  ['Consultor','Usuário'].forEach(role=>{
+    matrix[role]['approvals.decide']=false;
+    matrix[role]['approvals.decide_all']=false;
+  });
   GRV_PERM_CACHE=matrix;return matrix;
 }
 function grvCan(who,key){
-  if(!who||!GRV_ROLES.includes(who.PERFIL)||!grvPermissionKeys().includes(key))return false;
-  if(who.PERFIL==='Administrador')return true;
+  const role=grvNormalizeRole(who&&who.PERFIL);
+  if(!GRV_ROLES.includes(role)||!grvPermissionKeys().includes(key))return false;
+  if(role==='Administrador')return true;
   if(key.startsWith('permissions.'))return false;
-  const allowed=grvPermissionMatrix()[who.PERFIL]||{},module=key.split('.')[0];
+  if(key.startsWith('approvals.decide')&&!grvHomologatorRole(role))return false;
+  const allowed=grvPermissionMatrix()[role]||{},module=key.split('.')[0];
   return !!allowed[key]&&(key.endsWith('.view')||!!allowed[module+'.view']);
 }
 function grvSavePermissions(who,p){
   if(who.PERFIL!=='Administrador')throw Error('Somente administradores podem alterar permissões.');
-  const role=String(p.role||''),data=p.permissions;
+  const role=grvNormalizeRole(p.role),data=p.permissions;
   if(!GRV_ROLES.includes(role)||role==='Administrador')throw Error('O perfil Administrador é protegido e não pode ser alterado.');
   if(!data||typeof data!=='object'||Array.isArray(data))throw Error('Matriz de permissões inválida.');
   const keys=grvPermissionKeys();
   if(Object.keys(data).some(k=>!keys.includes(k)))throw Error('Permissão desconhecida.');
   const clean={};keys.forEach(k=>{
-    if(k.startsWith('permissions.')){clean[k]=false;return;}
+    if(k.startsWith('permissions.')||
+      (k.startsWith('approvals.decide')&&!grvHomologatorRole(role))){
+      clean[k]=false;return;
+    }
     if(typeof data[k]!=='boolean')throw Error('Matriz incompleta.');
     const m=k.split('.')[0];clean[k]=!!data[k]&&(k.endsWith('.view')||!!data[m+'.view']);
   });
@@ -93,7 +114,7 @@ function grvSavePermissions(who,p){
     const sheet=grvSS().getSheetByName('PERMISSOES')||grvSS().insertSheet('PERMISSOES');
     if(!sheet.getLastRow())sheet.appendRow(['PERFIL','REGRAS_JSON','ATUALIZADO_EM','ATUALIZADO_POR']);
     const rows=sheet.getLastRow()>1?sheet.getRange(2,1,sheet.getLastRow()-1,1).getDisplayValues().flat():[];
-    const idx=rows.indexOf(role),row=[role,JSON.stringify(clean),grvNow(),who.EMAIL];
+    const idx=rows.findIndex(saved=>grvNormalizeRole(saved)===role),row=[role,JSON.stringify(clean),grvNow(),who.EMAIL];
     if(idx>=0)sheet.getRange(idx+2,1,1,4).setValues([row]);
     else sheet.appendRow(row);
     GRV_PERM_CACHE=null;
@@ -173,7 +194,9 @@ function grvTable(name) {
 function grvRows(name) {
   const t=grvTable(name),last=t.s.getLastRow(); if(last<2) return [];
   return t.s.getRange(2,1,last-1,t.heads.length).getDisplayValues().map((r,i)=>{
-    const o={};t.heads.forEach((h,j)=>o[h]=r[j]);o._row=i+2;return o;
+    const o={};t.heads.forEach((h,j)=>o[h]=r[j]);
+    if(name==='PESSOAS')o.PERFIL=grvNormalizeRole(o.PERFIL);
+    o._row=i+2;return o;
   }).filter(x=>x.ID || (name==='CONFIG' && x.CHAVE));
 }
 function grvFind(name,id) {return grvRows(name).find(r=>r.ID===id)||null;}
@@ -521,7 +544,7 @@ function grvSave(who,p){
     if(!full&&old.STATUS==='Homologada')throw Error('Atividade homologada está bloqueada para alterações. Peça reabertura à consultoria.');
     const t=grvTable(table);let next=old?{...old}:{};
     if(!full){
-      // Usuário-chave pode atualizar a situação das atividades atribuídas a ele.
+      // Usuário pode atualizar a situação das atividades atribuídas a ele.
       // Homologação continua restrita ao fluxo formal de aprovação.
       const allow=new Set(['ID','STATUS','EVIDENCIA_URL','OBSERVACAO']);
       if(Object.keys(body).some(k=>!allow.has(k)))throw Error('Campo restrito para este perfil.');
@@ -536,9 +559,9 @@ function grvSave(who,p){
         throw Error('Somente administradores podem alterar o e-mail de acesso.');
       if((body.PERFIL!==undefined&&old&&String(body.PERFIL)!==old.PERFIL)||
          (body.ATIVO!==undefined&&old&&String(body.ATIVO)!==old.ATIVO)||
-         (!old&&body.PERFIL&&body.PERFIL!=='Usuário-chave'))
+         (!old&&body.PERFIL&&body.PERFIL!=='Usuário'))
         throw Error('Somente administradores atribuem perfis e alteram situação de usuários.');
-      next.PERFIL=old?old.PERFIL:'Usuário-chave';
+      next.PERFIL=old?old.PERFIL:'Usuário';
       next.ATIVO=old?old.ATIVO:'SIM';
     }
     if(table==='ATIVIDADES'){
@@ -578,12 +601,14 @@ function grvSave(who,p){
     }
     let previousTeam=[],currentTeam=[];
     if(changingTeam){
-      const valid=grvRows('PESSOAS').filter(x=>x.ATIVO==='SIM').map(x=>x.ID);
+      const activePeople=grvRows('PESSOAS').filter(x=>x.ATIVO==='SIM');
+      const valid=new Set(activePeople.map(x=>x.ID));
       const participants=[...new Set((p.participantIds||[]).map(String).filter(Boolean))];
       const homologator=String(p.homologatorId||'');
       if(participants.length>30)throw Error('Limite de 30 participantes por atividade.');
-      if(participants.some(id=>!valid.includes(id)))throw Error('Há participantes inválidos ou inativos.');
-      if(homologator&&!valid.includes(homologator))throw Error('Homologador inválido ou inativo.');
+      if(participants.some(id=>!valid.has(id)))throw Error('Há participantes inválidos ou inativos.');
+      if(homologator&&!activePeople.some(x=>x.ID===homologator&&grvHomologatorRole(x.PERFIL)))
+        throw Error('Homologador deve ser um Gestor ou Administrador ativo.');
       previousTeam=grvRows('VINCULOS').filter(x=>x.ATIVIDADE_ID===next.ID&&['PARTICIPANTE','HOMOLOGADOR'].includes(x.TIPO));
       currentTeam=participants.map(id=>({PESSOA_ID:id,TIPO:'PARTICIPANTE'}));
       if(homologator)currentTeam.push({PESSOA_ID:homologator,TIPO:'HOMOLOGADOR'});
@@ -664,6 +689,8 @@ function grvDeleteActivity(who,p) {
 }
 
 function grvApprove(who,p){
+  if(!grvHomologatorRole(who.PERFIL))
+    throw Error('Somente Gestor ou Administrador pode homologar atividades.');
   if(!grvCan(who,'approvals.decide') || (!grvCan(who,'approvals.decide_all') && !grvRows('VINCULOS').some(v=>v.TIPO==='HOMOLOGADOR'&&v.ATIVIDADE_ID===String(p.id||'')&&v.PESSOA_ID===who.ID)))throw Error('Sem permissão para homologar esta atividade.');
   const id=String(p.id||''),decision=String(p.decision||''),note=String(p.note||'').trim();
   if(!['Homologada','Devolvida'].includes(decision))throw Error('Decisão inválida.');
