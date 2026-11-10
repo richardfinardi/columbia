@@ -55,7 +55,22 @@ var permissionGroups=[
  ['GO LIVE','golive',[['view','Visualizar'],['edit','Editar critérios'],['decide','Autorizar GO / NO-GO']]],
  ['Histórico / Logs','history',[['view','Visualizar']]]
 ];
-function can(key){return !!(S&&S.permissions&&S.permissions[key])}
+function can(key){
+ if(!S||!S.me)return false;
+ if(S.permissions)return !!S.permissions[key];
+ // Compatibilidade durante a publicação da nova versão do Apps Script.
+ if(key.startsWith('permissions.'))return false;
+ var role=S.me.PERFIL,parts=key.split('.'),mod=parts[0],action=parts[1];
+ if(role==='Administrador')return true;
+ if(action==='view')return !(role==='Usuário-chave'&&mod==='plano');
+ if(key==='activities.view_all')return role==='Consultor'||role==='Gestor';
+ if(['activities.status','activities.comment','approvals.decide','emails.send'].includes(key))return true;
+ if(role!=='Consultor')return false;
+ return ['stages.create','stages.edit','stages.schedule','activities.create','activities.edit',
+  'activities.assign','activities.delete','activities.schedule','approvals.decide_all',
+  'emails.reminders','agenda.create','agenda.edit','pending.create','pending.edit',
+  'changes.create','changes.edit','training.create','training.edit','golive.edit'].includes(key);
+}
 function el(id){return document.getElementById(id)}
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function attr(v){return esc(v)}
@@ -248,7 +263,7 @@ function permissionsView(root){
   root.querySelectorAll('input[data-permission]').forEach(function(c){data[c.dataset.permission]=c.checked});
   button.disabled=true;
   try{
-   await api('savePermissions',{role:permissionsRole,permissions:data});
+   await api('save',{table:'PERMISSOES',role:permissionsRole,permissions:data});
    await reload(true);notify('Permissões do perfil '+permissionsRole+' salvas e auditadas.');
   }catch(e){button.disabled=false;notify(e.message,true)}
  };
