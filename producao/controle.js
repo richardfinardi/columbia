@@ -19,6 +19,24 @@
         let onlyWithBudget = false;
         let isValuesUnlocked = false;
 
+        function isVendedor() {
+            return Number(window.__COL_PROD_PERMISSIONS?.u_vendedor) === 1;
+        }
+
+        function isVendedorSomenteConsulta() {
+            return isVendedor() && Number(window.__COL_PROD_PERMISSIONS?.u_pcp) !== 1;
+        }
+
+        // O vendedor só recebe no estado da tela as OS cujo COD_RESPONSAVEL
+        // corresponde ao código do usuário autenticado, inclusive em modais e no Limbo.
+        function filtrarOsPorVendedor(dados) {
+            if (!Array.isArray(dados)) throw new Error('Resposta inválida da API de produção.');
+            if (!isVendedor()) return dados;
+            const codigo = String(window.__COL_PROD_PERMISSIONS?.cod_responsavel ?? '').trim();
+            if (!codigo) throw new Error('Sessão do vendedor sem código de responsável. Saia e entre novamente.');
+            return dados.filter(item => String(item.cod_responsavel ?? '').trim() === codigo);
+        }
+
         function inicializarProducao() {
             const nomeUser = localStorage.getItem('columbia_analista_usuario');
             if (nomeUser) {
@@ -39,7 +57,7 @@
             setViewMode('week', false);
             fetchData();
 
-            fetchFaturamentoData(true);
+            if (!isVendedorSomenteConsulta()) fetchFaturamentoData(true);
 
             // AUTO-REFRESH SILENCIOSO A CADA 30 SEGUNDOS
             setInterval(() => {
@@ -377,9 +395,10 @@
             const valFinalizacao = (window.__COL_PROD_PERMISSIONS?.u_finalizacao??0);
             const valAnexo = (window.__COL_PROD_PERMISSIONS?.u_anexo??0);
 
-            const permFaturamento = valFaturamento !== null && String(valFaturamento).trim() === '1';
-            const permFinalizacao = valFinalizacao !== null && String(valFinalizacao).trim() === '1';
-            const permAnexo = valAnexo !== null && String(valAnexo).trim() === '1';
+            const somenteConsulta = isVendedorSomenteConsulta();
+            const permFaturamento = !somenteConsulta && valFaturamento !== null && String(valFaturamento).trim() === '1';
+            const permFinalizacao = !somenteConsulta && valFinalizacao !== null && String(valFinalizacao).trim() === '1';
+            const permAnexo = !somenteConsulta && valAnexo !== null && String(valAnexo).trim() === '1';
 
             const btnAbaFaturamento = document.getElementById('btnAbaFaturamento');
             const btnAbaConferencia = document.getElementById('btnAbaConferencia');
@@ -388,9 +407,14 @@
             if (btnAbaFaturamento) btnAbaFaturamento.classList.toggle('hidden', !permFaturamento);
             if (btnAbaConferencia) btnAbaConferencia.classList.toggle('hidden', !permFinalizacao);
             if (btnAbaAnexos) btnAbaAnexos.classList.toggle('hidden', !permAnexo);
+            ['btnVerLimbo', 'btnAlterarRenegociacao', 'btnEnviarLimbo'].forEach(id => {
+                const botao = document.getElementById(id);
+                if (botao) botao.classList.toggle('hidden', somenteConsulta);
+            });
         }
 
         function setAbaAtiva(novaAba) {
+            if (isVendedorSomenteConsulta() && novaAba !== 'dashboard') return;
             abaAtiva = novaAba;
 
             const metricsBar = document.getElementById('metricsBar');
@@ -619,7 +643,7 @@
                     throw new Error(`Erro na requisição: ${response.status} ${response.statusText}`);
                 }
 
-                rawData = await response.json();
+                rawData = filtrarOsPorVendedor(await response.json());
 
                 initializeCurrentDate();
 
@@ -874,11 +898,9 @@
                 const estaNoLimbo = String(item.u_limbo) === '1' || item.u_limbo === 1;
                 if (estaNoLimbo) return false;
 
-                if (isVendedor && userCodResponsavel !== '') {
+                if (isVendedor) {
                     const osCodResp = String(item.cod_responsavel ?? '').trim();
-                    if (osCodResp !== userCodResponsavel) {
-                        return false;
-                    }
+                    if (!userCodResponsavel || osCodResp !== userCodResponsavel) return false;
                 }
 
                 const isConcluido = String(item.concluido || '').toLowerCase() === 'sim' || String(item.concluido || '').toLowerCase() === 's' || String(item.concluido || '') === '1';
