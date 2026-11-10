@@ -20,7 +20,7 @@ const GRV_PERMISSION_MODULES={
   dashboard:['view'],plano:['view'],
   stages:['view','create','edit','schedule'],
   activities:['view','view_all','create','edit','status','comment','assign','delete','schedule'],
-  approvals:['view','decide'],people:['view','create','edit','invite'],
+  approvals:['view','decide','decide_all'],people:['view','create','edit','invite'],
   emails:['view','send','reminders','schedule'],
   agenda:['view','create','edit'],pending:['view','create','edit'],
   changes:['view','create','edit'],training:['view','create','edit'],
@@ -44,6 +44,7 @@ function grvPermissionDefaults(role){
   ['activities.status','activities.comment','approvals.decide','emails.send']
     .forEach(k=>result[k]=true);
   if(role==='Consultor'){
+    result['approvals.decide_all']=true;
     ['stages.create','stages.edit','stages.schedule','activities.create',
       'activities.edit','activities.assign','activities.delete','activities.schedule',
       'emails.reminders','agenda.create','agenda.edit','pending.create','pending.edit',
@@ -637,7 +638,7 @@ function grvDeleteActivity(who,p) {
 }
 
 function grvApprove(who,p){
-  if(!grvCan(who,'approvals.decide') || (!grvCan(who,'activities.view_all') && !grvRows('VINCULOS').some(v=>v.TIPO==='HOMOLOGADOR'&&v.ATIVIDADE_ID===String(p.id||'')&&v.PESSOA_ID===who.ID)))throw Error('Sem permissão para homologar esta atividade.');
+  if(!grvCan(who,'approvals.decide') || (!grvCan(who,'approvals.decide_all') && !grvRows('VINCULOS').some(v=>v.TIPO==='HOMOLOGADOR'&&v.ATIVIDADE_ID===String(p.id||'')&&v.PESSOA_ID===who.ID)))throw Error('Sem permissão para homologar esta atividade.');
   const id=String(p.id||''),decision=String(p.decision||''),note=String(p.note||'').trim();
   if(!['Homologada','Devolvida'].includes(decision))throw Error('Decisão inválida.');
   if(decision==='Devolvida'&&!note)throw Error('Informe o motivo da devolução.');
@@ -668,7 +669,7 @@ function grvNotifyActivity(who,n){
   });
   if(n.status==='Aguardando validação'&&n.previousStatus!==n.status){
     const homologatorId=(n.currentTeam||[]).filter(v=>v.endsWith('|HOMOLOGADOR')).map(v=>v.split('|')[0])[0];
-    const reviewers=homologatorId?all.filter(u=>u.ID===homologatorId&&u.ATIVO==='SIM'):all.filter(u=>u.ATIVO==='SIM'&&GRV_MANAGERS.includes(u.PERFIL)&&u.ID!==who.ID);
+    const reviewers=homologatorId?all.filter(u=>u.ID===homologatorId&&u.ATIVO==='SIM'):all.filter(u=>u.ATIVO==='SIM'&&grvCan(u,'approvals.decide_all')&&u.ID!==who.ID);
     reviewers.forEach(u=>grvMail(who,'PEDIDO_VALIDACAO',u.EMAIL,'GRVMAX | Homologação solicitada — '+n.title,'Atividade aguardando conferência: '+n.title+'\nResponsável: '+(recipient?.NOME||'Não definido')+'\nAcesse: '+grvPortalLink(),n.id));
   }
 }
