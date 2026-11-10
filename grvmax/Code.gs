@@ -490,6 +490,7 @@ function grvState(who){
     permissions:permissions,permissionMatrix:admin?matrix:null,canEdit:admin||role==='Consultor',canAdmin:admin};
 }
 function grvSave(who,p){
+  if(String(p.table||'')==='PERMISSOES')return grvSavePermissions(who,p);
   const table=String(p.table||'');if(GRV_EDITABLE.indexOf(table)<0)throw Error('Cadastro não permitido.');
   const body=p.item||{},module=GRV_TABLE_MODULE[table],admin=who.PERFIL==='Administrador',
     isNew=!body.ID,full=grvCan(who,module+'.'+(isNew?'create':'edit')),
