@@ -420,10 +420,17 @@ function grvSetup(p){
 }
 function grvState(who){
   const role=who.PERFIL,admin=role==='Administrador',full=grvCan(who,'activities.view_all'),matrix=grvPermissionMatrix(),permissions=matrix[role];
-  const people=grvRows('PESSOAS').filter(x=>admin||x.ATIVO==='SIM').map(grvPublicPerson);
+  const listPeople=grvCan(who,'people.view')||grvCan(who,'emails.send');
+  const people=grvRows('PESSOAS').filter(x=>admin||x.ATIVO==='SIM').map(x=>{
+    const p=grvPublicPerson(x);
+    return listPeople||x.ID===who.ID?p:{ID:p.ID,NOME:p.NOME,ATIVO:p.ATIVO};
+  });
+  const seeActivities=['dashboard.view','plano.view','stages.view','activities.view','approvals.view']
+    .some(k=>grvCan(who,k));
   const all=grvRows('ATIVIDADES');
   const vinculos=grvRows('VINCULOS').filter(v=>v.TIPO==='PARTICIPANTE'||v.TIPO==='HOMOLOGADOR');
-  const activities=full?all:all.filter(a=>a.RESPONSAVEL_ID===who.ID||vinculos.some(v=>v.ATIVIDADE_ID===a.ID&&v.PESSOA_ID===who.ID));
+  const activities=!seeActivities?[]:full?all:all.filter(a=>
+    a.RESPONSAVEL_ID===who.ID||vinculos.some(v=>v.ATIVIDADE_ID===a.ID&&v.PESSOA_ID===who.ID));
   const ids=new Set(activities.map(a=>a.ID));
   // Mapa da autoria baseado no log append-only: sem migrar ou regravar atividades.
   const logRows=grvRows('LOGS'),createdBy={},activityNotes={};
@@ -464,11 +471,20 @@ function grvState(who){
     String(b.DATA||'').localeCompare(String(a.DATA||''))));
   const stageids=new Set(activities.map(a=>a.ETAPA_ID));
   const safe=(s)=>s.map(o=>{const {_row,...a}=o;return a;});
-  return {ok:true,me:grvPublicPerson(who),project:safe(grvRows('PROJETOS')),stages:safe(grvRows('ETAPAS').filter(x=>full||stageids.has(x.ID))),activities:safe(activities),createdBy:createdBy,activityNotes:activityNotes,notesAppendOnly:true,
-    people:people,vinculos:safe(vinculos.filter(v=>ids.has(v.ATIVIDADE_ID))),pending:safe(grvRows('PENDENCIAS').filter(x=>full||ids.has(x.ATIVIDADE_ID)||x.RESPONSAVEL_ID===who.ID)),
-    changes:safe(grvRows('MUDANCAS').filter(x=>full||ids.has(x.ATIVIDADE_ID))),agenda:safe(grvRows('AGENDA').filter(x=>full||x.RESPONSAVEL_ID===who.ID||(x.PARTICIPANTES||'').includes(who.ID))),
-    trainings:grvCan(who,'training.view')?safe(grvRows('TREINAMENTOS')):[],goLive:grvCan(who,'golive.view')?safe(grvRows('GO_LIVE')):[],
-    approvals:safe(grvRows('HOMOLOGACOES').filter(x=>full||ids.has(x.ATIVIDADE_ID))),
+  const seeStages=['stages.view','activities.view','plano.view','dashboard.view']
+    .some(k=>grvCan(who,k));
+  return {ok:true,me:grvPublicPerson(who),project:safe(grvRows('PROJETOS')),
+    stages:seeStages?safe(grvRows('ETAPAS').filter(x=>full||stageids.has(x.ID))):[],
+    activities:safe(activities),createdBy:createdBy,activityNotes:activityNotes,notesAppendOnly:true,
+    people:people,vinculos:safe(vinculos.filter(v=>ids.has(v.ATIVIDADE_ID))),
+    pending:['pending.view','dashboard.view','plano.view','golive.view'].some(k=>grvCan(who,k))?
+      safe(grvRows('PENDENCIAS').filter(x=>full||ids.has(x.ATIVIDADE_ID)||x.RESPONSAVEL_ID===who.ID)):[],
+    changes:(grvCan(who,'changes.view')||grvCan(who,'plano.view'))?
+      safe(grvRows('MUDANCAS').filter(x=>full||ids.has(x.ATIVIDADE_ID))):[],
+    agenda:(grvCan(who,'agenda.view')||grvCan(who,'plano.view'))?
+      safe(grvRows('AGENDA').filter(x=>full||x.RESPONSAVEL_ID===who.ID||(x.PARTICIPANTES||'').includes(who.ID))):[],
+    trainings:grvCan(who,'training.view')?safe(grvRows('TREINAMENTOS')):[],goLive:(grvCan(who,'golive.view')||grvCan(who,'plano.view'))?safe(grvRows('GO_LIVE')):[],
+    approvals:(grvCan(who,'approvals.view')||grvCan(who,'plano.view'))?safe(grvRows('HOMOLOGACOES').filter(x=>full||ids.has(x.ATIVIDADE_ID))):[],
     emails:grvCan(who,'emails.view')?safe(grvRows('COMUNICACOES').filter(x=>full||x.ENVIADO_POR===who.ID).slice(-350).reverse()):[],
     logs:grvCan(who,'history.view')?safe(logRows.filter(x=>full||x.ATOR_ID===who.ID).slice(-500).reverse()):[],
     permissions:permissions,permissionMatrix:admin?matrix:null,canEdit:admin||role==='Consultor',canAdmin:admin};
@@ -494,7 +510,13 @@ function grvSave(who,p){
   const saved = grvLock(()=>{
     const old=body.ID?grvFind(table,body.ID):null;
     if(body.ID&&!old)throw Error('Registro não encontrado.');
-    if(!full&&(!old||old.RESPONSAVEL_ID!==who.ID&& !grvRows('VINCULOS').some(v=>v.ATIVIDADE_ID===old.ID&&v.PESSOA_ID===who.ID)))throw Error('Atividade não atribuída a você.');
+    if(table==='ATIVIDADES'&&!grvCan(who,'activities.view_all')&&
+       (!old||old.RESPONSAVEL_ID!==who.ID&&!grvRows('VINCULOS')
+         .some(v=>v.ATIVIDADE_ID===old.ID&&v.PESSOA_ID===who.ID))&&!isNew)
+      throw Error('Atividade não atribuída a você.');
+    if(!full&&(!old||old.RESPONSAVEL_ID!==who.ID&&
+       !grvRows('VINCULOS').some(v=>v.ATIVIDADE_ID===old.ID&&v.PESSOA_ID===who.ID)))
+      throw Error('Atividade não atribuída a você.');
     if(!full&&old.STATUS==='Homologada')throw Error('Atividade homologada está bloqueada para alterações. Peça reabertura à consultoria.');
     const t=grvTable(table);let next=old?{...old}:{};
     if(!full){
@@ -509,6 +531,8 @@ function grvSave(who,p){
     else t.heads.forEach(k=>{if(body[k]!==undefined && !['_row','SALT','HASH','SENHA_TEMPORARIA','CRIADO_EM','ATUALIZADO_EM','HOMOLOGADO_POR','DATA_HOMOLOGACAO'].includes(k) && !(table==='ATIVIDADES'&&k==='OBSERVACAO'))next[k]=String(body[k]).slice(0,k==='DESCRICAO'||k==='OBSERVACAO'?30000:3000);});
     if(table==='PESSOAS'&&!admin){
       if(old&&old.PERFIL==='Administrador')throw Error('Sem permissão para editar administrador.');
+      if(old&&body.EMAIL!==undefined&&String(body.EMAIL).trim().toLowerCase()!==String(old.EMAIL).toLowerCase())
+        throw Error('Somente administradores podem alterar o e-mail de acesso.');
       if((body.PERFIL!==undefined&&old&&String(body.PERFIL)!==old.PERFIL)||
          (body.ATIVO!==undefined&&old&&String(body.ATIVO)!==old.ATIVO)||
          (!old&&body.PERFIL&&body.PERFIL!=='Usuário-chave'))
@@ -517,6 +541,7 @@ function grvSave(who,p){
       next.ATIVO=old?old.ATIVO:'SIM';
     }
     if(table==='ATIVIDADES'){
+      if(!next.STATUS&&!old)next.STATUS='Não iniciada';
       if(!GRV_ACTIVITY_STATUS.includes(next.STATUS||'Não iniciada'))throw Error('Situação inválida.');
       if(next.STATUS==='Homologada'&&(!old||old.STATUS!=='Homologada'))throw Error('Use a homologação formal para aprovar.');
       if(next.DATA_ORIENTACAO && !next.PRAZO && /^\d{4}-\d\d-\d\d$/.test(next.DATA_ORIENTACAO)){
