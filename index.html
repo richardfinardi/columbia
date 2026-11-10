@@ -66,7 +66,7 @@
           document.getElementById('cardNotas').classList.toggle('hidden',Number(p.u_notas||0)!==1);
           document.getElementById('cardCustos').classList.toggle('hidden',Number(p.u_custos||0)!==1);
           document.getElementById('cardPCP').classList.toggle('hidden',Number(p.u_pcp||0)!==1);
-          document.getElementById('cardProducao').classList.toggle('hidden',Number(p.u_pcp||0)!==1);
+          document.getElementById('cardProducao').classList.toggle('hidden',Number(p.u_pcp||0)!==1 && Number(p.u_vendedor||0)!==1);
           return;
         }
         if(r.status===401)return logout();
@@ -79,14 +79,14 @@
         document.getElementById('cardNotas').classList.toggle('hidden',Number(p.u_notas||0)!==1);
         document.getElementById('cardCustos').classList.toggle('hidden',Number(p.u_custos||0)!==1);
           document.getElementById('cardPCP').classList.toggle('hidden',Number(p.u_pcp||0)!==1);
-          document.getElementById('cardProducao').classList.toggle('hidden',Number(p.u_pcp||0)!==1);
+          document.getElementById('cardProducao').classList.toggle('hidden',Number(p.u_pcp||0)!==1 && Number(p.u_vendedor||0)!==1);
       }catch(e){
         const p=JSON.parse(localStorage.getItem(PERMISSIONS_KEY)||'{}');
         document.getElementById('cardConferencia').classList.toggle('hidden',Number(p.u_analista_cadastro||0)!==1);
         document.getElementById('cardNotas').classList.toggle('hidden',Number(p.u_notas||0)!==1);
         document.getElementById('cardCustos').classList.toggle('hidden',Number(p.u_custos||0)!==1);
           document.getElementById('cardPCP').classList.toggle('hidden',Number(p.u_pcp||0)!==1);
-          document.getElementById('cardProducao').classList.toggle('hidden',Number(p.u_pcp||0)!==1);
+          document.getElementById('cardProducao').classList.toggle('hidden',Number(p.u_pcp||0)!==1 && Number(p.u_vendedor||0)!==1);
       }
     }
     function logout(){localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(PERMISSIONS_KEY);localStorage.removeItem('columbia_analista_usuario');localStorage.removeItem('columbia_analista_cod_responsavel');window.location.href='login.html'}
