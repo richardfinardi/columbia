@@ -15,6 +15,94 @@ const GRV_MANAGERS = ['Administrador','Consultor'];
 const GRV_ACTIVITY_STATUS = ['Não iniciada','Orientada','Em execução','Aguardando validação','Devolvida','Homologada','Cancelada'];
 const GRV_ROLES = ['Administrador','Consultor','Gestor','Usuário-chave'];
 
+/* Permissões persistidas em aba PERMISSOES: uma linha JSON por perfil. */
+const GRV_PERMISSION_MODULES={
+  dashboard:['view'],plano:['view'],
+  stages:['view','create','edit','schedule'],
+  activities:['view','view_all','create','edit','status','comment','assign','delete','schedule'],
+  approvals:['view','decide'],people:['view','create','edit','invite'],
+  emails:['view','send','reminders','schedule'],
+  agenda:['view','create','edit'],pending:['view','create','edit'],
+  changes:['view','create','edit'],training:['view','create','edit'],
+  golive:['view','edit','decide'],history:['view'],permissions:['view','manage']
+};
+const GRV_TABLE_MODULE={ETAPAS:'stages',ATIVIDADES:'activities',PESSOAS:'people',
+  PENDENCIAS:'pending',MUDANCAS:'changes',AGENDA:'agenda',
+  TREINAMENTOS:'training',GO_LIVE:'golive'};
+let GRV_PERM_CACHE=null;
+function grvPermissionKeys(){
+  return Object.keys(GRV_PERMISSION_MODULES).flatMap(m=>GRV_PERMISSION_MODULES[m].map(a=>m+'.'+a));
+}
+function grvPermissionDefaults(role){
+  const result={};grvPermissionKeys().forEach(k=>result[k]=role==='Administrador');
+  if(role==='Administrador')return result;
+  const views=['dashboard','stages','activities','approvals','people','emails',
+    'agenda','pending','changes','training','golive','history'];
+  if(role!=='Usuário-chave')views.push('plano');
+  views.forEach(m=>result[m+'.view']=true);
+  if(['Consultor','Gestor'].includes(role))result['activities.view_all']=true;
+  ['activities.status','activities.comment','approvals.decide','emails.send']
+    .forEach(k=>result[k]=true);
+  if(role==='Consultor'){
+    ['stages.create','stages.edit','stages.schedule','activities.create',
+      'activities.edit','activities.assign','activities.delete','activities.schedule',
+      'emails.reminders','agenda.create','agenda.edit','pending.create','pending.edit',
+      'changes.create','changes.edit','training.create','training.edit','golive.edit']
+      .forEach(k=>result[k]=true);
+  }
+  return result;
+}
+function grvPermissionMatrix(){
+  if(GRV_PERM_CACHE)return GRV_PERM_CACHE;
+  const matrix={};GRV_ROLES.forEach(role=>matrix[role]=grvPermissionDefaults(role));
+  const sheet=grvSS().getSheetByName('PERMISSOES');
+  if(sheet&&sheet.getLastRow()>1){
+    sheet.getRange(2,1,sheet.getLastRow()-1,2).getDisplayValues().forEach(row=>{
+      const role=row[0];if(!GRV_ROLES.includes(role)||role==='Administrador')return;
+      try{
+        const data=JSON.parse(row[1]||'{}');
+        if(!data||typeof data!=='object'||Array.isArray(data))return;
+        grvPermissionKeys().forEach(k=>{if(typeof data[k]==='boolean')matrix[role][k]=data[k];});
+      }catch(ignored){}
+    });
+  }
+  GRV_PERM_CACHE=matrix;return matrix;
+}
+function grvCan(who,key){
+  if(!who||!GRV_ROLES.includes(who.PERFIL)||!grvPermissionKeys().includes(key))return false;
+  if(who.PERFIL==='Administrador')return true;
+  if(key.startsWith('permissions.'))return false;
+  const allowed=grvPermissionMatrix()[who.PERFIL]||{},module=key.split('.')[0];
+  return !!allowed[key]&&(key.endsWith('.view')||!!allowed[module+'.view']);
+}
+function grvSavePermissions(who,p){
+  if(who.PERFIL!=='Administrador')throw Error('Somente administradores podem alterar permissões.');
+  const role=String(p.role||''),data=p.permissions;
+  if(!GRV_ROLES.includes(role)||role==='Administrador')throw Error('O perfil Administrador é protegido e não pode ser alterado.');
+  if(!data||typeof data!=='object'||Array.isArray(data))throw Error('Matriz de permissões inválida.');
+  const keys=grvPermissionKeys();
+  if(Object.keys(data).some(k=>!keys.includes(k)))throw Error('Permissão desconhecida.');
+  const clean={};keys.forEach(k=>{
+    if(k.startsWith('permissions.')){clean[k]=false;return;}
+    if(typeof data[k]!=='boolean')throw Error('Matriz incompleta.');
+    const m=k.split('.')[0];clean[k]=!!data[k]&&(k.endsWith('.view')||!!data[m+'.view']);
+  });
+  return grvLock(()=>{
+    const before=grvPermissionMatrix()[role];
+    const sheet=grvSS().getSheetByName('PERMISSOES')||grvSS().insertSheet('PERMISSOES');
+    if(!sheet.getLastRow())sheet.appendRow(['PERFIL','REGRAS_JSON','ATUALIZADO_EM','ATUALIZADO_POR']);
+    const rows=sheet.getLastRow()>1?sheet.getRange(2,1,sheet.getLastRow()-1,1).getDisplayValues().flat():[];
+    const idx=rows.indexOf(role),row=[role,JSON.stringify(clean),grvNow(),who.EMAIL];
+    if(idx>=0)sheet.getRange(idx+2,1,1,4).setValues([row]);
+    else sheet.appendRow(row);
+    GRV_PERM_CACHE=null;
+    grvLog(who,'PERMISSOES',role,'PERMISSOES_ALTERADAS',before,clean,
+      'Alteração de perfil pelo administrador');
+    return {ok:true,role:role,permissions:clean};
+  });
+}
+
+
 function doGet(e) {
   const html = UrlFetchApp.fetch(GRV_APP_HTML, {muteHttpExceptions:true, followRedirects:true});
   if (html.getResponseCode() !== 200) return HtmlService.createHtmlOutput('Interface não disponível. Atualize a página.');
@@ -55,6 +143,7 @@ function api(action, payload, token) {
     const who = grvAuth(token);
     switch(action) {
       case 'state': return grvState(who);
+      case 'savePermissions': return grvSavePermissions(who,p);
       case 'save': return grvSave(who,p);
       case 'recalculateSchedule': return grvRecalculateSchedule(who);
       case 'syncStageDates': return grvSyncStagesNow(who);
@@ -237,8 +326,8 @@ function grvSyncStageDates(who,activityRows,clearEmptyStageIds){
   return changed;
 }
 function grvSyncStagesNow(who){
-  if(!GRV_MANAGERS.includes(who.PERFIL))
-    throw Error('Apenas consultores e administradores podem sincronizar etapas.');
+  if(!grvCan(who,'stages.schedule'))
+    throw Error('Sem permissão para sincronizar etapas.');
   const changed=grvLock(()=>grvSyncStageDates(who,grvRows('ATIVIDADES')));
   return {ok:true,stagesUpdated:changed.length,stages:changed};
 }
@@ -252,7 +341,7 @@ function grvApplyActivitySchedule(who,changes) {
   });
 }
 function grvRecalculateSchedule(who) {
-  if(!GRV_MANAGERS.includes(who.PERFIL))throw Error('Apenas consultores e administradores podem recalcular o cronograma.');
+  if(!grvCan(who,'activities.schedule'))throw Error('Sem permissão para recalcular o cronograma.');
   const updated=grvLock(()=>{
     const rows=grvRows('ATIVIDADES'),plan=grvPlanActivityChain(rows,'',null,true);
     grvApplyActivitySchedule(who,plan);
@@ -329,7 +418,7 @@ function grvSetup(p){
   });
 }
 function grvState(who){
-  const role=who.PERFIL,admin=role==='Administrador',full=admin||role==='Consultor'||role==='Gestor';
+  const role=who.PERFIL,admin=role==='Administrador',full=grvCan(who,'activities.view_all'),matrix=grvPermissionMatrix(),permissions=matrix[role];
   const people=grvRows('PESSOAS').filter(x=>admin||x.ATIVO==='SIM').map(grvPublicPerson);
   const all=grvRows('ATIVIDADES');
   const vinculos=grvRows('VINCULOS').filter(v=>v.TIPO==='PARTICIPANTE'||v.TIPO==='HOMOLOGADOR');
@@ -377,22 +466,30 @@ function grvState(who){
   return {ok:true,me:grvPublicPerson(who),project:safe(grvRows('PROJETOS')),stages:safe(grvRows('ETAPAS').filter(x=>full||stageids.has(x.ID))),activities:safe(activities),createdBy:createdBy,activityNotes:activityNotes,notesAppendOnly:true,
     people:people,vinculos:safe(vinculos.filter(v=>ids.has(v.ATIVIDADE_ID))),pending:safe(grvRows('PENDENCIAS').filter(x=>full||ids.has(x.ATIVIDADE_ID)||x.RESPONSAVEL_ID===who.ID)),
     changes:safe(grvRows('MUDANCAS').filter(x=>full||ids.has(x.ATIVIDADE_ID))),agenda:safe(grvRows('AGENDA').filter(x=>full||x.RESPONSAVEL_ID===who.ID||(x.PARTICIPANTES||'').includes(who.ID))),
-    trainings:safe(grvRows('TREINAMENTOS')),goLive:safe(grvRows('GO_LIVE')),
+    trainings:grvCan(who,'training.view')?safe(grvRows('TREINAMENTOS')):[],goLive:grvCan(who,'golive.view')?safe(grvRows('GO_LIVE')):[],
     approvals:safe(grvRows('HOMOLOGACOES').filter(x=>full||ids.has(x.ATIVIDADE_ID))),
-    emails:safe(grvRows('COMUNICACOES').filter(x=>full||x.ENVIADO_POR===who.ID).slice(-350).reverse()),
-    logs:safe(logRows.filter(x=>full||x.ATOR_ID===who.ID).slice(-500).reverse()),canEdit:admin||role==='Consultor',canAdmin:admin};
+    emails:grvCan(who,'emails.view')?safe(grvRows('COMUNICACOES').filter(x=>full||x.ENVIADO_POR===who.ID).slice(-350).reverse()):[],
+    logs:grvCan(who,'history.view')?safe(logRows.filter(x=>full||x.ATOR_ID===who.ID).slice(-500).reverse()):[],
+    permissions:permissions,permissionMatrix:admin?matrix:null,canEdit:admin||role==='Consultor',canAdmin:admin};
 }
 function grvSave(who,p){
   const table=String(p.table||'');if(GRV_EDITABLE.indexOf(table)<0)throw Error('Cadastro não permitido.');
-  const body=p.item||{},full=GRV_MANAGERS.includes(who.PERFIL),admin=who.PERFIL==='Administrador';
+  const body=p.item||{},module=GRV_TABLE_MODULE[table],admin=who.PERFIL==='Administrador',
+    isNew=!body.ID,full=grvCan(who,module+'.'+(isNew?'create':'edit')),
+    canStatus=table==='ATIVIDADES'&&grvCan(who,'activities.status'),
+    canComment=table==='ATIVIDADES'&&grvCan(who,'activities.comment');
   const incomingNote=table==='ATIVIDADES'&&Object.prototype.hasOwnProperty.call(body,'OBSERVACAO')
     ?String(body.OBSERVACAO||'').trim():'';
   if(incomingNote.length>10000)throw Error('Observação deve ter no máximo 10.000 caracteres.');
-  if(table==='PESSOAS'&&!admin)throw Error('Apenas administradores podem gerenciar pessoas.');
-  if(!full&&table!=='ATIVIDADES')throw Error('Você não tem permissão para esta operação.');
+  if(!grvCan(who,module+'.view'))throw Error('Sem acesso ao módulo.');
+  if(!full&&!(table==='ATIVIDADES'&&!isNew&&(canStatus||canComment)))
+    throw Error('Você não tem permissão para esta operação.');
+  if(table==='ATIVIDADES'&&incomingNote&&!canComment)throw Error('Sem permissão para registrar observações.');
+  if(table==='ATIVIDADES'&&body.STATUS!==undefined&&!canStatus)
+    throw Error('Sem permissão para alterar a situação.');
+  if(table==='PESSOAS'&&!admin&&body.ID===who.ID)throw Error('Você não pode alterar seu próprio acesso.');
   const changingTeam=table==='ATIVIDADES' && (Array.isArray(p.participantIds)||Object.prototype.hasOwnProperty.call(p,'homologatorId'));
-  if(changingTeam&&!full)throw Error('Apenas consultores e administradores alteram equipe de atividades.');
-  if(table==='GO_LIVE'&&!full)throw Error('Operação não autorizada.');
+  if(changingTeam&&!grvCan(who,'activities.assign'))throw Error('Sem permissão para alterar equipe de atividade.');
   const saved = grvLock(()=>{
     const old=body.ID?grvFind(table,body.ID):null;
     if(body.ID&&!old)throw Error('Registro não encontrado.');
@@ -402,9 +499,22 @@ function grvSave(who,p){
     if(!full){
       // Usuário-chave pode atualizar a situação das atividades atribuídas a ele.
       // Homologação continua restrita ao fluxo formal de aprovação.
-      ['STATUS','EVIDENCIA_URL'].forEach(k=>{if(body[k]!==undefined)next[k]=String(body[k]).slice(0,3000)});
+      const allow=new Set(['ID','STATUS','EVIDENCIA_URL','OBSERVACAO']);
+      if(Object.keys(body).some(k=>!allow.has(k)))throw Error('Campo restrito para este perfil.');
+      if(canStatus)['STATUS','EVIDENCIA_URL'].forEach(k=>{
+        if(body[k]!==undefined)next[k]=String(body[k]).slice(0,3000);
+      });
       if(['Homologada','Cancelada'].includes(next.STATUS))throw Error('Homologação exige aprovação da consultoria.');if(!['Não iniciada','Em execução','Aguardando validação','Orientada','Devolvida',old.STATUS].includes(next.STATUS))throw Error('Situação inválida.');}
     else t.heads.forEach(k=>{if(body[k]!==undefined && !['_row','SALT','HASH','SENHA_TEMPORARIA','CRIADO_EM','ATUALIZADO_EM','HOMOLOGADO_POR','DATA_HOMOLOGACAO'].includes(k) && !(table==='ATIVIDADES'&&k==='OBSERVACAO'))next[k]=String(body[k]).slice(0,k==='DESCRICAO'||k==='OBSERVACAO'?30000:3000);});
+    if(table==='PESSOAS'&&!admin){
+      if(old&&old.PERFIL==='Administrador')throw Error('Sem permissão para editar administrador.');
+      if((body.PERFIL!==undefined&&old&&String(body.PERFIL)!==old.PERFIL)||
+         (body.ATIVO!==undefined&&old&&String(body.ATIVO)!==old.ATIVO)||
+         (!old&&body.PERFIL&&body.PERFIL!=='Usuário-chave'))
+        throw Error('Somente administradores atribuem perfis e alteram situação de usuários.');
+      next.PERFIL=old?old.PERFIL:'Usuário-chave';
+      next.ATIVO=old?old.ATIVO:'SIM';
+    }
     if(table==='ATIVIDADES'){
       if(!GRV_ACTIVITY_STATUS.includes(next.STATUS||'Não iniciada'))throw Error('Situação inválida.');
       if(next.STATUS==='Homologada'&&(!old||old.STATUS!=='Homologada'))throw Error('Use a homologação formal para aprovar.');
@@ -481,7 +591,7 @@ function grvSave(who,p){
       previousTeam:[],currentTeam:[]
     })),notification:table==='ATIVIDADES'?{id:next.ID,title:next.TITULO,owner:next.RESPONSAVEL_ID,previousOwner:old?.RESPONSAVEL_ID||'',status:next.STATUS,previousStatus:old?.STATUS||'',due:next.PRAZO,previousDue:old?.PRAZO||'',previousTeam:previousTeam.map(x=>x.PESSOA_ID+'|'+x.TIPO),currentTeam:currentTeam.map(x=>x.PESSOA_ID+'|'+x.TIPO)}:null};
   });
-  if(saved.newPerson){try{grvInvite(who,{id:saved.id});}catch(err){grvLog(who,'PESSOAS',saved.id,'CONVITE_AUTOMATICO_FALHOU',null,null,String(err));}}
+  if(saved.newPerson&&grvCan(who,'people.invite')){try{grvInvite(who,{id:saved.id});}catch(err){grvLog(who,'PESSOAS',saved.id,'CONVITE_AUTOMATICO_FALHOU',null,null,String(err));}}
   if(saved.notification){try{grvNotifyActivity(who,saved.notification);}catch(err){grvLog(who,'ATIVIDADES',saved.id,'NOTIFICACAO_FALHOU',null,null,String(err));}}
   (saved.cascadeNotifications||[]).forEach(n=>{try{grvNotifyActivity(who,n);}catch(err){grvLog(who,'ATIVIDADES',n.id,'NOTIFICACAO_FALHOU',null,null,String(err));}});
   return {ok:true,id:saved.id,reprogrammed:saved.reprogrammed||0,stagesUpdated:saved.stagesUpdated||0};
@@ -493,8 +603,8 @@ function grvSave(who,p){
  * vinculados. A trilha de auditoria registra o snapshot antes da remocao.
  */
 function grvDeleteActivity(who,p) {
-  if(!GRV_MANAGERS.includes(who.PERFIL))
-    throw Error('Somente consultores e administradores podem excluir atividades.');
+  if(!grvCan(who,'activities.delete'))
+    throw Error('Sem permissão para excluir atividades.');
   const id=String(p.id||'').trim();
   if(!/^[A-Za-z0-9_-]{3,80}$/.test(id))throw Error('Identificador da atividade inválido.');
   return grvLock(()=>{
@@ -527,7 +637,7 @@ function grvDeleteActivity(who,p) {
 }
 
 function grvApprove(who,p){
-  if(!GRV_MANAGERS.includes(who.PERFIL) && !grvRows('VINCULOS').some(v=>v.TIPO==='HOMOLOGADOR'&&v.ATIVIDADE_ID===String(p.id||'')&&v.PESSOA_ID===who.ID))throw Error('Apenas consultoria ou homologador designado pode aprovar.');
+  if(!grvCan(who,'approvals.decide') || (!grvCan(who,'activities.view_all') && !grvRows('VINCULOS').some(v=>v.TIPO==='HOMOLOGADOR'&&v.ATIVIDADE_ID===String(p.id||'')&&v.PESSOA_ID===who.ID)))throw Error('Sem permissão para homologar esta atividade.');
   const id=String(p.id||''),decision=String(p.decision||''),note=String(p.note||'').trim();
   if(!['Homologada','Devolvida'].includes(decision))throw Error('Decisão inválida.');
   if(decision==='Devolvida'&&!note)throw Error('Informe o motivo da devolução.');
@@ -579,7 +689,7 @@ function grvMail(who,type,to,subject,body,activity){
   }
 }
 function grvSendEmails(who,p){
-  if(!GRV_ROLES.includes(who.PERFIL))throw Error('Sem permissão para enviar comunicações.');
+  if(!grvCan(who,'emails.send'))throw Error('Sem permissão para enviar comunicações.');
   const ids=Array.isArray(p.peopleIds)?p.peopleIds.slice(0,50):[];
   if(!ids.length)throw Error('Selecione os destinatários.');
   const subj=String(p.subject||'').trim().slice(0,200),body=String(p.body||'').trim().slice(0,15000);
@@ -591,7 +701,7 @@ function grvSendEmails(who,p){
 }
 function grvPortalLink(){return 'https://consultoriarf.net/columbia/grvmax/';}
 function grvInvite(who,p){
-  if(who.PERFIL!=='Administrador')throw Error('Somente administrador convida usuários.');
+  if(!grvCan(who,'people.invite'))throw Error('Sem permissão para enviar convites.');
   const person=grvFind('PESSOAS',String(p.id||''));
   if(!person||person.ATIVO!=='SIM')throw Error('Usuário não encontrado ou inativo.');
   const token=grvToken(),expires=new Date(Date.now()+48*3600000).toISOString();
@@ -629,7 +739,7 @@ function grvLogout(who,token){
   });
 }
 function grvGoDecision(who,p){
-  if(who.PERFIL!=='Administrador')throw Error('Apenas administrador libera o GO LIVE.');
+  if(!grvCan(who,'golive.decide'))throw Error('Sem permissão para decidir o GO LIVE.');
   const decision=String(p.decision||''),note=String(p.note||'');
   if(!['GO','NO-GO'].includes(decision))throw Error('Decisão inválida');
   const unchecked=grvRows('GO_LIVE').filter(x=>x.OBRIGATORIO==='SIM'&&x.STATUS!=='Aprovado');
@@ -643,13 +753,13 @@ function grvGoDecision(who,p){
   });
 }
 function grvInstallReminders(who){
-  if(who.PERFIL!=='Administrador')throw Error('Apenas administrador configura lembretes.');
+  if(!grvCan(who,'emails.schedule'))throw Error('Sem permissão para agendar lembretes.');
   ScriptApp.getProjectTriggers().filter(t=>t.getHandlerFunction()==='cronReminders').forEach(t=>ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('cronReminders').timeBased().everyDays(1).atHour(8).create();
   grvLog(who,'CONFIG','','LEMBRETES_ATIVADOS',null,{frequencia:'diária 8h'},'');
   return {ok:true};
 }
-function grvReminders(who){if(!GRV_MANAGERS.includes(who.PERFIL))throw Error('Sem permissão.');return grvRunReminders(who);}
+function grvReminders(who){if(!grvCan(who,'emails.reminders'))throw Error('Sem permissão.');return grvRunReminders(who);}
 function cronReminders(){grvRunReminders({ID:'SISTEMA',EMAIL:'sistema'});}
 function grvRunReminders(who){
   const today=Utilities.formatDate(new Date(),'America/Sao_Paulo','yyyy-MM-dd'),people=grvRows('PESSOAS'),history=grvRows('COMUNICACOES'),activity=grvRows('ATIVIDADES');
