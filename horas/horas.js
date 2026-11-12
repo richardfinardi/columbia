@@ -141,7 +141,7 @@ function buildFilters(){
  opt("yearFilter",yearsInData(),"Todos");
  if(!year && yearsInData().includes(String(now.getFullYear())))$("yearFilter").value=String(now.getFullYear());
  opt("monthFilter",MONTHS.map((m,i)=>({value:String(i+1).padStart(2,"0"),label:m})),"Todos");
- if(!month&& $("yearFilter").value===String(now.getFullYear()))$("monthFilter").value=String(now.getMonth()+1).padStart(2,"0");
+ if(!month){const inYear=state.rows.map(ymonth).concat(state.available.map(r=>r.period)).filter(m=>m.startsWith($("yearFilter").value+"-")).sort();if(inYear.length)$("monthFilter").value=inYear.at(-1).slice(5,7)}
  const f=selected();
  const visible=state.rows.filter(r=>(!f.yearFilter||r.date.slice(0,4)===f.yearFilter)&&(!f.monthFilter||r.date.slice(5,7)===f.monthFilter));
  opt("segmentFilter",[...new Set(visible.map(r=>r.segment))].sort(),"Todos");
@@ -212,7 +212,7 @@ function renderTable(id,rows,defs,{total=true,limit=1000}={}){
   totals='<tr class="total">'+defs.map(d=>formatCell(t,d)).join("")+"</tr>";
  }
  table.innerHTML=header+"<tbody>"+(trs||'<tr><td colspan="'+defs.length+'">Sem registros para os filtros selecionados.</td></tr>')+totals+"</tbody>";
- table.querySelectorAll("th[data-column]").forEach(th=>th.addEventListener("click",()=>{const k=th.dataset.column;s=state.sort[id];state.sort[id]={col:k,dir:s?.col===k?-s.dir:(defs.find(d=>d.k===k)?.num?-1:1)};renderAll()}));
+ table.querySelectorAll("th[data-column]").forEach(th=>th.addEventListener("click",()=>{const k=th.dataset.column;const previous=state.sort[id];state.sort[id]={col:k,dir:previous?.col===k?-previous.dir:(defs.find(d=>d.k===k)?.num?-1:1)};renderAll()}));
 }
 function chart(id,config){
  if(!window.Chart)return;
