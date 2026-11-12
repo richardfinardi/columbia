@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="icon" type="image/png" href="../LOGO MINIMALISTA.png">
+  <title>Fechamento de Horas | Columbia Machine</title>
+  <script>
+    if (!localStorage.getItem('columbia_analista_token')) location.replace('../login.html');
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+  <script src="https://unpkg.com/lucide@latest" defer></script>
+  <link rel="stylesheet" href="./horas.css">
+  <script src="./horas.js" defer></script>
+</head>
+<body>
+  <div id="accessGate" class="access-gate"><div class="loader"></div><strong>Validando acesso ao fechamento de horas...</strong></div>
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="top-wrap">
+        <div class="brand"><a href="../" class="brand-logo" aria-label="Voltar ao portal"><img src="../logo.png" alt="Columbia Machine"></a>
+          <div><small>COLUMBIA MACHINE · INDICADORES</small><h1>Fechamento de Horas</h1></div>
+        </div>
+        <div class="top-actions"><span id="userName" class="user-name"></span><a href="../" class="btn muted">Portal</a><button id="refreshBtn" class="btn light"><span data-lucide="refresh-cw"></span> Atualizar</button></div>
+      </div>
+    </header>
+    <main>
+      <section class="intro"><div><h2>Eficiência operacional</h2><p>Horas disponíveis, produtivas, paradas e desperdício com rateio por funcionário e período.</p></div><div class="stamp"><span id="periodLabel">Período</span><small id="updatedAt">Aguardando dados</small></div></section>
+      <section class="filters card">
+        <div class="section-head"><div><h3>Filtros</h3><p>Todos os indicadores e gráficos acompanham os filtros.</p></div><button id="clearFilters" class="btn ghost">Limpar filtros</button></div>
+        <div class="filter-grid">
+          <label>Ano<select id="yearFilter"><option value="">Todos</option></select></label>
+          <label>Mês<select id="monthFilter"><option value="">Todos</option></select></label>
+          <label>Segmento<select id="segmentFilter"><option value="">Todos</option></select></label>
+          <label>Máquina<select id="machineFilter"><option value="">Todas</option></select></label>
+          <label>Funcionário<select id="employeeFilter"><option value="">Todos</option></select></label>
+          <label>Serviço<select id="serviceFilter"><option value="">Todos</option></select></label>
+        </div>
+        <div class="filter-footer"><span id="sourceStatus" class="status">Conectando às fontes de dados...</span><span id="rowCounter" class="counter"></span></div>
+      </section>
+      <section id="alertArea" aria-live="polite"></section>
+      <section class="kpis">
+        <article class="kpi kpi-blue"><span>Horas disponíveis rateadas</span><div><strong id="kpiAvailable">—</strong><small>h</small></div><p id="hintAvailable">Conforme folha e apontamentos</p></article>
+        <article class="kpi kpi-green"><span>Horas produtivas</span><div><strong id="kpiProd">—</strong><small>h</small></div><p id="hintProd">—</p></article>
+        <article class="kpi kpi-amber"><span>Horas de parada</span><div><strong id="kpiStop">—</strong><small>h</small></div><p id="hintStop">—</p></article>
+        <article class="kpi kpi-red"><span>Desperdício</span><div><strong id="kpiWaste">—</strong><small>h</small></div><p id="hintWaste">Disponíveis − produtivas − paradas</p></article>
+      </section>
+      <section class="view-tabs" role="tablist" aria-label="Visões do fechamento">
+        <button class="tab active" data-view="segmentos" role="tab" aria-selected="true">Segmentos</button>
+        <button class="tab" data-view="maquinas" role="tab" aria-selected="false">Máquinas</button>
+        <button class="tab" data-view="funcionarios" role="tab" aria-selected="false">Funcionários</button>
+        <button class="tab" data-view="metas" role="tab" aria-selected="false">Metas</button>
+        <button class="tab" data-view="detalhamento" role="tab" aria-selected="false">Detalhamento</button>
+      </section>
+      <section class="view" id="view-segmentos">
+        <div class="chart-grid"><div class="card chart-card"><h3>Composição mensal das horas</h3><p>Percentual das horas disponíveis por mês</p><div class="canvas-wrap"><canvas id="monthlyChart"></canvas></div></div>
+          <div class="card chart-card"><h3>Distribuição no período</h3><p>Produtivas, paradas e desperdício</p><div class="canvas-wrap"><canvas id="mixChart"></canvas></div></div></div>
+        <div class="card table-card"><div class="table-head"><div><h3>Resultado por segmento</h3><p>Desempenho por grupo de máquinas</p></div><button data-export="segmentos" class="btn export">Exportar Excel</button></div><div class="table-scroll"><table id="table-segmentos"></table></div></div>
+      </section>
+      <section class="view" id="view-maquinas" hidden>
+        <div class="card table-card"><div class="table-head"><div><h3>Resultado por máquina</h3><p>Comparativo da disponibilidade rateada com o realizado</p></div><button data-export="maquinas" class="btn export">Exportar Excel</button></div><div class="table-scroll"><table id="table-maquinas"></table></div></div>
+        <div class="card chart-card wide"><h3>Maiores horas de parada por máquina</h3><div class="canvas-wrap"><canvas id="machineChart"></canvas></div></div>
+      </section>
+      <section class="view" id="view-funcionarios" hidden>
+        <div class="card table-card"><div class="table-head"><div><h3>Resultado por funcionário</h3><p>Horas disponíveis proporcionais aos apontamentos de cada pessoa</p></div><button data-export="funcionarios" class="btn export">Exportar Excel</button></div><div class="table-scroll"><table id="table-funcionarios"></table></div></div>
+      </section>
+      <section class="view" id="view-metas" hidden>
+        <div class="targets"><article class="target card"><div><span class="target-dot green"></span><h3>Produtividade</h3></div><strong id="targetProd">—</strong><span id="statusProd" class="grade">—</span><div class="track"><i id="barProd"></i></div></article>
+          <article class="target card"><div><span class="target-dot amber"></span><h3>Paradas</h3></div><strong id="targetStop">—</strong><span id="statusStop" class="grade">—</span><div class="track"><i id="barStop"></i></div></article>
+          <article class="target card"><div><span class="target-dot red"></span><h3>Desperdício</h3></div><strong id="targetWaste">—</strong><span id="statusWaste" class="grade">—</span><div class="track"><i id="barWaste"></i></div></article></div>
+        <div class="card table-card"><div class="table-head"><div><h3>Faixas de classificação</h3><p>Limites cadastrados na planilha META_PRODUTIVIDADE</p></div></div><div class="table-scroll"><table id="table-metas"></table></div></div>
+      </section>
+      <section class="view" id="view-detalhamento" hidden>
+        <div class="card table-card"><div class="table-head"><div><h3>Apontamentos detalhados</h3><p>Filtre registros por funcionário, serviço, máquina ou descrição.</p></div><div class="table-tools"><input id="detailSearch" placeholder="Pesquisar no detalhamento..." aria-label="Pesquisar no detalhamento"><button data-export="detalhamento" class="btn export">Exportar Excel</button></div></div><div class="table-scroll details"><table id="table-detalhamento"></table></div><p id="detailCount" class="table-foot"></p></div>
+      </section>
+      <section class="bottom-note"><span id="qualityNote">Os valores dependem dos dados retornados pelos apontamentos e da correspondência com a planilha de horas disponíveis.</span></section>
+    </main>
+  </div>
+</body>
+</html>
