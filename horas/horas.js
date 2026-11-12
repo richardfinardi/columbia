@@ -33,6 +33,15 @@ function dateOf(v){
  if((m=s.match(/^(\d{4})(\d{2})(\d{2})$/)))return m[1]+"-"+m[2]+"-"+m[3];
  return "";
 }
+function monthFromRecord(m){
+ const raw=clean(pick(m,["ano_mes","anomes","mes_ano","competencia","periodo","mesano"]));
+ let year=clean(pick(m,["ano","ano_referencia"])),month=clean(pick(m,["mes","mes_numero","mes_referencia"])),match;
+ if((match=raw.match(/^(20\d{2})[-\/]?(0?[1-9]|1[0-2])(?:[-\/]\d{1,2})?$/))){year=match[1];month=match[2]}
+ else if((match=raw.match(/^(0?[1-9]|1[0-2])[-\/](20\d{2})$/))){year=match[2];month=match[1]}
+ const y=Number(year),mth=Number(month);
+ return Number.isInteger(y)&&y>=2000&&y<=2100&&Number.isInteger(mth)&&mth>=1&&mth<=12
+   ? String(y)+"-"+String(mth).padStart(2,"0")+"-01" : "";
+}
 function ymonth(r){return (r.date||"").slice(0,7)}
 function code(v){return clean(v).replace(/^0+(?=\d)/,"").toUpperCase()}
 function idOf(r){return code(r.employeeCode)||norm(r.employee)}
@@ -59,10 +68,10 @@ function isStop(m){
 }
 function normalizeApontamento(r){
  const m=entry(r);
- const date=dateOf(pick(m,["data","data_apontamento","dt_apontamento","dt_inicio","data_inicio","dataaponta","dt_inicio_producao","data_aponta","dt_producao","data_lancamento","dt_data","dia","dataref","dt_ref","datahora","data_hora"]));
+ const date=dateOf(pick(m,["data","data_apontamento","dt_apontamento","dt_inicio","data_inicio","dataaponta","dt_inicio_producao","data_aponta","dt_producao","data_lancamento","dt_data","dia","dataref","dt_ref","datahora","data_hora"]))||monthFromRecord(m);
  const employee=clean(pick(m,["funcionario","nome_funcionario","colaborador","operador","nome","nm_funcionario","funcionario_nome","nome_colaborador","responsavel","recurso_humano"]));
- const employeeCode=code(pick(m,["cod_funcionario","codigo_funcionario","cod_funcion","cod_operador","codigo_operador","matricula","codigo","cod_colaborador"]));
- const segment=clean(pick(m,["segmento","nome_segmento","grupo_maquina","setor","departamento","centro_custo","centrocusto"]))||"Sem segmento";
+ const employeeCode=code(pick(m,["cod_funcionario","codigo_funcionario","cod_funcion","cod_operador","codigo_operador","id_funcionario","matricula","codigo","cod_colaborador"]));
+ const segment=clean(pick(m,["seguimento","segmento","nome_segmento","grupo_maquina","setor","departamento","centro_custo","centrocusto"]))||"Sem segmento";
  const machine=clean(pick(m,["maquina","nome_maquina","recurso","equipamento","descricao_maquina","tp_maquina","maquina_nome"]))||"Não informado";
  const service=clean(pick(m,["servico","descricao_servico","tipo_servico","servico_nome","descricao","processo"]))||"Não informado";
  const explicitProd=nPick(m,["horas_produtivas","produtivas","hr_produtiva","horas_producao","horas_prod","tempo_produtivo","horas_produtiva"]);
@@ -257,8 +266,8 @@ function showMetas(result){
 function renderDetails(rows){
  const input=norm($("detailSearch").value);
  const filtered=input?rows.filter(r=>[r.employee,r.employeeCode,r.machine,r.segment,r.service,r.os,r.sourceType,r.date].some(v=>norm(v).includes(input))):rows;
- const ds=filtered.map(r=>({date:r.date,name:r.employee||r.employeeCode,segment:r.segment,machine:r.machine,service:r.service,os:r.os,sourceType:r.sourceType,prod:r.prod,stop:r.stop}));
- renderTable("detalhamento",ds,[{k:"date",t:"Data"},{k:"name",t:"Funcionário"},{k:"segment",t:"Segmento"},{k:"machine",t:"Máquina"},{k:"service",t:"Serviço"},{k:"os",t:"OS"},{k:"sourceType",t:"Tipo"},{k:"prod",t:"Produtivas",num:true},{k:"stop",t:"Paradas",num:true}],{total:false,limit:1500});
+ const ds=filtered.map(r=>({date:r.date?r.date.slice(5,7)+"/"+r.date.slice(0,4):"—",name:r.employee||r.employeeCode,segment:r.segment,machine:r.machine,service:r.service,os:r.os,sourceType:r.sourceType,prod:r.prod,stop:r.stop}));
+ renderTable("detalhamento",ds,[{k:"date",t:"Competência"},{k:"name",t:"Funcionário"},{k:"segment",t:"Segmento"},{k:"machine",t:"Máquina"},{k:"service",t:"Serviço"},{k:"os",t:"OS"},{k:"sourceType",t:"Tipo"},{k:"prod",t:"Produtivas",num:true},{k:"stop",t:"Paradas",num:true}],{total:false,limit:1500});
  $("detailCount").textContent=filtered.length>1500? "Exibindo 1.500 de "+filtered.length+" registros. A exportação inclui todos.":filtered.length+" registros no detalhamento.";
  return ds;
 }
