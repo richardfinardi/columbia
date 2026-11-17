@@ -17,10 +17,10 @@ import re
 import sys
 import unicodedata
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx
 
@@ -31,7 +31,10 @@ WHATSAPP_BASE = os.getenv(
     "AUVRIUN_WHATSAPP_URL",
     "https://auvriun-whatsapp.auvriun-monitor.workers.dev/whatsapp",
 ).rstrip("/")
-TZ = ZoneInfo("America/Sao_Paulo")
+try:
+    TZ = ZoneInfo("America/Sao_Paulo")
+except ZoneInfoNotFoundError:
+    TZ = timezone(timedelta(hours=-3))  # Brasil sem horário de verão desde 2019
 ROOT = Path(os.getenv("COLUMBIA_WHATSAPP_DATA", str(Path(__file__).resolve().parent / "whatsapp_horas_dados")))
 LOG = logging.getLogger("columbia.whatsapp")
 MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -338,7 +341,7 @@ def message_for(kind: str, frequency: str, start: date, end: date,
     title = "METAS E INDICADORES" if kind == "metas" else "RESUMO DE HORAS"
     lines = ["*COLUMBIA MACHINE | FECHAMENTO DE HORAS*", title,
              f"*Período:* {date_label(start, end)}",
-             f"*Periodicidade:* {{'diario':'Diário','semanal':'Semanal','mensal':'Mensal'}[frequency]}", ""]
+             "*Periodicidade:* " + {"diario": "Diário", "semanal": "Semanal", "mensal": "Mensal"}[frequency], ""]
     for field, label in (("segmentos", "Segmentos"), ("maquinas", "Máquinas"), ("funcionarios", "Funcionários")):
         choice = scopes.get(field, [])
         if choice:
