@@ -859,10 +859,19 @@ function grvMinutesActivity(who,id){
  return a;
 }
 function grvListMinutes(who,p){
+ if(!grvCan(who,'activities.view'))throw Error('Sem acesso às atividades.');
  const id=String(p.activityId||'');
- if(id)grvMinutesActivity(who,id);
- return grvMinutesRows().filter(x=>{try{grvMinutesActivity(who,x.ATIVIDADE_ID);return !id||x.ATIVIDADE_ID===id;}catch(e){return false;}})
-   .map(x=>{delete x._row;return x;});
+ const all=grvMinutesRows();
+ const activities=grvRows('ATIVIDADES');
+ const permitted=new Set();
+ if(grvCan(who,'activities.view_all')){
+  activities.forEach(a=>permitted.add(a.ID));
+ }else{
+  const linked=new Set(grvRows('VINCULOS').filter(v=>v.PESSOA_ID===who.ID).map(v=>v.ATIVIDADE_ID));
+  activities.forEach(a=>{if(a.RESPONSAVEL_ID===who.ID||linked.has(a.ID))permitted.add(a.ID)});
+ }
+ return all.filter(x=>permitted.has(x.ATIVIDADE_ID)&&(!id||x.ATIVIDADE_ID===id))
+  .map(x=>{delete x._row;return x;});
 }
 function grvSaveMinutes(who,p){
  const body=p.item||{},id=String(body.ID||''),a=grvMinutesActivity(who,String(body.ATIVIDADE_ID||''));
