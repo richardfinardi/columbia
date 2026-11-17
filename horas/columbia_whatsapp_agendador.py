@@ -12,6 +12,7 @@ import argparse
 import asyncio
 import json
 import logging
+from logging.handlers import RotatingFileHandler
 import os
 import re
 import sys
@@ -511,9 +512,14 @@ def main():
     args = parser.parse_args()
     if args.date and not args.preview:
         parser.error("--date exige --preview para evitar envios fora do calendário")
+    ROOT.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
-        handlers=[logging.StreamHandler(sys.stdout)])
+        handlers=[
+            logging.StreamHandler(sys.stdout),
+            RotatingFileHandler(ROOT / "agendador.log", maxBytes=2_000_000,
+                                backupCount=5, encoding="utf-8"),
+        ])
     try:
         return asyncio.run(run(args.preview, args.mode, args.date))
     except Exception as exc:
