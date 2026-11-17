@@ -83,7 +83,7 @@ function normalizeApontamento(r){
  if(explicitProd===null && explicitStop===null && total!==null){if(isStop(m))stop=total;else prod=total}
  else if(total!==null && explicitProd===null && explicitStop!==null)prod=Math.max(0,total-stop);
  else if(total!==null && explicitStop===null && explicitProd!==null)stop=Math.max(0,total-prod);
- return {date,employee,employeeCode,segment,machine,service,prod,stop,
+ return {date,employee,employeeCode,segment,machine,service,prod,stop,hoursTotal:total??(prod+stop),
   sourceType:clean(pick(m,["tipo_apontamento","tp_maquina","classificacao","tipo_hora"]))||"—",
   os:clean(pick(m,["os","cod_os","numero_os","ordem_servico"]))||"—",
   recognized:explicitProd!==null||explicitStop!==null||total!==null,
@@ -168,6 +168,7 @@ function calculate(rows,availability){
  const waste=available-prod-stop;
  return {available,prod,stop,waste,pProd:available?prod/available:NaN,pStop:available?stop/available:NaN,pWaste:available?waste/available:NaN,pDisp:available>0?1:NaN};
 }
+// Rateio segue APONTAMENTOS[horas] conforme DAX original, inclusive linhas sem produtivas/paradas.
 // Rateia a capacidade de cada funcionário proporcionalmente às horas apontadas
 // em cada segmento/máquina. Evita multiplicar o mesmo total mensal em cada grupo.
 function rateGroups(rows,dimension,available){
@@ -176,11 +177,11 @@ function rateGroups(rows,dimension,available){
   const group=r[dimension]||"Não informado",person=idOf(r),pk=r.date.slice(0,7)+"|"+person;
   let a=map.get(group);if(!a){a={name:group,available:0,prod:0,stop:0};map.set(group,a)}
   a.prod+=r.prod;a.stop+=r.stop;
-  usage.set(pk,(usage.get(pk)||0)+r.prod+r.stop);
+  usage.set(pk,(usage.get(pk)||0)+r.hoursTotal);
  }
  const availMap=new Map();for(const a of available)availMap.set(a.period+"|"+idOf(a),(availMap.get(a.period+"|"+idOf(a))||0)+a.available);
  for(const r of rows){
-  let a=map.get(r[dimension]||"Não informado"),pk=r.date.slice(0,7)+"|"+idOf(r),weight=r.prod+r.stop,den=usage.get(pk)||0;
+  let a=map.get(r[dimension]||"Não informado"),pk=r.date.slice(0,7)+"|"+idOf(r),weight=r.hoursTotal,den=usage.get(pk)||0;
   if(den>0)a.available+=(availMap.get(pk)||0)*weight/den;
  }
  return [...map.values()].map(a=>({...a,...calculate([a],[a])})); // reuses available/prod/stop
@@ -199,8 +200,8 @@ function availabilityFor(rows){
  if(!restricting) return state.available.filter(r=>months.has(r.period)&&(!f.employeeFilter||idOf(r)===f.employeeFilter)&&(!employees.size||employees.has(idOf(r))));
  const full=state.rows.filter(r=>months.has(ymonth(r))&&(!f.employeeFilter||idOf(r)===f.employeeFilter));
  const totals=new Map(),subset=new Map();
- for(const r of full){const k=ymonth(r)+"|"+idOf(r);totals.set(k,(totals.get(k)||0)+r.prod+r.stop)}
- for(const r of rows){const k=ymonth(r)+"|"+idOf(r);subset.set(k,(subset.get(k)||0)+r.prod+r.stop)}
+ for(const r of full){const k=ymonth(r)+"|"+idOf(r);totals.set(k,(totals.get(k)||0)+r.hoursTotal)}
+ for(const r of rows){const k=ymonth(r)+"|"+idOf(r);subset.set(k,(subset.get(k)||0)+r.hoursTotal)}
  return state.available.filter(a=>months.has(a.period)).map(a=>({...a,available:a.available*(subset.get(a.period+"|"+idOf(a))||0)/(totals.get(a.period+"|"+idOf(a))||Infinity)})).filter(a=>a.available>0);
 }
 function columnDefs(){
@@ -314,6 +315,23 @@ function renderDetails(rows){
  $("detailCount").textContent=filtered.length>1500? "Exibindo 1.500 de "+filtered.length+" registros. A exportação inclui todos.":filtered.length+" registros no detalhamento.";
  return ds;
 }
+function renderAudit(){
+ const months=new Set(selectedMonths());
+ const grvKeys=new Set(state.rows.filter(r=>months.has(ymonth(r))).map(r=>ymonth(r)+"|"+idOf(r)));
+ const all=state.available.filter(r=>months.has(r.period));
+ const matched=all.filter(r=>grvKeys.has(r.period+"|"+idOf(r)));
+ const missing=all.filter(r=>!grvKeys.has(r.period+"|"+idOf(r)));
+ const rows=missing.map(r=>({name:r.employee||"Sem nome",code:r.employeeCode||"—",period:r.period,
+  available:r.available,issue:"Sem correspondência de nome no GRV"}));
+ const cols=[{k:"name",t:"Funcionário"},{k:"code",t:"Código Aponta Fácil"},
+  {k:"period",t:"Competência"},{k:"available",t:"Horas disponíveis",num:true},
+  {k:"issue",t:"Situação"}];
+ $("auditSummary").textContent="Aponta Fácil: "+fmt(sum(all,"available"))+" h · "+
+  "Com vínculo GRV: "+fmt(sum(matched,"available"))+" h · "+
+  "Sem vínculo: "+fmt(sum(missing,"available"))+" h em "+missing.length+" registro(s).";
+ renderTable("auditoria",rows,cols,{total:false,limit:400});
+ return rows;
+}
 function renderAll(){
  const rows=rowsFiltered(),available=availabilityFor(rows),r=calculate(rows,available);
  $("kpiAvailable").textContent=state.availabilityLive?fmt(r.available):"—";
@@ -333,7 +351,8 @@ function renderAll(){
  renderTable("funcionarios",employees,cols);
  showMetas({...r,pProd:state.availabilityLive?r.pProd:NaN,pStop:state.availabilityLive?r.pStop:NaN,pWaste:state.availabilityLive?r.pWaste:NaN});
  const details=renderDetails(rows);
- state.exports={segmentos:groups,maquinas:machines,funcionarios:employees,metas:state.targets,detalhamento:details};
+ const audit=renderAudit();
+ state.exports={segmentos:groups,maquinas:machines,funcionarios:employees,auditoria:audit,metas:state.targets,detalhamento:details};
  charts(rows,available,machines);
  const missing=rows.filter(x=>!x.recognized);
  const monthsForAudit=new Set(selectedMonths());
