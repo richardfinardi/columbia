@@ -28,6 +28,9 @@
 .gcal-span{--cal-light:#e4f0fe;--cal-dark:#5b98d8;--cal-text:#163d65;position:absolute;z-index:1;height:24px;min-width:0;padding:3px 7px 4px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid color-mix(in srgb,var(--cal-dark) 30%,var(--cal-light));border-radius:6px;color:var(--cal-text);font-weight:700;font-size:11px;background:color-mix(in srgb,var(--cal-dark) var(--gcal-shade),var(--cal-light));line-height:15px;cursor:pointer}
 .gcal-span::after{content:"";position:absolute;bottom:0;left:0;width:var(--gcal-progress);height:3px;background:var(--cal-dark);opacity:.92}
 .gcal-span-label{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gcal-stage-tag{display:inline-block;font-size:10px;font-weight:900;line-height:13px;border-radius:3px;padding:0 4px;margin-right:3px;background:color-mix(in srgb,var(--cal-dark) 28%,var(--cal-light));border:1px solid color-mix(in srgb,var(--cal-dark) 45%,var(--cal-light));color:var(--cal-text);vertical-align:baseline}
+.gcal-week .gcal-stage:not(.gcal-cancelled){font-weight:800}
+
 .gcal-stage{--cal-light:#dcecfb;--cal-dark:#5d9cda;--cal-text:#173a65}
 .gcal-activity{--cal-light:#daf3e2;--cal-dark:#4cae76;--cal-text:#19472d}
 .gcal-meeting{--cal-light:#fff0ca;--cal-dark:#d49c3e;--cal-text:#664713}
