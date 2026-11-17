@@ -725,7 +725,10 @@ function minutesView(root,activityId){
 function minutesEditor(item,activityId){
  var a=S.activities.find(function(x){return x.ID===(item?item.ATIVIDADE_ID:activityId)})||S.activities[0];
  if(!a){notify('Nenhuma atividade disponível.',true);return}
- var done=item&&item.STATUS==='Finalizada',locked=done?'disabled':'';
+ var draftKey='grvmax_ata_draft_'+(item&&item.ID||activityId||'nova');
+ var savedDraft=null;
+ if(!item){try{savedDraft=JSON.parse(localStorage.getItem(draftKey)||'null')}catch(e){}}
+ var done=item&&item.STATUS==='Finalizada',locked=done?'disabled';
  function value(k){return attr(item&&item[k]||'')}
  var people=[];try{people=JSON.parse(item&&item.PARTICIPANTES_JSON||'[]')}catch(e){}
  var choices=S.people.map(function(p){return '<label class="checkitem"><input type="checkbox" class="ata-person" value="'+attr(p.NOME)+'" '+(people.includes(p.NOME)?'checked':'')+' '+locked+'>'+esc(p.NOME)+'</label>'}).join('');
@@ -737,6 +740,23 @@ function minutesEditor(item,activityId){
  [['ASSUNTOS','Assuntos discutidos'],['PROBLEMAS','Problemas identificados'],['DECISOES','Decisões tomadas'],['ENCAMINHAMENTOS_JSON','Encaminhamentos (um por linha)']].map(function(f){var val=f[0]==='ENCAMINHAMENTOS_JSON'?(function(){try{return JSON.parse(item&&item[f[0]]||'[]').map(function(x){return x.descricao}).join('\n')}catch(e){return ''}})():item&&item[f[0]]||'';return '<div class="fitem wide"><label>'+f[1]+'</label><textarea class="field" id="ata_'+f[0]+'" '+locked+'>'+esc(val)+'</textarea></div>'}).join('')+'</div>';
  var actions='<button class="btn" onclick="closePop()">Fechar</button><button class="btn" id="ataPrint">Salvar PDF / Imprimir</button>'+(done?'<button class="btn primary" id="ataEmail">Enviar por e-mail</button>':'')+(done?'':'<button class="btn primary" id="ataSave" data-save>Salvar rascunho</button>'+(item?'<button class="btn" id="ataFinalize" data-save>Finalizar</button>':''));
  modal('Ata de reunião · '+a.TITULO,body,actions);
+ var draftFields=['ataActivity','ataDate','ataTitle','ataObjective','ata_ASSUNTOS','ata_PROBLEMAS','ata_DECISOES','ata_ENCAMINHAMENTOS_JSON'];
+ function preserveAta(){
+  if(done)return;
+  var snapshot={fields:{},participants:Array.from(document.querySelectorAll('.ata-person:checked')).map(function(x){return x.value})};
+  draftFields.forEach(function(id){var field=el(id);if(field)snapshot.fields[id]=field.value});
+  try{localStorage.setItem(draftKey,JSON.stringify(snapshot))}catch(e){}
+ }
+ if(savedDraft&&savedDraft.fields){
+  draftFields.forEach(function(id){if(el(id)&&Object.prototype.hasOwnProperty.call(savedDraft.fields,id))el(id).value=savedDraft.fields[id]});
+  document.querySelectorAll('.ata-person').forEach(function(x){x.checked=(savedDraft.participants||[]).includes(x.value)});
+  notify('Rascunho anterior recuperado neste navegador.');
+ }
+ if(!done){
+  draftFields.forEach(function(id){if(el(id))el(id).addEventListener('input',preserveAta)});
+  document.querySelectorAll('.ata-person').forEach(function(x){x.addEventListener('change',preserveAta)});
+  preserveAta();
+ }
  el('ataPrint').onclick=function(){
   var labels=[['Objetivo','ataObjective'],['Assuntos discutidos','ata_ASSUNTOS'],['Problemas identificados','ata_PROBLEMAS'],['Decisões','ata_DECISOES'],['Encaminhamentos','ata_ENCAMINHAMENTOS_JSON']];
   var html='<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Ata GRVMAX</title><style>body{font:14px Arial;margin:35px;color:#222}h1{font-size:22px}h2{font-size:15px;margin-top:24px;border-bottom:1px solid #aaa;padding-bottom:5px}p{white-space:pre-wrap;line-height:1.5}</style></head><body><h1>Ata de reunião | GRVMAX</h1><p><b>Atividade:</b> '+esc(a.TITULO)+'<br><b>Etapa:</b> '+esc(stage(a.ETAPA_ID))+'<br><b>Data:</b> '+esc(fmt(el('ataDate').value))+'<br><b>Participantes:</b> '+esc(Array.from(document.querySelectorAll('.ata-person:checked')).map(function(x){return x.value}).join(', '))+'</p>';
@@ -753,7 +773,7 @@ function minutesEditor(item,activityId){
    PARTICIPANTES_JSON:JSON.stringify(Array.from(document.querySelectorAll('.ata-person:checked')).map(function(x){return x.value})),
    ASSUNTOS:el('ata_ASSUNTOS').value,PROBLEMAS:el('ata_PROBLEMAS').value,DECISOES:el('ata_DECISOES').value,
    ENCAMINHAMENTOS_JSON:JSON.stringify(el('ata_ENCAMINHAMENTOS_JSON').value.split('\n').filter(Boolean).map(function(x){return {descricao:x,responsavel:'',prazo:''}}))};
-  busy(true);try{await api('saveMinutes',{item:data});closePop();minutesView(el('content'),minutesActivityFilter);notify('Ata salva.')}catch(e){notify(e.message,true)}finally{busy(false)}
+  preserveAta();busy(true);try{await api('saveMinutes',{item:data});localStorage.removeItem(draftKey);closePop();minutesView(el('content'),minutesActivityFilter);notify('Ata salva.')}catch(e){notify('Ata NÃO salva no servidor: '+e.message,true);alert('A ata não foi salva no servidor. O texto foi preservado neste navegador. Erro: '+e.message)}finally{busy(false)}
  };
  if(item)el('ataFinalize').onclick=async function(){if(!confirm('Finalizar e bloquear a edição desta ata?'))return;busy(true);try{await api('finalizeMinutes',{id:item.ID});closePop();minutesView(el('content'),minutesActivityFilter)}catch(e){notify(e.message,true)}finally{busy(false)}};
 }
