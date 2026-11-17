@@ -60,3 +60,11 @@
  .btn.primary{flex:1}
  .picker-options{max-height:180px}
 }
+
+
+.subscription-preview-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.subscription-preview-head strong{font-size:14px;color:#1d3450}
+.subscription-preview-head p{font-size:11px;color:#64748b;margin:4px 0 0}
+.subscription-preview-note{font-size:11px;color:#64748b;line-height:1.5;margin:8px 0 0}
+.sub-preview pre{max-width:760px;background:#f8fafc;white-space:pre-wrap;overflow-wrap:anywhere;color:#12233d;border:1px solid #e2e8f0}
+@media(max-width:760px){.subscription-preview-head .btn{flex:1}.sub-preview pre{font-size:11px}}
