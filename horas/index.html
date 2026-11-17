@@ -12,8 +12,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
   <script src="https://unpkg.com/lucide@latest" defer></script>
-  <link rel="stylesheet" href="./horas.css?v=20261117-audit3">
-  <script src="./horas.js?v=20261117-audit3" defer></script>
+  <link rel="stylesheet" href="./horas.css?v=20261117-annual4">
+  <script src="./horas.js?v=20261117-annual4" defer></script>
 </head>
 <body>
   <div id="accessGate" class="access-gate"><div class="loader"></div><strong>Validando acesso ao fechamento de horas...</strong></div>
@@ -56,7 +56,7 @@
         <button class="tab" data-view="detalhamento" role="tab" aria-selected="false">Detalhamento</button>
       </section>
       <section class="view" id="view-segmentos">
-        <div class="chart-grid"><div class="card chart-card"><h3>Composição mensal das horas</h3><p>Percentual das horas disponíveis por mês</p><div class="canvas-wrap"><canvas id="monthlyChart"></canvas></div></div>
+        <div class="chart-grid"><div class="card chart-card"><h3>Composição mensal das horas</h3><p>Percentual das horas disponíveis por mês</p><small class="chart-click-hint">Clique ou toque em um mês para filtrar todo o painel. Toque novamente para ver o ano.</small><div class="canvas-wrap"><canvas id="monthlyChart"></canvas></div></div>
           <div class="card chart-card"><h3>Distribuição no período</h3><p>Produtivas, paradas e desperdício</p><div class="canvas-wrap"><canvas id="mixChart"></canvas></div></div></div>
         <div class="card table-card"><div class="table-head"><div><h3>Resultado por segmento</h3><p>Desempenho por grupo de máquinas</p></div><button data-export="segmentos" class="btn export">Exportar Excel</button></div><div class="table-scroll"><table id="table-segmentos"></table></div></div>
       </section>
