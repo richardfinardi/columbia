@@ -9,7 +9,7 @@ const DISPONIVEIS=BASE+"/horas_disponiveis";
 const META_SHEET="https://docs.google.com/spreadsheets/d/1zUhza1A-dpdw2pnqXjKr_HAYHW0nEVi4QZFa_UMI_S8/gviz/tq?tqx=out:json&sheet=META_PRODUTIVIDADE";
 const TOKEN_KEY="columbia_analista_token";
 const now=new Date();
-const state={rows:[],available:[],targets:[],loaded:false,loading:false,selected:"segmentos",sort:{},charts:{},issues:[],metaLive:false,availabilityLive:false,sourceData:null};
+const state={rows:[],available:[],targets:[],loaded:false,loading:false,selected:"segmentos",sort:{},charts:{},issues:[],metaLive:false,availabilityLive:false,sourceData:null,availabilityCache:new Map(),availabilityFetchSeq:0};
 const $=id=>document.getElementById(id);
 const FILTERS=["yearFilter","monthFilter","segmentFilter","machineFilter","employeeFilter","serviceFilter"];
 const MONTHS=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -308,6 +308,36 @@ function restore(){
 function restorePending(){
  for(const id of FILTERS){const e=$(id);if(e.dataset.restore&&[...e.options].some(o=>o.value===e.dataset.restore))e.value=e.dataset.restore;delete e.dataset.restore}
 }
+async function syncAvailability({force=false}={}){
+ if(!state.loaded)return;
+ const sequence=++state.availabilityFetchSeq;
+ const months=selectedMonths().slice(-24);
+ state.available=[];state.availabilityLive=false;
+ if(!months.length){renderAll();return}
+ $("sourceStatus").textContent="GRV conectado · Consultando Aponta Fácil ("+months.length+" mês(es))...";
+ let all=[],failed=false;
+ for(const period of months){
+  if(sequence!==state.availabilityFetchSeq)return;
+  try{
+   if(force||!state.availabilityCache.has(period)){
+    const [ano,mes]=period.split("-");
+    const payload=await getJson(DISPONIVEIS+"?ano="+ano+"&mes="+Number(mes));
+    state.availabilityCache.set(period,parseAvailableResponse(payload));
+   }
+   all.push(...state.availabilityCache.get(period));
+  }catch(e){
+   if(sequence!==state.availabilityFetchSeq)return;
+   failed=true;
+   warning("Aponta Fácil: "+e.message+". Os indicadores de horas disponíveis seguem ocultos até a consulta funcionar.");
+   break;
+  }
+ }
+ if(sequence!==state.availabilityFetchSeq)return;
+ state.available=failed?[]:all;
+ state.availabilityLive=!failed&&all.length>0;
+ if(!failed&&!all.length)warning("Aponta Fácil não retornou horas disponíveis para os períodos consultados.");
+ renderAll();
+}
 async function load(){
  if(state.loading)return;state.loading=true;$("refreshBtn").disabled=true;$("alertArea").replaceChildren();
  $("sourceStatus").textContent="Atualizando fontes...";
@@ -320,25 +350,12 @@ async function load(){
   if(orig.length&&!state.rows.some(r=>r.recognized))warning("A API retornou registros, mas os campos de horas não foram reconhecidos. É necessário conferir o JSON real antes de usar os indicadores.", "error");
   if(orig.length&&!state.rows.some(r=>r.date))warning("A API não retornou data em formato reconhecido; os filtros mensais não funcionarão corretamente.","error");
   if(!state.metaLive)warning("Metas: planilha não está acessível diretamente pelo navegador. Usando a referência de 2026 lida da planilha. Alterações futuras precisam de publicação/integração da planilha.");
-  // Carregamento de horas disponíveis por meses ativos. Executado sempre no servidor Columbia.
+  // Exibe os dados GRV imediatamente. Consulta o Aponta Fácil somente para o período selecionado.
   state.available=[];state.availabilityLive=false;
-  const months=[...new Set(state.rows.map(ymonth).filter(Boolean))].sort().reverse();
-  if(!months.length)months.push(now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0"));
-  const validMonths=months.slice(0,24);
-  let failed=false;
-  // Se o backend ainda não possui a rota nova, evita diversas chamadas desnecessárias.
-  for(const m of validMonths){
-   const [ano,mes]=m.split("-");
-   try{
-    const payload=await getJson(DISPONIVEIS+"?ano="+ano+"&mes="+Number(mes));
-    state.available.push(...parseAvailableResponse(payload));
-    state.availabilityLive=true;
-   }catch(e){failed=true;state.availabilityLive=false;state.available=[];warning("Aponta Fácil: "+e.message+". As horas disponíveis e os percentuais ficam ocultos até configurar a integração no backend.");break}
-  }
-  if(!failed&&state.available.length===0){state.availabilityLive=false;warning("Aponta Fácil não retornou horas disponíveis para os períodos consultados.");}
   state.loaded=true;
   buildFilters();restorePending();renderAll();
   $("updatedAt").textContent="Atualizado "+new Date().toLocaleString("pt-BR");
+  await syncAvailability({force:true});
  }catch(e){warning(e.message,"error");$("sourceStatus").textContent="Falha na atualização";}
  finally{state.loading=false;$("refreshBtn").disabled=false}
 }
@@ -357,9 +374,9 @@ async function boot(){
  }catch(e){$("accessGate").innerHTML='<strong>Não foi possível validar o acesso</strong><p>'+escapeHtml(e.message)+'</p><a href="../login.html">Entrar novamente</a>'}
 }
 function init(){
- FILTERS.forEach(id=>$(id).addEventListener("change",()=>{buildFiltersDependents(id);persist();renderAll()}));
+ FILTERS.forEach(id=>$(id).addEventListener("change",()=>{buildFiltersDependents(id);persist();renderAll();if(id==="yearFilter"||id==="monthFilter")void syncAvailability()}));
  $("refreshBtn").addEventListener("click",load);
- $("clearFilters").addEventListener("click",()=>{FILTERS.forEach(id=>$(id).value="");localStorage.removeItem("columbia_horas_filters");buildFiltersDependents("yearFilter");renderAll()});
+ $("clearFilters").addEventListener("click",()=>{FILTERS.forEach(id=>$(id).value="");localStorage.removeItem("columbia_horas_filters");buildFiltersDependents("yearFilter");renderAll();void syncAvailability()});
  $("detailSearch").addEventListener("input",renderAll);
  document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>{
   state.selected=btn.dataset.view;document.querySelectorAll(".tab").forEach(t=>{t.classList.toggle("active",t===btn);t.setAttribute("aria-selected",t===btn?"true":"false")});
