@@ -24,7 +24,7 @@ body.dark{--nav:#071526;--nav2:#102a45;--accent:#66b2ff;--bg:#101a27;--card:#192
 var token=sessionStorage.getItem('grvmax_session')||'';
 var S=null,screen='dashboard',search='',filterStage='',filterStatus='',filterResponsible='',filterDeadline='',taskScope='mine',inviteToken='',inviteEmail='',dark=localStorage.getItem('grvmax_dark')==='1';
 if(dark)document.body.classList.add('dark');
-var tabs=[['dashboard','◫','Dashboard'],['stages','▦','Etapas'],['activities','☷','Atividades'],['approvals','◈','Homologações'],['people','♙','Pessoas'],['emails','✉','Comunicação'],['agenda','▣','Agenda'],['pending','⚑','Pendências'],['changes','⇄','Mudanças'],['training','▤','Treinamentos'],['golive','◉','GO LIVE'],['history','≡','Histórico / Logs']];
+var tabs=[['dashboard','◫','Dashboard'],['stages','▦','Etapas'],['activities','☷','Atividades'],['minutes','▤','Atas'],['approvals','◈','Homologações'],['people','♙','Pessoas'],['emails','✉','Comunicação'],['agenda','▣','Agenda'],['pending','⚑','Pendências'],['changes','⇄','Mudanças'],['training','▤','Treinamentos'],['golive','◉','GO LIVE'],['history','≡','Histórico / Logs']];
 var defs={
  ETAPAS:[['ORDEM','Ordem','number'],['TITULO','Título','text','wide'],['DESCRICAO','Descrição','textarea','wide'],['ENTREGAVEL','Entregável','textarea','wide'],['RESPONSAVEL_ID','Responsável','person'],['DATA_INICIO','Início previsto','date'],['DATA_FIM','Fim previsto','date'],['DEPENDE_DE','Etapas predecessoras','stageMultiple','wide'],['STATUS','Situação','stagesStatus'],['OBRIGATORIA','Obrigatória','bool']],
  ATIVIDADES:[['ETAPA_ID','Etapa','stage'],['TITULO','Atividade','text','wide'],['DESCRICAO','Instruções','textarea','wide'],['RESPONSAVEL_ID','Responsável principal','person'],['__PARTICIPANTES','Participantes da atividade','peopleMultiple','wide'],['__HOMOLOGADOR','Homologador designado','homologator','wide'],['STATUS','Situação','activityStatus'],['PRIORIDADE','Prioridade','priority'],['DATA_ORIENTACAO','Data da orientação','date'],['PRAZO','Prazo de validação','date'],['CRITERIO_ACEITE','Critério de aceite','textarea','wide'],['EVIDENCIA_URL','Link da evidência','text','wide'],['DEPENDE_DE','Depende de','activity'],['OBRIGATORIA','Obrigatória','bool']],
@@ -108,7 +108,7 @@ function render(){
  el('themeBtn').onclick=function(){dark=!dark;document.body.classList.toggle('dark',dark);localStorage.setItem('grvmax_dark',dark?'1':'0')};
  el('logoutBtn').onclick=async function(){try{await api('logout')}catch(e){}token='';sessionStorage.removeItem('grvmax_session');S=null;authScreen('login')};
  var content=el('content');
- switch(screen){case 'dashboard':dashboard(content);break;case 'stages':stagesView(content);break;case 'activities':activitiesView(content);break;case 'approvals':approvalsView(content);break;case 'people':peopleView(content);break;case 'emails':emailsView(content);break;case 'agenda':genericView(content,'AGENDA',S.agenda);break;case 'pending':genericView(content,'PENDENCIAS',S.pending);break;case 'changes':genericView(content,'MUDANCAS',S.changes);break;case 'training':genericView(content,'TREINAMENTOS',S.trainings);break;case 'golive':goLiveView(content);break;case 'history':historyView(content);break;}
+ switch(screen){case 'dashboard':dashboard(content);break;case 'stages':stagesView(content);break;case 'activities':activitiesView(content);break;case 'minutes':minutesView(content);break;case 'approvals':approvalsView(content);break;case 'people':peopleView(content);break;case 'emails':emailsView(content);break;case 'agenda':genericView(content,'AGENDA',S.agenda);break;case 'pending':genericView(content,'PENDENCIAS',S.pending);break;case 'changes':genericView(content,'MUDANCAS',S.changes);break;case 'training':genericView(content,'TREINAMENTOS',S.trainings);break;case 'golive':goLiveView(content);break;case 'history':historyView(content);break;}
 }
 function createButton(tbl){return S.canEdit||tbl==='PESSOAS'&&S.canAdmin?'<button class="btn primary" onclick="editItem(\''+tbl+'\')">+ Novo cadastro</button>':''}
 function dashboard(root){
@@ -177,6 +177,7 @@ function taskRows(){
  var msg=taskScope==='created'?'Nenhuma atividade criada por você com autoria registrada. Cadastros iniciais sem registro de criação não entram nesta visão.':taskScope==='mine'?'Nenhuma atividade atribuída a você corresponde aos filtros.':'Nenhuma atividade corresponde aos filtros.';
  el('taskList').innerHTML='<div class="tablewrap"><table class="grid"><thead><tr><th>Atividade</th><th>Etapa</th><th>Responsável</th><th>Orientação</th><th>Validação</th><th>Status</th><th></th></tr></thead><tbody>'+tasks.map(function(a){return '<tr><td class="title">'+esc(a.TITULO)+'</td><td>'+esc(stage(a.ETAPA_ID))+'</td><td>'+esc(person(a.RESPONSAVEL_ID))+'<div class="tiny muted">'+esc(activityTeam(a.ID,'PARTICIPANTE').map(person).join(', '))+'</div></td><td>'+fmt(a.DATA_ORIENTACAO)+'</td><td>'+fmt(a.PRAZO)+(taskLate(a)?' <span class="pill bad">ATRASO</span>':'')+'</td><td>'+taskStatusCell(a)+'</td><td><button class="link" data-task-open="'+attr(a.ID)+'">Abrir</button></td></tr>'}).join('')+'</tbody></table>'+(tasks.length?'':'<div class="empty">'+msg+'</div>')+'</div><div class="muted small" style="margin-top:10px">'+tasks.length+' de '+scoped.length+' atividades nesta visualização</div>';
  document.querySelectorAll('[data-quick]').forEach(function(b){b.onchange=function(){changeTaskStatus(this.dataset.quick,this.value)}});
+ document.querySelectorAll('[data-minutes]').forEach(function(b){b.onclick=function(){minutesView(el('content'),this.dataset.minutes);screen='minutes'}});
  document.querySelectorAll('[data-task-open]').forEach(function(b){b.onclick=function(){editItem('ATIVIDADES',this.dataset.taskOpen)}});
 }
 window.changeTaskStatus=async function(id,next){
@@ -371,5 +372,43 @@ window.goDecision=async function(decision){var note=prompt('Justificativa da dec
 window.nav=nav;
 start();
 })();
+
+var minutesActivityFilter='';
+function minutesView(root,activityId){
+ minutesActivityFilter=activityId||'';
+ root.innerHTML='<div class="toolbar"><h2 class="sectiontitle">Atas de reunião</h2><span class="spacer"></span><button class="btn primary" id="newMinutes">+ Nova ata</button></div><div id="minutesList" class="card">Carregando...</div>';
+ el('newMinutes').onclick=function(){minutesEditor(null,minutesActivityFilter)};
+ api('listMinutes',{}).then(function(items){
+  var rows=items.filter(function(x){return !minutesActivityFilter||x.ATIVIDADE_ID===minutesActivityFilter});
+  el('minutesList').innerHTML=rows.length?rows.map(function(x){return '<div class="listrow"><div><b>'+esc(x.TITULO)+'</b><div class="small muted">'+fmt(x.DATA_REUNIAO)+' · '+esc(stage(x.ETAPA_ID))+' · '+esc(x.STATUS)+'</div></div><button class="btn" data-ata="'+attr(x.ID)+'">Abrir</button></div>'}).join(''):'<div class="empty">Nenhuma ata cadastrada.</div>';
+  document.querySelectorAll('[data-ata]').forEach(function(b){b.onclick=function(){minutesEditor(rows.find(function(x){return x.ID===b.dataset.ata}))}});
+ }).catch(function(e){el('minutesList').textContent=e.message});
+}
+function minutesEditor(item,activityId){
+ var a=S.activities.find(function(x){return x.ID===(item?item.ATIVIDADE_ID:activityId)})||S.activities[0];
+ if(!a){notify('Nenhuma atividade disponível.',true);return}
+ var done=item&&item.STATUS==='Finalizada',locked=done?'disabled':'';
+ function value(k){return attr(item&&item[k]||'')}
+ var people=[];try{people=JSON.parse(item&&item.PARTICIPANTES_JSON||'[]')}catch(e){}
+ var choices=S.people.map(function(p){return '<label class="checkitem"><input type="checkbox" class="ata-person" value="'+attr(p.NOME)+'" '+(people.includes(p.NOME)?'checked':'')+' '+locked+'>'+esc(p.NOME)+'</label>'}).join('');
+ var body='<div class="formgrid"><div class="fitem wide"><label>Atividade vinculada</label><select class="field" id="ataActivity" '+(item?'disabled':'')+'>'+S.activities.map(function(x){return '<option value="'+attr(x.ID)+'" '+(x.ID===a.ID?'selected':'')+'>'+esc(stage(x.ETAPA_ID)+' · '+x.TITULO)+'</option>'}).join('')+'</select></div>'+
+ '<div class="fitem"><label>Data da reunião</label><input type="date" class="field" id="ataDate" value="'+(item?value('DATA_REUNIAO'):new Date().toISOString().slice(0,10))+'" '+locked+'></div>'+
+ '<div class="fitem"><label>Título</label><input class="field" id="ataTitle" value="'+value('TITULO')+'" '+locked+'></div>'+
+ '<div class="fitem wide"><label>Objetivo</label><textarea class="field" id="ataObjective" '+locked+'>'+esc(item&&item.OBJETIVO||a.DESCRICAO||a.TITULO)+'</textarea></div>'+
+ '<div class="fitem wide"><label>Participantes</label><div class="checkgrid">'+choices+'</div></div>'+
+ [['ASSUNTOS','Assuntos discutidos'],['PROBLEMAS','Problemas identificados'],['DECISOES','Decisões tomadas'],['ENCAMINHAMENTOS_JSON','Encaminhamentos (um por linha)']].map(function(f){var val=f[0]==='ENCAMINHAMENTOS_JSON'?(function(){try{return JSON.parse(item&&item[f[0]]||'[]').map(function(x){return x.descricao}).join('\n')}catch(e){return ''}})():item&&item[f[0]]||'';return '<div class="fitem wide"><label>'+f[1]+'</label><textarea class="field" id="ata_'+f[0]+'" '+locked+'>'+esc(val)+'</textarea></div>'}).join('')+'</div>';
+ var actions='<button class="btn" onclick="closePop()">Fechar</button><button class="btn" id="ataPrint">Imprimir / PDF</button>'+(done?'':'<button class="btn primary" id="ataSave" data-save>Salvar rascunho</button>'+(item?'<button class="btn" id="ataFinalize" data-save>Finalizar</button>':''));
+ modal('Ata de reunião · '+a.TITULO,body,actions);
+ el('ataPrint').onclick=function(){window.print()};
+ if(done)return;
+ el('ataSave').onclick=async function(){
+  var data={ID:item&&item.ID||'',ATIVIDADE_ID:el('ataActivity').value,DATA_REUNIAO:el('ataDate').value,TITULO:el('ataTitle').value,OBJETIVO:el('ataObjective').value,
+   PARTICIPANTES_JSON:JSON.stringify(Array.from(document.querySelectorAll('.ata-person:checked')).map(function(x){return x.value})),
+   ASSUNTOS:el('ata_ASSUNTOS').value,PROBLEMAS:el('ata_PROBLEMAS').value,DECISOES:el('ata_DECISOES').value,
+   ENCAMINHAMENTOS_JSON:JSON.stringify(el('ata_ENCAMINHAMENTOS_JSON').value.split('\n').filter(Boolean).map(function(x){return {descricao:x,responsavel:'',prazo:''}}))};
+  busy(true);try{await api('saveMinutes',{item:data});closePop();minutesView(el('content'),minutesActivityFilter);notify('Ata salva.')}catch(e){notify(e.message,true)}finally{busy(false)}
+ };
+ if(item)el('ataFinalize').onclick=async function(){if(!confirm('Finalizar e bloquear a edição desta ata?'))return;busy(true);try{await api('finalizeMinutes',{id:item.ID});closePop();minutesView(el('content'),minutesActivityFilter)}catch(e){notify(e.message,true)}finally{busy(false)}};
+}
 </script>
 </body></html>
