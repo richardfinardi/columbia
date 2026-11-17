@@ -10,31 +10,57 @@ Write-Host 'COLUMBIA - INSTALACAO DO WHATSAPP AUTOMATICO' -ForegroundColor Cyan
 if (-not (Test-Path -LiteralPath $target)) {
     throw "Arquivo ausente: $target. Copie-o do GitHub antes de instalar."
 }
-$pythonCommand = Get-Command python -ErrorAction Stop
-$pythonPath = $pythonCommand.Source
-if (-not (Test-Path -LiteralPath $pythonPath)) { throw "Python nao localizado: $pythonPath" }
-Write-Host "Python: $pythonPath"
+# WindowsApps/python.exe pode ser apenas o atalho da Microsoft Store.
+# Prioriza o Python real, com httpx instalado, para executar o agendador.
+$paths = New-Object 'System.Collections.Generic.List[string]'
+$launcher = Get-Command py -ErrorAction SilentlyContinue
+if ($launcher) {
+    try {
+        $resolved = & $launcher.Source -c 'import sys; print(sys.executable)' 2>$null
+        if ($LASTEXITCODE -eq 0 -and $resolved) { $paths.Add(([string]$resolved).Trim()) }
+    } catch {}
+}
+Get-Command python.exe -All -ErrorAction SilentlyContinue | ForEach-Object {
+    if ($_.Source -and $_.Source -notlike '*\\WindowsApps\\*') { $paths.Add($_.Source) }
+}
+Get-ChildItem -Path (Join-Path $env:LOCALAPPDATA 'Programs\Python\Python*\python.exe') -ErrorAction SilentlyContinue | ForEach-Object {
+    $paths.Add($_.FullName)
+}
+$pythonPath = $null
+foreach ($candidate in ($paths | Select-Object -Unique)) {
+    if (-not (Test-Path -LiteralPath $candidate)) { continue }
+    try {
+        & $candidate -c 'import httpx' 2>$null
+        if ($LASTEXITCODE -eq 0) { $pythonPath = $candidate; break }
+    } catch {}
+}
+if (-not $pythonPath) {
+    throw "Python REAL com httpx nao localizado. Execute no servidor: py -0p"
+}
+Write-Host "Python verificado: $pythonPath"
 
 $login = Read-Host "Usuario do GRV Columbia que possui CSENHA.U_HORAS=1"
 if ([string]::IsNullOrWhiteSpace($login)) { throw "O usuario e obrigatorio." }
 
-$secure = Read-Host "Chave da aplicacao 'columbia' na AUVRIUN (auv_...)" -AsSecureString
-$bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
-try {
-    $key = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
-} finally {
-    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+Write-Host ''
+Write-Host 'Copie a chave da AUVRIUN (auv_...) para a area de transferencia.' -ForegroundColor Cyan
+Write-Host 'Nao precisa colar no PowerShell. O instalador vai ler a chave copiada.'
+Read-Host 'Depois de copiar a chave, pressione ENTER aqui' | Out-Null
+$clipboard = [string](Get-Clipboard -Raw)
+$matchesFound = [regex]::Matches($clipboard, '(?<![A-Za-z0-9_-])auv_[A-Za-z0-9_-]{43}(?![A-Za-z0-9_-])')
+if ($matchesFound.Count -ne 1) {
+    throw "Nao consegui localizar UMA chave no clipboard. No Bloco de Notas, selecione apenas a linha que comeca com auv_, pressione Ctrl+C e execute novamente."
 }
-if ($key -notmatch '^auv_[A-Za-z0-9_-]{40,90}$') {
-    throw "Chave da AUVRIUN invalida. Gere uma nova chave da aplicacao columbia."
-}
+$key = $matchesFound[0].Value
+Write-Host 'Chave localizada, formato validado (sem exibir o valor).' -ForegroundColor Green
+Remove-Variable clipboard, matchesFound -ErrorAction SilentlyContinue
 
 # Ambiente do usuario, evita chave escrita nos argumentos da tarefa.
 [Environment]::SetEnvironmentVariable('AUVRIUN_COLUMBIA_KEY', $key, 'User')
 [Environment]::SetEnvironmentVariable('COLUMBIA_HORAS_SERVICE_USER', $login, 'User')
 $env:AUVRIUN_COLUMBIA_KEY = $key
 $env:COLUMBIA_HORAS_SERVICE_USER = $login
-Remove-Variable -Name key, secure -ErrorAction SilentlyContinue
+Remove-Variable -Name key -ErrorAction SilentlyContinue
 
 Write-Host ''
 Write-Host 'Verificando dependencias e dados SEM ENVIAR WhatsApp...' -ForegroundColor Yellow
