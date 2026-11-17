@@ -522,7 +522,7 @@ async def diagnose_grv() -> int:
     monthly = [r for r in normalized if r["day"] and not r["actual_date"]]
     missing = [r for r in normalized if not r["day"]]
     print("\n=== DIAGNÓSTICO GRV /custos_apontamento_DIARIO (SEM ENVIOS) ===")
-    print("Endpoint: " + BASE + "/custos_apontamento")
+    print("Endpoint: " + BASE + GRV_DAILY_ENDPOINT)
     print("Registros totais:", len(source))
     print("Campos da primeira linha:", ", ".join(str(k) for k in source[0].keys()) if source else "(vazio)")
     print("Registros com data diária real:", len(actual))
