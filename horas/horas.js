@@ -246,10 +246,53 @@ function renderTable(id,rows,defs,{total=true,limit=1000}={}){
  table.innerHTML=header+"<tbody>"+(trs||'<tr><td colspan="'+defs.length+'">Sem registros para os filtros selecionados.</td></tr>')+totals+"</tbody>";
  table.querySelectorAll("th[data-column]").forEach(th=>th.addEventListener("click",()=>{const k=th.dataset.column;const previous=state.sort[id];state.sort[id]={col:k,dir:previous?.col===k?-previous.dir:(defs.find(d=>d.k===k)?.num?-1:1)};renderAll()}));
 }
+// Rótulos de dados desenhados no canvas: independem de plugins externos ou hover.
+const alwaysVisibleValues={
+ id:"columbiaVisibleValues",
+ afterDatasetsDraw(chart,args,settings){
+  const mode=settings.mode;if(!mode)return;
+  const ctx=chart.ctx,area=chart.chartArea;
+  const formatter=v=>Number(v).toLocaleString("pt-BR",{minimumFractionDigits:mode==="hours"?2:0,maximumFractionDigits:mode==="hours"?2:1})+(mode==="hours"?" h":"%");
+  ctx.save();ctx.textAlign="center";ctx.textBaseline="middle";ctx.font="700 "+(chart.width<410?9:11)+"px Segoe UI, sans-serif";
+  for(let i=0;i<chart.data.datasets.length;i++){
+   if(!chart.isDatasetVisible(i))continue;
+   const ds=chart.data.datasets[i],meta=chart.getDatasetMeta(i);
+   for(let j=0;j<meta.data.length;j++){
+    const v=Number(ds.data[j]);
+    if(!Number.isFinite(v)||v<=0)continue;
+    const el=meta.data[j];let x,y,label,color="#fff";
+    if(mode==="donut"){
+     const total=chart.data.datasets[0].data.reduce((a,b)=>a+(Number(b)>0?Number(b):0),0);
+     if(!total)continue;
+     label=formatter(v/total*100);
+     const angle=(el.startAngle+el.endAngle)/2;
+     const radius=v/total<.07?el.outerRadius+10:(el.outerRadius+el.innerRadius)/2;
+     x=el.x+Math.cos(angle)*radius;y=el.y+Math.sin(angle)*radius;
+     if(v/total<.07)color="#213650";
+    }else if(mode==="hours"){
+     label=formatter(v);x=el.x+6;y=el.y;color="#213650";
+     ctx.textAlign="left";
+     if(x+ctx.measureText(label).width>chart.width-5){ctx.textAlign="right";x=el.x-6;color="#172b40"}
+    }else{
+     label=formatter(v);x=el.x;y=(el.y+el.base)/2;
+     if(Math.abs(el.y-el.base)<15){y=el.y-8;color="#223b58"}
+    }
+    if(!Number.isFinite(x)||!Number.isFinite(y))continue;
+    x=Math.max(area.left+4,Math.min(chart.width-10,x));
+    y=Math.max(10,Math.min(chart.height-10,y));
+    ctx.shadowColor="rgba(0,0,0,0.22)";ctx.shadowBlur=color==="#fff"?2:0;
+    ctx.fillStyle=color;ctx.fillText(label,x,y);
+    ctx.shadowBlur=0;ctx.textAlign="center";
+   }
+  }
+  ctx.restore();
+ }
+};
 function chart(id,config){
  if(!window.Chart)return;
  state.charts[id]?.destroy();
- state.charts[id]=new Chart($(id).getContext("2d"),config);
+ config.plugins=[...(config.plugins||[]),alwaysVisibleValues];
+  state.charts[id]=new Chart($(id).getContext("2d"),config);
 }
 function charts(rows,available,groups){
  const groupMonth=new Map();
@@ -258,10 +301,10 @@ function charts(rows,available,groups){
  for(const r of rows){let g=groupMonth.get(ymonth(r));if(g){g.prod+=r.prod;g.stop+=r.stop}}
  const data=[...groupMonth.values()];
  const colors={prod:"#059669",stop:"#f59e0b",waste:"#ef4444"};
- chart("monthlyChart",{type:"bar",data:{labels:data.map(d=>d.month.split("-").reverse().join("/")),datasets:[{label:"Produtivas",data:data.map(d=>d.available?d.prod/d.available*100:0),backgroundColor:colors.prod},{label:"Paradas",data:data.map(d=>d.available?d.stop/d.available*100:0),backgroundColor:colors.stop},{label:"Desperdício",data:data.map(d=>d.available?Math.max(0,d.available-d.prod-d.stop)/d.available*100:0),backgroundColor:colors.waste}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom"}},scales:{x:{stacked:true},y:{stacked:true,title:{display:true,text:"% da capacidade"},suggestedMax:100}}}});
- const result=calculate(rows,available);chart("mixChart",{type:"doughnut",data:{labels:["Produtivas","Paradas","Desperdício"],datasets:[{data:[result.prod,result.stop,Math.max(0,result.waste)],backgroundColor:[colors.prod,colors.stop,colors.waste],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:"66%",plugins:{legend:{position:"bottom"}}}});
+ chart("monthlyChart",{type:"bar",data:{labels:data.map(d=>d.month.split("-").reverse().join("/")),datasets:[{label:"Produtivas",data:data.map(d=>d.available?d.prod/d.available*100:0),backgroundColor:colors.prod},{label:"Paradas",data:data.map(d=>d.available?d.stop/d.available*100:0),backgroundColor:colors.stop},{label:"Desperdício",data:data.map(d=>d.available?Math.max(0,d.available-d.prod-d.stop)/d.available*100:0),backgroundColor:colors.waste}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom"},columbiaVisibleValues:{mode:"percent"}},layout:{padding:{top:9}},scales:{x:{stacked:true},y:{stacked:true,title:{display:true,text:"% da capacidade"},suggestedMax:100}}}});
+ const result=calculate(rows,available);chart("mixChart",{type:"doughnut",data:{labels:["Produtivas","Paradas","Desperdício"],datasets:[{data:[result.prod,result.stop,Math.max(0,result.waste)],backgroundColor:[colors.prod,colors.stop,colors.waste],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:"59%",layout:{padding:18},plugins:{legend:{position:"bottom"},columbiaVisibleValues:{mode:"donut"}}}});
  const tops=groups.slice().sort((a,b)=>b.stop-a.stop).slice(0,12);
- chart("machineChart",{type:"bar",data:{labels:tops.map(t=>t.name.length>32?t.name.slice(0,32)+"…":t.name),datasets:[{label:"Horas de parada",data:tops.map(x=>x.stop),backgroundColor:colors.stop}]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+ chart("machineChart",{type:"bar",data:{labels:tops.map(t=>t.name.length>32?t.name.slice(0,32)+"…":t.name),datasets:[{label:"Horas de parada",data:tops.map(x=>x.stop),backgroundColor:colors.stop}]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},columbiaVisibleValues:{mode:"hours"}},layout:{padding:{right:75}}}});
 }
 function grade(value,kind,target){
  if(!Number.isFinite(value))return "Sem base";
@@ -437,8 +480,8 @@ async function syncAvailability({refreshCurrent=false}={}){
     if(!state.availabilityCache.has(period))warning("Aponta Fácil: "+period+": "+e.message);
    }
    if(sequence!==state.availabilityFetchSeq)return;
-   const completed=rebuild();
-   if(completed!==undefined)$("sourceStatus").textContent="GRV conectado · Aponta Fácil "+completed+"/"+months.length+" meses em cache · Metas "+(state.metaLive?"online":"referência 2026");
+   const completed=months.filter(p=>state.availabilityCache.has(p)).length;
+   $("sourceStatus").textContent="GRV conectado · Aponta Fácil "+completed+"/"+months.length+" meses em cache · Metas "+(state.metaLive?"online":"referência 2026");
   }
  }
  await Promise.all(Array.from({length:Math.min(2,pending.length)},()=>worker()));
