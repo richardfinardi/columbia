@@ -47,6 +47,7 @@ var permissionGroups=[
  ['Plano Diretor','plano',[['view','Visualizar / imprimir']]],
  ['Etapas','stages',[['view','Visualizar'],['create','Criar'],['edit','Editar'],['schedule','Ajustar datas']]],
  ['Atividades','activities',[['view','Visualizar'],['view_all','Ver todas'],['create','Criar'],['edit','Editar dados'],['status','Alterar status'],['comment','Registrar observação'],['assign','Alterar equipe'],['delete','Excluir'],['schedule','Recalcular cronograma']]],
+ ['Atas','minutes',[['view','Visualizar'],['create','Criar'],['edit','Editar'],['finalize','Finalizar'],['send','Enviar por e-mail']]],
  ['Homologações','approvals',[['view','Visualizar'],['decide','Homologar atribuídas'],['decide_all','Homologar qualquer atividade']]],
  ['Pessoas','people',[['view','Visualizar'],['create','Cadastrar'],['edit','Editar cadastro'],['invite','Enviar convites']]],
  ['Comunicação','emails',[['view','Visualizar'],['send','Enviar e-mails'],['reminders','Lembretes manuais'],['schedule','Agendar lembretes']]],
@@ -62,6 +63,7 @@ function can(key){
  if(S.permissions)return !!S.permissions[key];
  // Compatibilidade durante a publicação da nova versão do Apps Script.
  if(key.startsWith('permissions.'))return false;
+ if(key.startsWith('minutes.'))return can('activities.view');
  var role=S.me.PERFIL==='Usuário-chave'?'Usuário':S.me.PERFIL,parts=key.split('.'),mod=parts[0],action=parts[1];
  if(role==='Administrador')return true;
  if(key.startsWith('approvals.decide')&&!['Administrador','Gestor'].includes(role))return false;
@@ -150,7 +152,7 @@ async function reload(silent){
  try{var data=await api('state');S=data;render();if(!silent)notify('Dados atualizados.');}
  catch(e){notify(e.message,true);if(/Sessão|sessão|expirada/.test(e.message)){token='';sessionStorage.removeItem('grvmax_session');authScreen('login')}throw e;}
 }
-function nav(name){if(name==='mine')name='activities';if(!(name==='minutes'?can('activities.view'):can(name+'.view')))return;if(name==='activities'&&screen!=='activities')taskScope='mine';screen=name;search='';filterStage='';filterStatus='';filterResponsible='';filterDeadline='';render();}
+function nav(name){if(name==='mine')name='activities';if(!(can(name+'.view')))return;if(name==='activities'&&screen!=='activities')taskScope='mine';screen=name;search='';filterStage='';filterStatus='';filterResponsible='';filterDeadline='';render();}
 function activityTeam(id,type){return (S.vinculos||[]).filter(function(v){return v.ATIVIDADE_ID===id&&v.TIPO===type}).map(function(v){return v.PESSOA_ID})}
 function canApprove(id){return can('approvals.decide')&&(can('approvals.decide_all')||activityTeam(id,'HOMOLOGADOR').includes(S.me.ID))}
 function person(id){var x=S.people.find(function(p){return p.ID===id});return x?x.NOME:'—'}
@@ -203,7 +205,7 @@ function decorateMobileTables(container){
 function render(){
  if(!S)return;
  document.body.classList.remove('mobile-menu-lock');
- var visibleTabs=tabs.filter(function(t){return t[0]==='minutes'?can('activities.view'):can(t[0]+'.view')}).map(function(t){
+ var visibleTabs=tabs.filter(function(t){return can(t[0]+'.view')}).map(function(t){
   return t[0]==='activities'&&!can('activities.view_all')?['activities',t[1],'Minhas atividades']:t;
  });
  var tab=visibleTabs.find(function(t){return t[0]===screen})||visibleTabs[0]||['none','','Sem módulos habilitados'];
@@ -715,7 +717,7 @@ var minutesActivityFilter='';
 function minutesView(root,activityId){
  minutesActivityFilter=activityId||'';
  root.innerHTML='<div class="toolbar"><h2 class="sectiontitle">Atas de reunião</h2><span class="spacer"></span><button class="btn primary" id="newMinutes">+ Nova ata</button></div><div id="minutesList" class="card">Carregando...</div>';
- el('newMinutes').onclick=function(){try{minutesEditor(null,minutesActivityFilter)}catch(e){notify('Erro ao abrir ata: '+e.message,true);alert('Erro ao abrir ata: '+e.message)}};
+ if(el('newMinutes'))el('newMinutes').onclick=function(){try{minutesEditor(null,minutesActivityFilter)}catch(e){notify('Erro ao abrir ata: '+e.message,true);alert('Erro ao abrir ata: '+e.message)}};
  api('listMinutes',{}).then(function(items){
   var rows=items.filter(function(x){return !minutesActivityFilter||x.ATIVIDADE_ID===minutesActivityFilter});
   if(!el('minutesList'))return;
@@ -729,7 +731,7 @@ function minutesEditor(item,activityId){
  var draftKey='grvmax_ata_draft_'+(item&&item.ID||activityId||'nova');
  var savedDraft=null;
  if(!item){try{savedDraft=JSON.parse(localStorage.getItem(draftKey)||'null')}catch(e){}}
- var done=item&&item.STATUS==='Finalizada',adminEdit=done&&S.me&&S.me.PERFIL==='Administrador',locked=done&&!adminEdit?'disabled':'';
+ var done=item&&item.STATUS==='Finalizada',adminEdit=done&&S.me&&S.me.PERFIL==='Administrador',mayEdit=can(item?'minutes.edit':'minutes.create'),locked=(!mayEdit||done&&!adminEdit)?'disabled':'';
  function value(k){return attr(item&&item[k]||'')}
  var people=[];try{people=JSON.parse(item&&item.PARTICIPANTES_JSON||'[]')}catch(e){}
  var choices=S.people.map(function(p){return '<label class="checkitem"><input type="checkbox" class="ata-person" value="'+attr(p.NOME)+'" '+(people.includes(p.NOME)?'checked':'')+' '+locked+'>'+esc(p.NOME)+'</label>'}).join('');
@@ -739,7 +741,7 @@ function minutesEditor(item,activityId){
  '<div class="fitem wide"><label>Objetivo</label><textarea class="field" id="ataObjective" '+locked+'>'+esc(item&&item.OBJETIVO||a.DESCRICAO||a.TITULO)+'</textarea></div>'+
  '<div class="fitem wide"><label>Participantes</label><div class="checkgrid">'+choices+'</div></div>'+
  [['ASSUNTOS','Assuntos discutidos'],['PROBLEMAS','Problemas identificados'],['DECISOES','Decisões tomadas'],['ENCAMINHAMENTOS_JSON','Encaminhamentos (um por linha)']].map(function(f){var val=f[0]==='ENCAMINHAMENTOS_JSON'?(function(){try{return JSON.parse(item&&item[f[0]]||'[]').map(function(x){return x.descricao}).join('\n')}catch(e){return ''}})():item&&item[f[0]]||'';return '<div class="fitem wide"><label>'+f[1]+'</label><textarea class="field" id="ata_'+f[0]+'" '+locked+'>'+esc(val)+'</textarea></div>'}).join('')+'</div>';
- var actions='<button class="btn" onclick="closePop()">Fechar</button><button class="btn" id="ataPrint">Salvar PDF / Imprimir</button>'+(done?'<button class="btn primary" id="ataEmail">Enviar por e-mail</button>':'')+(done?(adminEdit?'<button class="btn primary" id="ataSave" data-save>Salvar alterações (administrador)</button>':''):'<button class="btn primary" id="ataSave" data-save>Salvar rascunho</button>'+(item?'<button class="btn" id="ataFinalize" data-save>Finalizar</button>':''));
+ var actions='<button class="btn" onclick="closePop()">Fechar</button><button class="btn" id="ataPrint">Salvar PDF / Imprimir</button>'+(done&&can('minutes.send')?'<button class="btn primary" id="ataEmail">Enviar por e-mail</button>':'')+(done?(adminEdit&&mayEdit?'<button class="btn primary" id="ataSave" data-save>Salvar alterações (administrador)</button>':'') :(mayEdit?'<button class="btn primary" id="ataSave" data-save>Salvar rascunho</button>':'')+(item&&can('minutes.finalize')?'<button class="btn" id="ataFinalize" data-save>Finalizar</button>':''));
  modal('Ata de reunião · '+a.TITULO,body,actions);
  var draftFields=['ataActivity','ataDate','ataTitle','ataObjective','ata_ASSUNTOS','ata_PROBLEMAS','ata_DECISOES','ata_ENCAMINHAMENTOS_JSON'];
  function preserveAta(){
@@ -753,7 +755,7 @@ function minutesEditor(item,activityId){
   document.querySelectorAll('.ata-person').forEach(function(x){x.checked=(savedDraft.participants||[]).includes(x.value)});
   notify('Rascunho anterior recuperado neste navegador.');
  }
- if(!done||adminEdit){
+ if(mayEdit&&(!done||adminEdit)){
   draftFields.forEach(function(id){if(el(id))el(id).addEventListener('input',preserveAta)});
   document.querySelectorAll('.ata-person').forEach(function(x){x.addEventListener('change',preserveAta)});
   preserveAta();
@@ -793,10 +795,11 @@ function minutesEditor(item,activityId){
   html+='<div class="foot">GRVMAX ERP · COLUMBIA MACHINE · Documento emitido em '+esc(new Date().toLocaleString('pt-BR'))+' · Registro vinculado ao controle de implantação.</div></article></body></html>';
   win.document.open();win.document.write(html);win.document.close();win.focus();
  };
- if(done){el('ataEmail').onclick=function(){
+ if(done&&can('minutes.send')){el('ataEmail').onclick=function(){
   modal('Enviar ata por e-mail','<p class="muted small">Envio pelo sistema atual do GRVMAX, com registro no histórico.</p><div class="checkgrid">'+S.people.filter(function(p){return p.ATIVO==='SIM'}).map(function(p){return '<label class="checkitem"><input type="checkbox" class="ata-recipient" value="'+attr(p.ID)+'">'+esc(p.NOME)+' <span class="tiny muted">'+esc(p.EMAIL)+'</span></label>'}).join('')+'</div>','<button class="btn" onclick="closePop()">Cancelar</button><button class="btn primary" id="sendAta" data-save>Enviar</button>');
   el('sendAta').onclick=async function(){var ids=Array.from(document.querySelectorAll('.ata-recipient:checked')).map(function(x){return x.value});if(!ids.length){notify('Selecione os destinatários.',true);return}busy(true);try{var r=await api('emailMinutes',{id:item.ID,peopleIds:ids});closePop();notify(r.results.filter(function(x){return x.status==='ENVIADO'}).length+' de '+r.results.length+' e-mails enviados.')}catch(e){notify(e.message,true)}finally{busy(false)}};
- };if(!adminEdit)return;}
+ };}
+ if(done&&!adminEdit||!mayEdit)return;
  el('ataSave').onclick=async function(){
   var data={ID:item&&item.ID||'',ATIVIDADE_ID:el('ataActivity').value,DATA_REUNIAO:el('ataDate').value,TITULO:el('ataTitle').value,OBJETIVO:el('ataObjective').value,
    PARTICIPANTES_JSON:JSON.stringify(Array.from(document.querySelectorAll('.ata-person:checked')).map(function(x){return x.value})),
@@ -804,7 +807,7 @@ function minutesEditor(item,activityId){
    ENCAMINHAMENTOS_JSON:JSON.stringify(el('ata_ENCAMINHAMENTOS_JSON').value.split('\n').filter(Boolean).map(function(x){return {descricao:x,responsavel:'',prazo:''}}))};
   preserveAta();busy(true);try{await api('saveMinutes',{item:data});localStorage.removeItem(draftKey);closePop();minutesView(el('content'),minutesActivityFilter);notify('Ata salva.')}catch(e){notify('Ata NÃO salva no servidor: '+e.message,true);alert('A ata não foi salva no servidor. O texto foi preservado neste navegador. Erro: '+e.message)}finally{busy(false)}
  };
- if(item&&!done)el('ataFinalize').onclick=async function(){if(!confirm('Finalizar e bloquear a edição desta ata?'))return;busy(true);try{await api('finalizeMinutes',{id:item.ID});closePop();minutesView(el('content'),minutesActivityFilter)}catch(e){notify(e.message,true)}finally{busy(false)}};
+ if(item&&!done&&can('minutes.finalize'))el('ataFinalize').onclick=async function(){if(!confirm('Finalizar e bloquear a edição desta ata?'))return;busy(true);try{await api('finalizeMinutes',{id:item.ID});closePop();minutesView(el('content'),minutesActivityFilter)}catch(e){notify(e.message,true)}finally{busy(false)}};
 }
 window.nav=nav;
 start();
