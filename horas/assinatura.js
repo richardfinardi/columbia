@@ -73,11 +73,11 @@ function stateDisplay(p){
  $("subscriberStatus").classList.toggle("active",active);
  $("subscriberStatus").textContent=active?"Assinatura confirmada · WhatsApp final "+(p?.phoneFinal||"••••")+
    " · "+({diario:"Diária",semanal:"Semanal",mensal:"Mensal"}[p.preferences?.frequency]||""):"Nenhuma assinatura ativa. Confirme seu telefone para começar.";
- $("unsubscribe").hidden=!active;$("savePrefs").hidden=!active;
+ $("unsubscribe").hidden=!active;$("savePrefs").hidden=!active;$("testMessage").hidden=!active;
  $("requestCode").textContent=active?"Trocar WhatsApp":"Enviar código";
  if(serverPrefs)applyPreferences(serverPrefs);
 }
-function busy(yes){loading=yes;for(const id of ["requestCode","confirmCode","savePrefs","unsubscribe"])$(id).disabled=yes}
+function busy(yes){loading=yes;for(const id of ["requestCode","confirmCode","savePrefs","unsubscribe","testMessage"])$(id).disabled=yes}
 async function boot(){
  try{
   const me=await request(BASE+"/producao/portal/me");
@@ -122,6 +122,16 @@ $("savePrefs").addEventListener("click",async()=>{
   busy(true);await request(API,"PUT",preferences());
   stateDisplay((await request(API)).subscription);
   notify("Preferências atualizadas.");
+ }catch(e){notify(e.message,true)}finally{busy(false)}
+});
+$("testMessage").addEventListener("click",async()=>{
+ if(loading||!active)return;
+ try{
+  busy(true);notify("Enviando teste para o WhatsApp confirmado...");
+  const response=await request(API+"/test","POST",{});
+  notify(response.status==="ACCEPTED"
+   ?"AUVRIUN aceitou o envio para o WhatsApp final "+response.phoneFinal+". Confira a mensagem no celular."
+   :"Não foi possível confirmar o envio.");
  }catch(e){notify(e.message,true)}finally{busy(false)}
 });
 $("unsubscribe").addEventListener("click",async()=>{
