@@ -728,7 +728,7 @@ function minutesEditor(item,activityId){
  var draftKey='grvmax_ata_draft_'+(item&&item.ID||activityId||'nova');
  var savedDraft=null;
  if(!item){try{savedDraft=JSON.parse(localStorage.getItem(draftKey)||'null')}catch(e){}}
- var done=item&&item.STATUS==='Finalizada',locked=done?'disabled':'';
+ var done=item&&item.STATUS==='Finalizada',adminEdit=done&&S.me&&S.me.PERFIL==='Administrador',locked=done&&!adminEdit?'disabled':'';
  function value(k){return attr(item&&item[k]||'')}
  var people=[];try{people=JSON.parse(item&&item.PARTICIPANTES_JSON||'[]')}catch(e){}
  var choices=S.people.map(function(p){return '<label class="checkitem"><input type="checkbox" class="ata-person" value="'+attr(p.NOME)+'" '+(people.includes(p.NOME)?'checked':'')+' '+locked+'>'+esc(p.NOME)+'</label>'}).join('');
@@ -738,11 +738,11 @@ function minutesEditor(item,activityId){
  '<div class="fitem wide"><label>Objetivo</label><textarea class="field" id="ataObjective" '+locked+'>'+esc(item&&item.OBJETIVO||a.DESCRICAO||a.TITULO)+'</textarea></div>'+
  '<div class="fitem wide"><label>Participantes</label><div class="checkgrid">'+choices+'</div></div>'+
  [['ASSUNTOS','Assuntos discutidos'],['PROBLEMAS','Problemas identificados'],['DECISOES','Decisões tomadas'],['ENCAMINHAMENTOS_JSON','Encaminhamentos (um por linha)']].map(function(f){var val=f[0]==='ENCAMINHAMENTOS_JSON'?(function(){try{return JSON.parse(item&&item[f[0]]||'[]').map(function(x){return x.descricao}).join('\n')}catch(e){return ''}})():item&&item[f[0]]||'';return '<div class="fitem wide"><label>'+f[1]+'</label><textarea class="field" id="ata_'+f[0]+'" '+locked+'>'+esc(val)+'</textarea></div>'}).join('')+'</div>';
- var actions='<button class="btn" onclick="closePop()">Fechar</button><button class="btn" id="ataPrint">Salvar PDF / Imprimir</button>'+(done?'<button class="btn primary" id="ataEmail">Enviar por e-mail</button>':'')+(done?'':'<button class="btn primary" id="ataSave" data-save>Salvar rascunho</button>'+(item?'<button class="btn" id="ataFinalize" data-save>Finalizar</button>':''));
+ var actions='<button class="btn" onclick="closePop()">Fechar</button><button class="btn" id="ataPrint">Salvar PDF / Imprimir</button>'+(done?'<button class="btn primary" id="ataEmail">Enviar por e-mail</button>':'')+(done?(adminEdit?'<button class="btn primary" id="ataSave" data-save>Salvar alterações (administrador)</button>':''):'<button class="btn primary" id="ataSave" data-save>Salvar rascunho</button>'+(item?'<button class="btn" id="ataFinalize" data-save>Finalizar</button>':''));
  modal('Ata de reunião · '+a.TITULO,body,actions);
  var draftFields=['ataActivity','ataDate','ataTitle','ataObjective','ata_ASSUNTOS','ata_PROBLEMAS','ata_DECISOES','ata_ENCAMINHAMENTOS_JSON'];
  function preserveAta(){
-  if(done)return;
+  if(done&&!adminEdit)return;
   var snapshot={fields:{},participants:Array.from(document.querySelectorAll('.ata-person:checked')).map(function(x){return x.value})};
   draftFields.forEach(function(id){var field=el(id);if(field)snapshot.fields[id]=field.value});
   try{localStorage.setItem(draftKey,JSON.stringify(snapshot))}catch(e){}
@@ -752,7 +752,7 @@ function minutesEditor(item,activityId){
   document.querySelectorAll('.ata-person').forEach(function(x){x.checked=(savedDraft.participants||[]).includes(x.value)});
   notify('Rascunho anterior recuperado neste navegador.');
  }
- if(!done){
+ if(!done||adminEdit){
   draftFields.forEach(function(id){if(el(id))el(id).addEventListener('input',preserveAta)});
   document.querySelectorAll('.ata-person').forEach(function(x){x.addEventListener('change',preserveAta)});
   preserveAta();
@@ -795,7 +795,7 @@ function minutesEditor(item,activityId){
  if(done){el('ataEmail').onclick=function(){
   modal('Enviar ata por e-mail','<p class="muted small">Envio pelo sistema atual do GRVMAX, com registro no histórico.</p><div class="checkgrid">'+S.people.filter(function(p){return p.ATIVO==='SIM'}).map(function(p){return '<label class="checkitem"><input type="checkbox" class="ata-recipient" value="'+attr(p.ID)+'">'+esc(p.NOME)+' <span class="tiny muted">'+esc(p.EMAIL)+'</span></label>'}).join('')+'</div>','<button class="btn" onclick="closePop()">Cancelar</button><button class="btn primary" id="sendAta" data-save>Enviar</button>');
   el('sendAta').onclick=async function(){var ids=Array.from(document.querySelectorAll('.ata-recipient:checked')).map(function(x){return x.value});if(!ids.length){notify('Selecione os destinatários.',true);return}busy(true);try{var r=await api('emailMinutes',{id:item.ID,peopleIds:ids});closePop();notify(r.results.filter(function(x){return x.status==='ENVIADO'}).length+' de '+r.results.length+' e-mails enviados.')}catch(e){notify(e.message,true)}finally{busy(false)}};
- };return;}
+ };if(!adminEdit)return;}
  el('ataSave').onclick=async function(){
   var data={ID:item&&item.ID||'',ATIVIDADE_ID:el('ataActivity').value,DATA_REUNIAO:el('ataDate').value,TITULO:el('ataTitle').value,OBJETIVO:el('ataObjective').value,
    PARTICIPANTES_JSON:JSON.stringify(Array.from(document.querySelectorAll('.ata-person:checked')).map(function(x){return x.value})),
@@ -803,7 +803,7 @@ function minutesEditor(item,activityId){
    ENCAMINHAMENTOS_JSON:JSON.stringify(el('ata_ENCAMINHAMENTOS_JSON').value.split('\n').filter(Boolean).map(function(x){return {descricao:x,responsavel:'',prazo:''}}))};
   preserveAta();busy(true);try{await api('saveMinutes',{item:data});localStorage.removeItem(draftKey);closePop();minutesView(el('content'),minutesActivityFilter);notify('Ata salva.')}catch(e){notify('Ata NÃO salva no servidor: '+e.message,true);alert('A ata não foi salva no servidor. O texto foi preservado neste navegador. Erro: '+e.message)}finally{busy(false)}
  };
- if(item)el('ataFinalize').onclick=async function(){if(!confirm('Finalizar e bloquear a edição desta ata?'))return;busy(true);try{await api('finalizeMinutes',{id:item.ID});closePop();minutesView(el('content'),minutesActivityFilter)}catch(e){notify(e.message,true)}finally{busy(false)}};
+ if(item&&!done)el('ataFinalize').onclick=async function(){if(!confirm('Finalizar e bloquear a edição desta ata?'))return;busy(true);try{await api('finalizeMinutes',{id:item.ID});closePop();minutesView(el('content'),minutesActivityFilter)}catch(e){notify(e.message,true)}finally{busy(false)}};
 }
 window.nav=nav;
 start();
