@@ -399,7 +399,13 @@ function minutesEditor(item,activityId){
  [['ASSUNTOS','Assuntos discutidos'],['PROBLEMAS','Problemas identificados'],['DECISOES','Decisões tomadas'],['ENCAMINHAMENTOS_JSON','Encaminhamentos (um por linha)']].map(function(f){var val=f[0]==='ENCAMINHAMENTOS_JSON'?(function(){try{return JSON.parse(item&&item[f[0]]||'[]').map(function(x){return x.descricao}).join('\n')}catch(e){return ''}})():item&&item[f[0]]||'';return '<div class="fitem wide"><label>'+f[1]+'</label><textarea class="field" id="ata_'+f[0]+'" '+locked+'>'+esc(val)+'</textarea></div>'}).join('')+'</div>';
  var actions='<button class="btn" onclick="closePop()">Fechar</button><button class="btn" id="ataPrint">Imprimir / PDF</button>'+(done?'':'<button class="btn primary" id="ataSave" data-save>Salvar rascunho</button>'+(item?'<button class="btn" id="ataFinalize" data-save>Finalizar</button>':''));
  modal('Ata de reunião · '+a.TITULO,body,actions);
- el('ataPrint').onclick=function(){window.print()};
+ el('ataPrint').onclick=function(){
+  var labels=[['Objetivo','ataObjective'],['Assuntos discutidos','ata_ASSUNTOS'],['Problemas identificados','ata_PROBLEMAS'],['Decisões','ata_DECISOES'],['Encaminhamentos','ata_ENCAMINHAMENTOS_JSON']];
+  var html='<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Ata GRVMAX</title><style>body{font:14px Arial;margin:35px;color:#222}h1{font-size:22px}h2{font-size:15px;margin-top:24px;border-bottom:1px solid #aaa;padding-bottom:5px}p{white-space:pre-wrap;line-height:1.5}</style></head><body><h1>Ata de reunião | GRVMAX</h1><p><b>Atividade:</b> '+esc(a.TITULO)+'<br><b>Etapa:</b> '+esc(stage(a.ETAPA_ID))+'<br><b>Data:</b> '+esc(fmt(el('ataDate').value))+'<br><b>Participantes:</b> '+esc(Array.from(document.querySelectorAll('.ata-person:checked')).map(function(x){return x.value}).join(', '))+'</p>';
+  labels.forEach(function(x){html+='<h2>'+x[0]+'</h2><p>'+esc(el(x[1]).value)+'</p>'});
+  html+='</body></html>';
+  var win=window.open('','_blank');if(!win){notify('Permita pop-ups para imprimir.',true);return}win.document.write(html);win.document.close();win.focus();setTimeout(function(){win.print()},300);
+ };
  if(done)return;
  el('ataSave').onclick=async function(){
   var data={ID:item&&item.ID||'',ATIVIDADE_ID:el('ataActivity').value,DATA_REUNIAO:el('ataDate').value,TITULO:el('ataTitle').value,OBJETIVO:el('ataObjective').value,
