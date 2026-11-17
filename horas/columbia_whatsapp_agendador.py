@@ -201,8 +201,16 @@ async def get_events(start: date, end: date) -> list[dict]:
         if is_closed and cache.is_file():
             data = json.loads(cache.read_text(encoding="utf-8"))
         else:
-            data = await _read_events(year, month, token)
-            # Congelamento de mês fechado só depois de consulta completa e válida.
+            events = await _read_events(year, month, token)
+            # Cache reduzido: só campos necessários ao cálculo. Nunca armazenar CPF,
+            # e-mail, token ou o JSON integral da API Aponta Fácil em disco.
+            data = [{
+                "data": e.get("data"),
+                "nome": e.get("nome"),
+                "descricao_evento": e.get("descricao_evento"),
+                "quantidade_caculada": e.get("quantidade_caculada",
+                                             e.get("quantidade_calculada", 0)),
+            } for e in events if isinstance(e, dict)]
             if is_closed:
                 tmp = cache.with_suffix(".tmp")
                 tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
