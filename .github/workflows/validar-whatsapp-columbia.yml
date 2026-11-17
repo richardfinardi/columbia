@@ -1,0 +1,22 @@
+name: Validar agendador WhatsApp Columbia
+
+on:
+  push:
+    paths:
+      - 'horas/columbia_whatsapp_agendador.py'
+      - '.github/workflows/validar-whatsapp-columbia.yml'
+  pull_request:
+    paths:
+      - 'horas/columbia_whatsapp_agendador.py'
+      - '.github/workflows/validar-whatsapp-columbia.yml'
+
+jobs:
+  verificar-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validar sintaxe sem usar credenciais ou enviar mensagens
+        run: python -m py_compile horas/columbia_whatsapp_agendador.py
