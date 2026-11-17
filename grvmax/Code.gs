@@ -168,6 +168,7 @@ function api(action, payload, token) {
       case 'listMinutes': return grvListMinutes(who,p);
       case 'saveMinutes': return grvSaveMinutes(who,p);
       case 'finalizeMinutes': return grvFinalizeMinutes(who,p);
+      case 'emailMinutes': return grvEmailMinutes(who,p);
       case 'savePermissions': return grvSavePermissions(who,p);
       case 'save': return grvSave(who,p);
       case 'recalculateSchedule': return grvRecalculateSchedule(who);
@@ -903,4 +904,27 @@ function grvFinalizeMinutes(who,p){
   grvLog(who,'ATAS',old.ID,'ATA_FINALIZADA',old,updated,'Ata finalizada e bloqueada');
   delete updated._row;return updated;
  });
+}
+
+function grvEmailMinutes(who,p){
+ if(!grvCan(who,'emails.send'))throw Error('Sem permissão para enviar e-mails.');
+ const ata=grvMinutesRows().find(x=>x.ID===String(p.id||''));
+ if(!ata||ata.STATUS!=='Finalizada')throw Error('Finalize a ata antes de enviar.');
+ const activity=grvMinutesActivity(who,ata.ATIVIDADE_ID);
+ const ids=Array.isArray(p.peopleIds)?p.peopleIds.slice(0,50):[];
+ if(!ids.length)throw Error('Selecione os destinatários.');
+ const recipients=grvRows('PESSOAS').filter(x=>ids.includes(x.ID)&&x.ATIVO==='SIM');
+ if(!recipients.length)throw Error('Nenhum destinatário ativo.');
+ let people=[],actions=[];
+ try{people=JSON.parse(ata.PARTICIPANTES_JSON||'[]');actions=JSON.parse(ata.ENCAMINHAMENTOS_JSON||'[]');}catch(e){}
+ const text='ATA DE REUNIÃO | GRVMAX\nProjeto: Implantação Columbia\nEtapa: '+(grvFind('ETAPAS',ata.ETAPA_ID)||{}).TITULO+
+ '\nAtividade: '+activity.TITULO+'\nData: '+ata.DATA_REUNIAO+'\nParticipantes: '+people.join(', ')+
+ '\n\nOBJETIVO\n'+ata.OBJETIVO+'\n\nASSUNTOS DISCUTIDOS\n'+ata.ASSUNTOS+
+ '\n\nPROBLEMAS IDENTIFICADOS\n'+ata.PROBLEMAS+'\n\nDECISÕES\n'+ata.DECISOES+
+ '\n\nENCAMINHAMENTOS\n'+actions.map(x=>'- '+x.descricao+(x.responsavel?' | Responsável: '+x.responsavel:'')+(x.prazo?' | Prazo: '+x.prazo:'')).join('\n')+
+ '\n\nAcompanhe: '+grvPortalLink();
+ const subject='GRVMAX | Ata de reunião | '+ata.TITULO;
+ const results=recipients.map(x=>grvMail(who,'ATA',x.EMAIL,subject,text,activity.ID));
+ grvLog(who,'ATAS',ata.ID,'ATA_COMPARTILHADA',null,{destinatarios:results},'Envio por e-mail');
+ return {ok:true,results:results};
 }
