@@ -28,6 +28,7 @@ import httpx
 APP_ID = "columbia"
 EVENT_ID = "fechamento_horas"
 BASE = os.getenv("COLUMBIA_LOCAL_API", "http://127.0.0.1:8000").rstrip("/")
+GRV_DAILY_ENDPOINT = "/custos_apontamento_DIARIO"  # Rota validada no servidor Columbia
 WHATSAPP_BASE = os.getenv(
     "AUVRIUN_WHATSAPP_URL",
     "https://auvriun-whatsapp.auvriun-monitor.workers.dev/whatsapp",
@@ -246,12 +247,12 @@ async def get_grv_raw() -> list[dict]:
     _check_u_horas(user)
     token = criar_token_acesso({"sub": user})
     async with httpx.AsyncClient(timeout=httpx.Timeout(80, connect=10)) as client:
-        response = await client.get(BASE + "/custos_apontamento",
+        response = await client.get(BASE + GRV_DAILY_ENDPOINT,
                                     headers={"Authorization": "Bearer " + token})
         response.raise_for_status()
     rows = from_api(response.json())
     if not rows:
-        raise RuntimeError("API /custos_apontamento não retornou apontamentos (envio suspenso)")
+        raise RuntimeError("API /custos_apontamento_DIARIO não retornou apontamentos (envio suspenso)")
     return rows
 
 
@@ -520,7 +521,7 @@ async def diagnose_grv() -> int:
     actual = [r["day"] for r in normalized if r["actual_date"] and r["day"]]
     monthly = [r for r in normalized if r["day"] and not r["actual_date"]]
     missing = [r for r in normalized if not r["day"]]
-    print("\n=== DIAGNÓSTICO GRV /custos_apontamento (SEM ENVIOS) ===")
+    print("\n=== DIAGNÓSTICO GRV /custos_apontamento_DIARIO (SEM ENVIOS) ===")
     print("Endpoint: " + BASE + "/custos_apontamento")
     print("Registros totais:", len(source))
     print("Campos da primeira linha:", ", ".join(str(k) for k in source[0].keys()) if source else "(vazio)")
