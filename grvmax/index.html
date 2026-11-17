@@ -710,11 +710,7 @@ window.compose=function(){
 window.sendReminders=async function(){if(!confirm('Enviar lembretes dos prazos próximos/atrasados? Evita repetições no mesmo dia.'))return;try{var r=await api('reminders');await reload(true);notify(r.total+' lembretes processados; erros: '+r.errors)}catch(e){notify(e.message,true)}};
 window.installReminders=async function(){if(!confirm('Ativar disparo automático diário de lembretes às 8h?'))return;try{await api('installReminders');await reload(true);notify('Lembretes diários ativados.')}catch(e){notify(e.message,true)}};
 window.goDecision=async function(decision){var note=prompt('Justificativa da decisão '+decision+':');if(note===null)return;try{await api('goDecision',{decision:decision,note:note});await reload(true);notify('Decisão '+decision+' auditada.')}catch(e){notify(e.message,true)}};
-window.nav=nav;
-start();
-})();
-</script>
-<script src="./plano-diretor.js?v=20261027-2">var minutesActivityFilter='';
+var minutesActivityFilter='';
 function minutesView(root,activityId){
  minutesActivityFilter=activityId||'';
  root.innerHTML='<div class="toolbar"><h2 class="sectiontitle">Atas de reunião</h2><span class="spacer"></span><button class="btn primary" id="newMinutes">+ Nova ata</button></div><div id="minutesList" class="card">Carregando...</div>';
@@ -761,6 +757,9 @@ function minutesEditor(item,activityId){
  };
  if(item)el('ataFinalize').onclick=async function(){if(!confirm('Finalizar e bloquear a edição desta ata?'))return;busy(true);try{await api('finalizeMinutes',{id:item.ID});closePop();minutesView(el('content'),minutesActivityFilter)}catch(e){notify(e.message,true)}finally{busy(false)}};
 }
-
+window.nav=nav;
+start();
+})();
 </script>
+<script src="./plano-diretor.js?v=20261027-2"></script>
 </body></html>
