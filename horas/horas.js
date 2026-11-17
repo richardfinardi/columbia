@@ -113,7 +113,7 @@ async function getMetas(){
  // Esta aba pode ser consultada pelo Google Visualization quando compartilhada para leitura.
  // Em planilhas privadas o navegador não recebe dados; usa último conjunto de metas conhecido (2026).
  try{
-  const res=await fetch(META_SHEET,{cache:"no-store"});
+  const res=await fetch(META_SHEET,{cache:"no-store",signal:AbortSignal.timeout(8000)});
   if(!res.ok)throw Error("Google Sheets não acessível");
   const src=await res.text();
   const match=src.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);?\s*$/);
