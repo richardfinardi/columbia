@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Assinatura WhatsApp | Fechamento de Horas</title>
+  <link rel="icon" href="../LOGO MINIMALISTA.png">
+  <script>if(!localStorage.getItem("columbia_analista_token"))location.replace("../login.html");</script>
+  <link rel="stylesheet" href="./horas.css?v=20261117-sub1">
+  <link rel="stylesheet" href="./assinatura.css?v=20261117-sub1">
+  <script src="./assinatura.js?v=20261117-sub1" defer></script>
+</head>
+<body>
+<div id="accessGate" class="access-gate"><div class="loader"></div><strong>Validando acesso à Columbia...</strong></div>
+<div id="app" hidden>
+<header class="topbar"><div class="top-wrap">
+  <div class="brand"><a class="brand-logo" href="./index.html" aria-label="Fechamento de horas"><img src="../logo.png" alt="Columbia"></a>
+  <div><small>COLUMBIA MACHINE · FECHAMENTO DE HORAS</small><h1>Receber pelo WhatsApp</h1></div></div>
+  <div class="top-actions"><a href="./index.html" class="btn muted">Voltar ao painel</a></div>
+</div></header>
+<main class="subscription-main">
+ <section class="intro"><div><h2>Configure os relatórios no seu WhatsApp</h2>
+ <p>Escolha o que receber, quais dados acompanhar e a frequência. Tudo em texto na mensagem, sem anexos.</p></div></section>
+ <div id="notice" class="subscription-notice" role="status" aria-live="polite"></div>
+ <div id="subscriberStatus" class="subscriber-status">Consultando assinatura...</div>
+ <section class="subscription-card card">
+  <div class="sub-heading"><div class="step-number">A</div><div><h3>Tipo de conteúdo</h3><p>Escolha uma ou as duas opções.</p></div></div>
+  <div class="selection-cards">
+   <label class="option-card"><input type="checkbox" id="topicMetas" value="metas" checked>
+    <div><strong>Metas e gráficos</strong><small>Produtividade, paradas e desperdício com barras e percentuais na própria mensagem.</small></div></label>
+   <label class="option-card"><input type="checkbox" id="topicResumo" value="resumo" checked>
+    <div><strong>Resumo de horas</strong><small>Horas disponíveis, produtivas, paradas e desperdício com totais do período.</small></div></label>
+  </div>
+ </section>
+ <section class="subscription-card card">
+  <div class="sub-heading"><div class="step-number">B</div><div><h3>Quais dados receber</h3><p>Se deixar uma categoria em “Todos”, o relatório considera todos os registros dela.</p></div></div>
+  <div class="multi-grid">
+   <div class="picker" data-type="segmentos"><div class="picker-label">Segmentos <span class="picker-count" id="countSegmentos">Todos</span></div><details><summary>Selecionar segmentos</summary><input type="search" placeholder="Pesquisar segmentos..." aria-label="Filtrar segmentos" class="picker-search"><div class="picker-options" id="optionsSegmentos"></div></details></div>
+   <div class="picker" data-type="maquinas"><div class="picker-label">Máquinas <span class="picker-count" id="countMaquinas">Todas</span></div><details><summary>Selecionar máquinas</summary><input type="search" placeholder="Pesquisar máquinas..." aria-label="Filtrar máquinas" class="picker-search"><div class="picker-options" id="optionsMaquinas"></div></details></div>
+   <div class="picker" data-type="funcionarios"><div class="picker-label">Funcionários <span class="picker-count" id="countFuncionarios">Todos</span></div><details><summary>Selecionar funcionários</summary><input type="search" placeholder="Pesquisar funcionários..." aria-label="Filtrar funcionários" class="picker-search"><div class="picker-options" id="optionsFuncionarios"></div></details></div>
+  </div>
+ </section>
+ <section class="subscription-card card">
+  <div class="sub-heading"><div class="step-number">C</div><div><h3>Periodicidade</h3><p>Horário de Brasília. Uma assinatura ativa por usuário.</p></div></div>
+  <div class="frequency-grid">
+   <label class="option-card"><input type="radio" name="frequency" value="diario" checked><div><strong>Diário (seg. a sex.)</strong><small>Resumo do dia, enviado após o expediente.</small></div></label>
+   <label class="option-card"><input type="radio" name="frequency" value="semanal"><div><strong>Semanal</strong><small>Toda segunda-feira, referente à semana anterior.</small></div></label>
+   <label class="option-card"><input type="radio" name="frequency" value="mensal"><div><strong>Mensal</strong><small>Todo dia 1, referente ao mês anterior.</small></div></label>
+  </div>
+ </section>
+ <section class="subscription-card card">
+  <div class="sub-heading"><div class="step-number">D</div><div><h3>Seu número de WhatsApp</h3><p>Não precisa estar cadastrado na Central AUVRIUN. Vamos enviar um código para confirmar que o número é seu.</p></div></div>
+  <div class="number-row"><label class="phone-group">WhatsApp com DDD
+   <input id="phoneInput" inputmode="tel" type="tel" autocomplete="tel" placeholder="(19) 99999-9999" maxlength="23">
+  </label>
+  <button class="btn primary" id="requestCode" type="button">Enviar código</button>
+  <button class="btn primary" id="savePrefs" type="button" hidden>Salvar preferências</button></div>
+  <div class="confirm-box" id="confirmBox" hidden>
+   <p>Enviamos um código de 6 dígitos para o seu WhatsApp. Ele vence em 10 minutos.</p>
+   <div class="number-row"><label class="phone-group">Código de confirmação
+    <input id="otpInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
+   </label><button id="confirmCode" type="button" class="btn primary">Confirmar assinatura</button></div>
+  </div>
+  <div class="subscription-actions"><button id="unsubscribe" class="btn sub-danger" hidden type="button">Cancelar assinatura</button>
+  <span>O número é usado exclusivamente para os relatórios escolhidos. Você pode cancelar quando quiser.</span></div>
+ </section>
+ <div class="sub-preview card"><strong>Exemplo de mensagem (sem anexo)</strong>
+ <pre>📊 COLUMBIA | Fechamento de Horas
+Competência: Outubro/2026
+
+METAS
+Produtividade  70%  ███████░░░
+Paradas        22%  ██░░░░░░░░
+Desperdício     8%  █░░░░░░░░░
+
+RESUMO
+Disponíveis:   4.345,07 h
+Produtivas:    3.039,07 h
+Paradas:         942,82 h
+Desperdício:     363,18 h
+
+Valores ilustrativos. Dados reais no envio.</pre>
+ </div>
+ <p class="subscription-footer">A confirmação ativa o cadastro do WhatsApp. Os disparos automáticos dependem da configuração do agendador de relatórios na Columbia.</p>
+</main></div></body></html>
