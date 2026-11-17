@@ -44,7 +44,9 @@ function monthFromRecord(m){
 }
 function ymonth(r){return (r.date||"").slice(0,7)}
 function code(v){return clean(v).replace(/^0+(?=\d)/,"").toUpperCase()}
-function idOf(r){return code(r.employeeCode)||norm(r.employee)}
+// O codigo de matricula do Aponta Facil nao e equivalente ao ID interno do GRV.
+// Concilia primeiro pelo nome completo normalizado, evitando cruzamentos com pessoas erradas.
+function idOf(r){const name=norm(r.employee);return name?"nome:"+name:"codigo:"+code(r.employeeCode)}
 async function getJson(url,{signal}={}){
  const token=localStorage.getItem(TOKEN_KEY);
  if(!token)throw new Error("Sessão não encontrada. Entre novamente no portal.");
@@ -247,21 +249,62 @@ function grade(value,kind,target){
  else{for(const [label,x]of configs)if(value<=x+1e-9)return label}
  return "Ruim";
 }
+
+function drawGauge(elementId,value,kind,target){
+ const clamp=x=>Math.max(0,Math.min(1,Number(x)||0));
+ const limits=(kind==="prod"
+   ?[target.prod_ruim,target.prod_regular,target.prod_bom]
+   :kind==="stop"
+     ?[target.para_otimo,target.para_bom,target.para_regular]
+     :[target.desp_otimo,target.desp_bom,target.desp_regular])
+   .map(clamp).sort((a,b)=>a-b);
+ const colors=kind==="prod"
+   ?["#ef4444","#f59e0b","#22c55e","#2563eb"]
+   :["#2563eb","#22c55e","#f59e0b","#ef4444"];
+ const point=(fraction,radius=101)=>{
+  const radians=(145+250*fraction)*Math.PI/180;
+  return {x:160+radius*Math.cos(radians),y:139+radius*Math.sin(radians)};
+ };
+ const path=(from,to)=>{
+  const p1=point(from),p2=point(to),large=(to-from)*250>180?1:0;
+  return "M "+p1.x.toFixed(2)+" "+p1.y.toFixed(2)+" A 101 101 0 "+large+" 1 "+p2.x.toFixed(2)+" "+p2.y.toFixed(2);
+ };
+ const segments=[0,...limits,1];
+ let arcs='<path d="'+path(0,1)+'" stroke="#e2e8f0" stroke-width="23" fill="none" stroke-linecap="butt"/>';
+ for(let i=0;i<4;i++){
+  const from=segments[i],to=segments[i+1];
+  if(to>from+0.00001)arcs+='<path d="'+path(from,to)+'" stroke="'+colors[i]+'" stroke-width="23" fill="none" stroke-linecap="butt"/>';
+ }
+ for(const bound of limits){
+  const a=point(bound,87),b=point(bound,115);
+  arcs+='<line x1="'+a.x.toFixed(2)+'" y1="'+a.y.toFixed(2)+'" x2="'+b.x.toFixed(2)+'" y2="'+b.y.toFixed(2)+'" stroke="#fff" stroke-width="2.5"/>';
+ }
+ const tip=point(clamp(value),77);
+ const needle=Number.isFinite(value)
+  ?'<line x1="160" y1="139" x2="'+tip.x.toFixed(2)+'" y2="'+tip.y.toFixed(2)+'" stroke="#334155" stroke-width="4" stroke-linecap="round"/><circle cx="160" cy="139" r="9" fill="#fff" stroke="#334155" stroke-width="5"/>'
+  :'<circle cx="160" cy="139" r="6" fill="#94a3b8"/>';
+ $(elementId).innerHTML='<svg viewBox="0 0 320 231" aria-hidden="true">'+arcs+needle+
+   '<text class="gauge-scale" x="34" y="211" text-anchor="middle">0%</text>'+
+   '<text class="gauge-scale" x="286" y="211" text-anchor="middle">100%</text></svg>';
+}
 function showMetas(result){
  const ano=$("yearFilter").value||String(now.getFullYear());
  const target=state.targets.find(m=>m.periodo===ano)||state.targets.at(-1);
  if(!target)return;
- [["Prod",result.pProd,"prod"],["Stop",result.pStop,"stop"],["Waste",result.pWaste,"waste"]].forEach(([key,v,kind])=>{
-   $( "target"+key).textContent=percent(v);
-   const g=grade(v,kind,target),status=$("status"+key);status.textContent=g;status.className="grade "+norm(g);
-   $("bar"+key).style.width=(Number.isFinite(v)?Math.max(0,Math.min(v*100,100)):0)+"%";
- });
+ for(const [name,value,kind] of [["Prod",result.pProd,"prod"],["Stop",result.pStop,"stop"],["Waste",result.pWaste,"waste"]]){
+  $("target"+name).textContent=percent(value);
+  const classification=grade(value,kind,target),status=$("status"+name);
+  status.textContent=classification;status.className="grade "+norm(classification);
+  drawGauge("gauge"+name,value,kind,target);
+  const condition=kind==="prod"?"≥ "+percent(target.prod_regular):"≤ "+percent(kind==="stop"?target.para_otimo:target.desp_otimo);
+  $("metaHint"+name).textContent="Referência da meta: "+condition;
+ }
  const detail=[
- ["Produtividade","Mínimo para cada faixa",target.prod_ruim,target.prod_regular,target.prod_bom,target.prod_otimo],
- ["Paradas","Máximo para cada faixa",target.para_ruim,target.para_regular,target.para_bom,target.para_otimo],
- ["Desperdício","Máximo para cada faixa",target.desp_ruim,target.desp_regular,target.desp_bom,target.desp_otimo]
+  ["Produtividade","Mínimo para cada faixa",target.prod_ruim,target.prod_regular,target.prod_bom,target.prod_otimo],
+  ["Paradas","Máximo para cada faixa",target.para_ruim,target.para_regular,target.para_bom,target.para_otimo],
+  ["Desperdício","Máximo para cada faixa",target.desp_ruim,target.desp_regular,target.desp_bom,target.desp_otimo]
  ].map(r=>({name:r[0],regra:r[1],ruim:r[2],regular:r[3],bom:r[4],otimo:r[5]}));
- renderTable("metas",detail,[{k:"name",t:"Indicador"},{k:"regra",t:"Critério"},{k:"ruim",t:"Ruim",pct:true},{k:"regular",t:"Regular",pct:true},{k:"bom",t:"Bom",pct:true},{k:"otimo",t:"Ótimo",pct:true}],{total:false})
+ renderTable("metas",detail,[{k:"name",t:"Indicador"},{k:"regra",t:"Critério"},{k:"ruim",t:"Ruim",pct:true},{k:"regular",t:"Regular",pct:true},{k:"bom",t:"Bom",pct:true},{k:"otimo",t:"Ótimo",pct:true}],{total:false});
 }
 function renderDetails(rows){
  const input=norm($("detailSearch").value);
@@ -293,7 +336,16 @@ function renderAll(){
  state.exports={segmentos:groups,maquinas:machines,funcionarios:employees,metas:state.targets,detalhamento:details};
  charts(rows,available,machines);
  const missing=rows.filter(x=>!x.recognized);
- $("qualityNote").textContent=(missing.length?"Atenção: "+missing.length+" apontamentos sem campo de horas reconhecido. ":"")+"Comparativos dependem da correspondência de código de funcionário entre Aponta Fácil e GRV. Horas disponíveis são rateadas proporcionalmente às horas apontadas.";
+ const monthsForAudit=new Set(selectedMonths());
+ const grvForAudit=state.rows.filter(x=>monthsForAudit.has(ymonth(x)));
+ const keysForAudit=new Set(grvForAudit.map(idOf));
+ const capacityForAudit=state.available.filter(x=>monthsForAudit.has(x.period));
+ const unmatchedForAudit=capacityForAudit.filter(x=>!keysForAudit.has(idOf(x)));
+ const unmatchedHours=sum(unmatchedForAudit,"available");
+ const note=state.availabilityLive
+  ?"Conciliação Aponta Fácil × GRV por nome completo: "+unmatchedForAudit.length+" registros de funcionários sem apontamento GRV neste período, totalizando "+fmt(unmatchedHours)+" h não rateadas. Esses registros precisam ser conferidos com o Power BI."
+  :"Aguardando dados para conciliação dos funcionários entre Aponta Fácil e GRV.";
+ $("qualityNote").textContent=(missing.length?"Atenção: "+missing.length+" apontamentos sem campo de horas reconhecido. ":"")+note;
  $("sourceStatus").className="status "+(state.availabilityLive?"ok":"warn");
  $("sourceStatus").textContent="GRV "+(rows.length?"conectado":"sem registros")+" · Aponta Fácil "+(state.availabilityLive?"conectado":"pendente")+" · Metas "+(state.metaLive?"online":"referência 2026");
 }
