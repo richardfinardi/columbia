@@ -301,7 +301,27 @@ function charts(rows,available,groups){
  for(const r of rows){let g=groupMonth.get(ymonth(r));if(g){g.prod+=r.prod;g.stop+=r.stop}}
  const data=[...groupMonth.values()];
  const colors={prod:"#059669",stop:"#f59e0b",waste:"#ef4444"};
- chart("monthlyChart",{type:"bar",data:{labels:data.map(d=>d.month.split("-").reverse().join("/")),datasets:[{label:"Produtivas",data:data.map(d=>d.available?d.prod/d.available*100:0),backgroundColor:colors.prod},{label:"Paradas",data:data.map(d=>d.available?d.stop/d.available*100:0),backgroundColor:colors.stop},{label:"Desperdício",data:data.map(d=>d.available?Math.max(0,d.available-d.prod-d.stop)/d.available*100:0),backgroundColor:colors.waste}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom"},columbiaVisibleValues:{mode:"percent"}},layout:{padding:{top:9}},scales:{x:{stacked:true},y:{stacked:true,title:{display:true,text:"% da capacidade"},suggestedMax:100}}}});
+ chart("monthlyChart",{type:"bar",data:{labels:data.map(d=>d.month.split("-").reverse().join("/")),datasets:[{label:"Produtivas",data:data.map(d=>d.available?d.prod/d.available*100:0),backgroundColor:colors.prod},{label:"Paradas",data:data.map(d=>d.available?d.stop/d.available*100:0),backgroundColor:colors.stop},{label:"Desperdício",data:data.map(d=>d.available?Math.max(0,d.available-d.prod-d.stop)/d.available*100:0),backgroundColor:colors.waste}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
+  onClick(event,_active,plot){
+   const area=plot.chartArea;
+   if(!area||event.x<area.left||event.x>area.right||event.y<area.top||event.y>area.bottom)return;
+   const hits=plot.getElementsAtEventForMode(event,"index",{intersect:false},true);
+   if(!hits.length)return;
+   const chosen=data[hits[0].index]?.month;
+   if(!chosen)return;
+   const [year,month]=chosen.split("-");
+   const wasSelected=$("yearFilter").value===year&&$("monthFilter").value===month;
+   $("yearFilter").value=year;
+   $("monthFilter").value=wasSelected?"":month;
+   buildFiltersDependents("monthFilter");
+   persist();
+   void syncAvailability({refreshCurrent:false});
+  },
+  onHover(event,_active,plot){
+   const area=plot.chartArea;
+   plot.canvas.style.cursor=area&&event.x>=area.left&&event.x<=area.right&&event.y>=area.top&&event.y<=area.bottom?"pointer":"default";
+  },
+  plugins:{legend:{position:"bottom"},columbiaVisibleValues:{mode:"percent"}},layout:{padding:{top:9}},scales:{x:{stacked:true},y:{stacked:true,title:{display:true,text:"% da capacidade"},suggestedMax:100}}}});
  const result=calculate(rows,available);chart("mixChart",{type:"doughnut",data:{labels:["Produtivas","Paradas","Desperdício"],datasets:[{data:[result.prod,result.stop,Math.max(0,result.waste)],backgroundColor:[colors.prod,colors.stop,colors.waste],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:"59%",layout:{padding:18},plugins:{legend:{position:"bottom"},columbiaVisibleValues:{mode:"donut"}}}});
  const tops=groups.slice().sort((a,b)=>b.stop-a.stop).slice(0,12);
  chart("machineChart",{type:"bar",data:{labels:tops.map(t=>t.name.length>32?t.name.slice(0,32)+"…":t.name),datasets:[{label:"Horas de parada",data:tops.map(x=>x.stop),backgroundColor:colors.stop}]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},columbiaVisibleValues:{mode:"hours"}},layout:{padding:{right:75}}}});
@@ -437,7 +457,7 @@ function warning(text,kind="warn"){
 }
 function persist(){try{localStorage.setItem("columbia_horas_filters",JSON.stringify(selected()))}catch(_){}}
 function restore(){
- try{const v=JSON.parse(localStorage.getItem("columbia_horas_filters")||"{}");for(const id of FILTERS)if(v[id])$(id).dataset.restore=v[id]}catch(_){}
+ try{const v=JSON.parse(localStorage.getItem("columbia_horas_filters")||"{}");for(const id of FILTERS)if(id!=="yearFilter"&&id!=="monthFilter"&&v[id])$(id).dataset.restore=v[id]}catch(_){}
 }
 function restorePending(){
  for(const id of FILTERS){const e=$(id);if(e.dataset.restore&&[...e.options].some(o=>o.value===e.dataset.restore))e.value=e.dataset.restore;delete e.dataset.restore}
