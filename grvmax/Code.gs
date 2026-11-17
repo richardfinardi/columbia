@@ -165,6 +165,10 @@ function api(action, payload, token) {
     const who = grvAuth(token);
     switch(action) {
       case 'state': return grvState(who);
+      case 'listMinutes': return grvListMinutes(who,p);
+      case 'saveMinutes': return grvSaveMinutes(who,p);
+      case 'finalizeMinutes': return grvFinalizeMinutes(who,p);
+      case 'emailMinutes': return grvEmailMinutes(who,p);
       case 'savePermissions': return grvSavePermissions(who,p);
       case 'save': return grvSave(who,p);
       case 'recalculateSchedule': return grvRecalculateSchedule(who);
@@ -831,4 +835,96 @@ function grvRunReminders(who){
   });
   grvLog(who,'COMUNICACOES','','LEMBRETES_PROCESSADOS',null,{total:total,erros:errors},'');
   return {ok:true,total:total,errors:errors};
+}
+/* Atas estruturadas: sem PDF persistido. */
+function grvMinutesSheet(){
+ const ss=grvSS(),name='ATAS';
+ let sh=ss.getSheetByName(name);
+ if(!sh){sh=ss.insertSheet(name);sh.appendRow(['ID','ATIVIDADE_ID','ETAPA_ID','DATA_REUNIAO','TITULO','OBJETIVO','PARTICIPANTES_JSON','ASSUNTOS','PROBLEMAS','DECISOES','ENCAMINHAMENTOS_JSON','STATUS','CRIADO_EM','CRIADO_POR','ATUALIZADO_EM','ATUALIZADO_POR','FINALIZADO_EM']);}
+ return sh;
+}
+function grvMinutesRows(){
+ const sh=grvMinutesSheet(),headers=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0];
+ if(sh.getLastRow()<2)return [];
+ return sh.getRange(2,1,sh.getLastRow()-1,headers.length).getDisplayValues().map((row,i)=>{const obj={_row:i+2};headers.forEach((h,j)=>obj[h]=row[j]);return obj;}).filter(x=>x.ID);
+}
+function grvMinutesActivity(who,id){
+ if(!grvCan(who,'activities.view'))throw Error('Sem acesso às atividades.');
+ const a=grvFind('ATIVIDADES',id);
+ if(!a)throw Error('Atividade não encontrada.');
+ if(!grvCan(who,'activities.view_all')){
+   const assigned=a.RESPONSAVEL_ID===who.ID||grvRows('VINCULOS').some(v=>v.ATIVIDADE_ID===id&&v.PESSOA_ID===who.ID);
+   if(!assigned)throw Error('Sem acesso a esta atividade.');
+ }
+ return a;
+}
+function grvListMinutes(who,p){
+ const id=String(p.activityId||'');
+ if(id)grvMinutesActivity(who,id);
+ return grvMinutesRows().filter(x=>{try{grvMinutesActivity(who,x.ATIVIDADE_ID);return !id||x.ATIVIDADE_ID===id;}catch(e){return false;}})
+   .map(x=>{delete x._row;return x;});
+}
+function grvSaveMinutes(who,p){
+ const body=p.item||{},id=String(body.ID||''),a=grvMinutesActivity(who,String(body.ATIVIDADE_ID||''));
+ if(!grvCan(who,'activities.comment'))throw Error('Sem permissão para registrar atas.');
+ const fields=['TITULO','OBJETIVO','ASSUNTOS','PROBLEMAS','DECISOES','DATA_REUNIAO'];
+ const clean={};fields.forEach(k=>{clean[k]=String(body[k]||'').trim();if(clean[k].length>15000)throw Error('Campo excede o limite: '+k);});
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(clean.DATA_REUNIAO))throw Error('Informe uma data válida.');
+ let people=[],actions=[];
+ try{people=JSON.parse(body.PARTICIPANTES_JSON||'[]');actions=JSON.parse(body.ENCAMINHAMENTOS_JSON||'[]');}catch(e){throw Error('Participantes ou encaminhamentos inválidos.');}
+ if(!Array.isArray(people)||!Array.isArray(actions)||people.length>100||actions.length>100)throw Error('Dados da ata inválidos.');
+ const participants=people.map(x=>String(x).slice(0,150));
+ const encaminhamentos=actions.map(x=>({descricao:String(x.descricao||'').slice(0,1500),responsavel:String(x.responsavel||'').slice(0,150),prazo:String(x.prazo||'').slice(0,10)}));
+ return grvLock(()=>{
+  const sh=grvMinutesSheet(),old=id?grvMinutesRows().find(x=>x.ID===id):null;
+  if(id&&!old)throw Error('Ata não encontrada.');
+  if(old&&old.STATUS==='Finalizada')throw Error('Ata finalizada não pode ser editada.');
+  if(old&&old.ATIVIDADE_ID!==a.ID)throw Error('Não é permitido mudar a atividade vinculada.');
+  const now=grvNow(),row={ID:id||grvId('ATA'),ATIVIDADE_ID:a.ID,ETAPA_ID:a.ETAPA_ID,DATA_REUNIAO:clean.DATA_REUNIAO,
+   TITULO:clean.TITULO||'Reunião de '+clean.DATA_REUNIAO,OBJETIVO:clean.OBJETIVO,PARTICIPANTES_JSON:JSON.stringify(participants),
+   ASSUNTOS:clean.ASSUNTOS,PROBLEMAS:clean.PROBLEMAS,DECISOES:clean.DECISOES,ENCAMINHAMENTOS_JSON:JSON.stringify(encaminhamentos),
+   STATUS:'Rascunho',CRIADO_EM:old?old.CRIADO_EM:now,CRIADO_POR:old?old.CRIADO_POR:who.EMAIL,
+   ATUALIZADO_EM:now,ATUALIZADO_POR:who.EMAIL,FINALIZADO_EM:''};
+  const values=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0].map(k=>row[k]||'');
+  if(old)sh.getRange(old._row,1,1,values.length).setValues([values]);else sh.appendRow(values);
+  grvLog(who,'ATAS',row.ID,old?'ATA_ATUALIZADA':'ATA_CRIADA',old||null,row,'Ata vinculada à atividade '+a.ID);
+  return row;
+ });
+}
+function grvFinalizeMinutes(who,p){
+ if(!grvCan(who,'activities.comment'))throw Error('Sem permissão para finalizar atas.');
+ return grvLock(()=>{
+  const old=grvMinutesRows().find(x=>x.ID===String(p.id||''));
+  if(!old)throw Error('Ata não encontrada.');
+  grvMinutesActivity(who,old.ATIVIDADE_ID);
+  if(old.STATUS==='Finalizada')throw Error('Ata já finalizada.');
+  const sh=grvMinutesSheet(),headers=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0];
+  const updated=Object.assign({},old,{STATUS:'Finalizada',FINALIZADO_EM:grvNow(),ATUALIZADO_POR:who.EMAIL,ATUALIZADO_EM:grvNow()});
+  sh.getRange(old._row,1,1,headers.length).setValues([headers.map(k=>updated[k]||'')]);
+  grvLog(who,'ATAS',old.ID,'ATA_FINALIZADA',old,updated,'Ata finalizada e bloqueada');
+  delete updated._row;return updated;
+ });
+}
+
+function grvEmailMinutes(who,p){
+ if(!grvCan(who,'emails.send'))throw Error('Sem permissão para enviar e-mails.');
+ const ata=grvMinutesRows().find(x=>x.ID===String(p.id||''));
+ if(!ata||ata.STATUS!=='Finalizada')throw Error('Finalize a ata antes de enviar.');
+ const activity=grvMinutesActivity(who,ata.ATIVIDADE_ID);
+ const ids=Array.isArray(p.peopleIds)?p.peopleIds.slice(0,50):[];
+ if(!ids.length)throw Error('Selecione os destinatários.');
+ const recipients=grvRows('PESSOAS').filter(x=>ids.includes(x.ID)&&x.ATIVO==='SIM');
+ if(!recipients.length)throw Error('Nenhum destinatário ativo.');
+ let people=[],actions=[];
+ try{people=JSON.parse(ata.PARTICIPANTES_JSON||'[]');actions=JSON.parse(ata.ENCAMINHAMENTOS_JSON||'[]');}catch(e){}
+ const text='ATA DE REUNIÃO | GRVMAX\nProjeto: Implantação Columbia\nEtapa: '+(grvFind('ETAPAS',ata.ETAPA_ID)||{}).TITULO+
+ '\nAtividade: '+activity.TITULO+'\nData: '+ata.DATA_REUNIAO+'\nParticipantes: '+people.join(', ')+
+ '\n\nOBJETIVO\n'+ata.OBJETIVO+'\n\nASSUNTOS DISCUTIDOS\n'+ata.ASSUNTOS+
+ '\n\nPROBLEMAS IDENTIFICADOS\n'+ata.PROBLEMAS+'\n\nDECISÕES\n'+ata.DECISOES+
+ '\n\nENCAMINHAMENTOS\n'+actions.map(x=>'- '+x.descricao+(x.responsavel?' | Responsável: '+x.responsavel:'')+(x.prazo?' | Prazo: '+x.prazo:'')).join('\n')+
+ '\n\nAcompanhe: '+grvPortalLink();
+ const subject='GRVMAX | Ata de reunião | '+ata.TITULO;
+ const results=recipients.map(x=>grvMail(who,'ATA',x.EMAIL,subject,text,activity.ID));
+ grvLog(who,'ATAS',ata.ID,'ATA_COMPARTILHADA',null,{destinatarios:results},'Envio por e-mail');
+ return {ok:true,results:results};
 }
