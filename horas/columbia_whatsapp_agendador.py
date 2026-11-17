@@ -236,7 +236,7 @@ def from_api(result: Any) -> list[dict]:
     return []
 
 
-async def get_grv() -> list[dict]:
+async def get_grv_raw() -> list[dict]:
     user = os.environ.get("COLUMBIA_HORAS_SERVICE_USER", "").strip()
     if not user:
         raise RuntimeError("Defina COLUMBIA_HORAS_SERVICE_USER (usuário ativo com U_HORAS=1)")
@@ -252,6 +252,11 @@ async def get_grv() -> list[dict]:
     rows = from_api(response.json())
     if not rows:
         raise RuntimeError("API /custos_apontamento não retornou apontamentos (envio suspenso)")
+    return rows
+
+
+async def get_grv() -> list[dict]:
+    rows = await get_grv_raw()
     normalized = [grv_row(x) for x in rows]
     if not any(r["recognized"] for r in normalized):
         raise RuntimeError("Campos de horas desconhecidos no GRV (envio suspenso)")
@@ -377,7 +382,11 @@ def message_for(kind: str, frequency: str, start: date, end: date,
 def job_window(frequency: str, now: datetime) -> tuple[date, date] | None:
     today = now.date()
     if frequency == "diario":
-        return (today, today) if today.weekday() < 5 else None
+        if today.weekday() >= 5:
+            return None
+        # Envio no próximo dia útil: terça-sexta = ontem; segunda = sexta anterior.
+        reference_day = today - timedelta(days=3 if today.weekday() == 0 else 1)
+        return reference_day, reference_day
     if frequency == "semanal":
         if today.weekday() != 0:
             return None
@@ -501,10 +510,50 @@ async def run(preview: bool, force_mode: str | None, at: date | None) -> int:
         return 1 if failures else 0
 
 
+
+
+async def diagnose_grv() -> int:
+    """Confere sem expor dados pessoais se a API realmente tem datas diárias."""
+    from collections import Counter
+    source = await get_grv_raw()
+    normalized = [grv_row(r) for r in source]
+    actual = [r["day"] for r in normalized if r["actual_date"] and r["day"]]
+    monthly = [r for r in normalized if r["day"] and not r["actual_date"]]
+    missing = [r for r in normalized if not r["day"]]
+    print("\n=== DIAGNÓSTICO GRV /custos_apontamento (SEM ENVIOS) ===")
+    print("Endpoint: " + BASE + "/custos_apontamento")
+    print("Registros totais:", len(source))
+    print("Campos da primeira linha:", ", ".join(str(k) for k in source[0].keys()) if source else "(vazio)")
+    print("Registros com data diária real:", len(actual))
+    print("Registros apenas com competência mensal:", len(monthly))
+    print("Registros sem data reconhecida:", len(missing))
+    if actual:
+        counts = Counter(actual)
+        print("Primeira data diária:", min(actual).isoformat())
+        print("Última data diária:", max(actual).isoformat())
+        print("Últimos 12 dias identificados:")
+        for day in sorted(counts, reverse=True)[:12]:
+            print(" ", day.isoformat(), ":", counts[day], "apontamentos")
+    today = datetime.now(TZ).date()
+    last_business = today - timedelta(days=3 if today.weekday() == 0 else 1)
+    counts = Counter(actual)
+    print("Hoje (Brasília):", today.isoformat())
+    print("Dia que o disparo diário vai consultar:", last_business.isoformat())
+    print("Apontamentos desse dia:", counts[last_business])
+    if not actual:
+        print("RESULTADO: O endpoint NÃO comprovou disponibilizar datas diárias. Não ativar o envio diário/semanal.")
+    elif not counts[last_business]:
+        print("RESULTADO: Há datas diárias, mas nenhuma linha para o dia requerido. Verifique atraso de apontamento.")
+    else:
+        print("RESULTADO: Há dados do dia solicitado. Conferir horas e disponibilidade antes de ativar.")
+    return 0
+
 def main():
     parser = argparse.ArgumentParser(description="Disparador automático Columbia -> WhatsApp AUVRIUN")
     parser.add_argument("--preview", action="store_true",
                         help="Calcula indicadores, NÃO envia mensagens")
+    parser.add_argument("--diagnostico-grv", action="store_true",
+                        help="Mostra campos e datas da origem GRV sem enviar mensagens")
     parser.add_argument("--mode", choices=("diario", "semanal", "mensal"),
                         help="Executa uma periodicidade específica, se hoje for o dia programado")
     parser.add_argument("--date", type=date.fromisoformat,
@@ -521,6 +570,8 @@ def main():
                                 backupCount=5, encoding="utf-8"),
         ])
     try:
+        if args.diagnostico_grv:
+            return asyncio.run(diagnose_grv())
         return asyncio.run(run(args.preview, args.mode, args.date))
     except Exception as exc:
         LOG.exception("Execução interrompida: %s", exc)
