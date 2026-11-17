@@ -7,9 +7,10 @@
   <title>Assinatura WhatsApp | Fechamento de Horas</title>
   <link rel="icon" href="../LOGO MINIMALISTA.png">
   <script>if(!localStorage.getItem("columbia_analista_token"))location.replace("../login.html");</script>
-  <link rel="stylesheet" href="./horas.css?v=20261117-sub2">
+  <link rel="stylesheet" href="./horas.css?v=20261117-relatorio1">
   <link rel="stylesheet" href="./assinatura.css?v=20261117-sub2">
-  <script src="./assinatura.js?v=20261117-sub2" defer></script>
+  <script src="./relatorio_whatsapp.js?v=20261117-relatorio1" defer></script>
+  <script src="./assinatura.js?v=20261117-relatorio1" defer></script>
 </head>
 <body>
 <div id="accessGate" class="access-gate"><div class="loader"></div><strong>Validando acesso à Columbia...</strong></div>
@@ -62,25 +63,15 @@
     <input id="otpInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
    </label><button id="confirmCode" type="button" class="btn primary">Confirmar assinatura</button></div>
   </div>
-  <div class="subscription-actions"><button id="testMessage" class="btn primary" hidden type="button">Enviar teste agora</button><button id="unsubscribe" class="btn sub-danger" hidden type="button">Cancelar assinatura</button>
+  <div class="subscription-actions"><button id="testMessage" class="btn primary" hidden type="button">Enviar prévia real ao WhatsApp</button><button id="unsubscribe" class="btn sub-danger" hidden type="button">Cancelar assinatura</button>
   <span>O número é usado exclusivamente para os relatórios escolhidos. Você pode cancelar quando quiser.</span></div>
  </section>
- <div class="sub-preview card"><strong>Exemplo de mensagem (sem anexo)</strong>
- <pre>📊 COLUMBIA | Fechamento de Horas
-Competência: Outubro/2026
-
-METAS
-Produtividade  70%  ███████░░░
-Paradas        22%  ██░░░░░░░░
-Desperdício     8%  █░░░░░░░░░
-
-RESUMO
-Disponíveis:   4.345,07 h
-Produtivas:    3.039,07 h
-Paradas:         942,82 h
-Desperdício:     363,18 h
-
-Valores ilustrativos. Dados reais no envio.</pre>
+ <div class="sub-preview card">
+  <div class="subscription-preview-head"><div><strong>Como ficará sua mensagem no WhatsApp</strong>
+   <p id="reportPeriodNotice">Prévia com dados reais do último mês fechado.</p></div>
+   <button type="button" class="btn ghost" id="reloadPreview">Atualizar prévia</button></div>
+  <pre id="messagePreview" aria-live="polite">Carregando informações para a prévia...</pre>
+  <p class="subscription-preview-note">A prévia mensal usa dados reais do GRV e do Aponta Fácil. O relatório diário ou semanal ainda precisa de dados com data diária para reproduzir exatamente esse período.</p>
  </div>
  <p class="subscription-footer">A confirmação ativa o cadastro do WhatsApp. Os disparos automáticos dependem da configuração do agendador de relatórios na Columbia.</p>
 </main></div></body></html>
