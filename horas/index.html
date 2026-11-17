@@ -67,9 +67,26 @@
         <div class="card table-card"><div class="table-head"><div><h3>Resultado por funcionário</h3><p>Horas disponíveis proporcionais aos apontamentos de cada pessoa</p></div><button data-export="funcionarios" class="btn export">Exportar Excel</button></div><div class="table-scroll"><table id="table-funcionarios"></table></div></div>
       </section>
       <section class="view" id="view-metas" hidden>
-        <div class="targets"><article class="target card"><div><span class="target-dot green"></span><h3>Produtividade</h3></div><strong id="targetProd">—</strong><span id="statusProd" class="grade">—</span><div class="track"><i id="barProd"></i></div></article>
-          <article class="target card"><div><span class="target-dot amber"></span><h3>Paradas</h3></div><strong id="targetStop">—</strong><span id="statusStop" class="grade">—</span><div class="track"><i id="barStop"></i></div></article>
-          <article class="target card"><div><span class="target-dot red"></span><h3>Desperdício</h3></div><strong id="targetWaste">—</strong><span id="statusWaste" class="grade">—</span><div class="track"><i id="barWaste"></i></div></article></div>
+        <div class="targets">
+          <article class="target card gauge-card">
+            <div class="gauge-head"><span class="target-dot green"></span><h3>Meta Horas Produtivas</h3></div>
+            <div class="gauge-meter" id="gaugeProd" role="img" aria-label="Medidor de produtividade"></div>
+            <div class="gauge-readout"><strong id="targetProd">—</strong><span id="statusProd" class="grade">—</span></div>
+            <p id="metaHintProd" class="gauge-hint"></p>
+          </article>
+          <article class="target card gauge-card">
+            <div class="gauge-head"><span class="target-dot amber"></span><h3>Meta Horas Paradas</h3></div>
+            <div class="gauge-meter" id="gaugeStop" role="img" aria-label="Medidor de horas paradas"></div>
+            <div class="gauge-readout"><strong id="targetStop">—</strong><span id="statusStop" class="grade">—</span></div>
+            <p id="metaHintStop" class="gauge-hint"></p>
+          </article>
+          <article class="target card gauge-card">
+            <div class="gauge-head"><span class="target-dot red"></span><h3>Meta Horas Desperdício</h3></div>
+            <div class="gauge-meter" id="gaugeWaste" role="img" aria-label="Medidor de desperdício"></div>
+            <div class="gauge-readout"><strong id="targetWaste">—</strong><span id="statusWaste" class="grade">—</span></div>
+            <p id="metaHintWaste" class="gauge-hint"></p>
+          </article>
+        </div>
         <div class="card table-card"><div class="table-head"><div><h3>Faixas de classificação</h3><p>Limites cadastrados na planilha META_PRODUTIVIDADE</p></div></div><div class="table-scroll"><table id="table-metas"></table></div></div>
       </section>
       <section class="view" id="view-detalhamento" hidden>
