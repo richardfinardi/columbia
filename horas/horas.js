@@ -164,7 +164,7 @@ function calculate(rows,availability){
  const prod=sum(rows,"prod"),stop=sum(rows,"stop");
  const available=sum(availability,"available");
  const waste=available-prod-stop;
- return {available,prod,stop,waste,pProd:available?prod/available:NaN,pStop:available?stop/available:NaN,pWaste:available?waste/available:NaN,pDisp:available? (prod+stop)/available:NaN};
+ return {available,prod,stop,waste,pProd:available?prod/available:NaN,pStop:available?stop/available:NaN,pWaste:available?waste/available:NaN,pDisp:available>0?1:NaN};
 }
 // Rateia a capacidade de cada funcionário proporcionalmente às horas apontadas
 // em cada segmento/máquina. Evita multiplicar o mesmo total mensal em cada grupo.
