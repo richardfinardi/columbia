@@ -289,7 +289,7 @@ function dashboard(root){
 function stagesView(root){
  root.innerHTML='<div class="toolbar"><span class="muted small">'+S.stages.length+' etapas · '+S.activities.length+' atividades</span><span class="spacer"></span>'+(can('stages.schedule')?'<button class="btn" id="syncStageDates">Atualizar datas das etapas</button>':'')+createButton('ETAPAS')+'</div>'+S.stages.map(function(s,i){
    var tasks=S.activities.filter(function(a){return a.ETAPA_ID===s.ID});
-   return '<section class="stage"><div class="stage-head" data-stage="'+esc(s.ID)+'"><span class="num">'+String(s.ORDEM).padStart(2,'0')+'</span><div style="flex:1"><h3>'+esc(s.TITULO)+'</h3><div class="small muted">'+esc(s.ENTREGAVEL||'')+'</div>'+stageCalendar(s)+'</div><span class="small bold">'+pct(s.ID)+'%</span><div style="width:100px" class="progress"><span style="width:'+pct(s.ID)+'%"></span></div><span>⌄</span></div><div id="stage-'+s.ID+'" class="stage-content hidden"><div class="toolbar" style="margin:14px 0">'+badge(s.STATUS)+'<span class="spacer"></span>'+(can('stages.edit')?'<button class="btn" onclick="editItem(\'ETAPAS\',\''+s.ID+'\')">Editar etapa</button>':'')+(can('activities.create')?'<button class="btn primary" onclick="editItem(\'ATIVIDADES\',null,\''+s.ID+'\')">+ Atividade</button>':'')+'</div>'+tasks.map(function(a){return '<div class="listrow"><div style="flex:1"><div class="small bold">'+esc(a.TITULO)+'</div><div class="tiny muted">'+person(a.RESPONSAVEL_ID)+' · Orientação '+fmt(a.DATA_ORIENTACAO)+' · Validação '+fmt(a.PRAZO)+'</div></div>'+badge(a.STATUS)+'<button class="link" onclick="editItem(\'ATIVIDADES\',\''+a.ID+'\')">Abrir</button></div>'}).join('')+(tasks.length?'':'<div class="empty">Nenhuma atividade cadastrada.</div>')+'</div></section>';
+   return '<section class="stage"><div class="stage-head" data-stage="'+esc(s.ID)+'"><span class="num">'+String(s.ORDEM).padStart(2,'0')+'</span><div style="flex:1"><h3>'+esc(s.TITULO)+'</h3><div class="small muted">'+esc(s.ENTREGAVEL||'')+'</div>'+stageCalendar(s)+'</div><span class="small bold">'+pct(s.ID)+'%</span><div style="width:100px" class="progress"><span style="width:'+pct(s.ID)+'%"></span></div><span>⌄</span></div><div id="stage-'+s.ID+'" class="stage-content hidden"><div class="toolbar" style="margin:14px 0">'+badge(s.STATUS)+'<span class="spacer"></span>'+(can('stages.edit')?'<button class="btn" onclick="editItem(\'ETAPAS\',\''+s.ID+'\')">Editar etapa</button>':'')+(can('activities.create')?'<button class="btn primary" onclick="editItem(\'ATIVIDADES\',null,\''+s.ID+'\')">+ Atividade</button>':'')+'</div>'+tasks.map(function(a){return '<div class="listrow"><div style="flex:1"><div class="small bold">'+esc(a.TITULO)+'</div><div class="tiny muted">'+person(a.RESPONSAVEL_ID)+' · Orientação '+fmt(a.DATA_ORIENTACAO)+' · Validação '+fmt(a.PRAZO)+'</div></div>'+badge(a.STATUS)+'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px"><button class="link" onclick="editItem(\'ATIVIDADES\',\''+a.ID+'\')">Abrir</button>'+(can('minutes.view')?'<div class="tiny" data-inline-atas="'+attr(a.ID)+'">Atas: carregando...</div>':'')+'</div></div>'}).join('')+(tasks.length?'':'<div class="empty">Nenhuma atividade cadastrada.</div>')+'</div></section>';
  }).join('');
  var syncStageButton=el('syncStageDates');
  if(syncStageButton)syncStageButton.onclick=async function(){
@@ -300,7 +300,25 @@ function stagesView(root){
      notify((result.stagesUpdated||0)+' etapa(s) atualizada(s) com as datas das atividades.');
    }catch(e){notify(e.message,true);syncStageButton.disabled=false}
  };
- document.querySelectorAll('[data-stage]').forEach(function(a){a.onclick=function(){el('stage-'+a.dataset.stage).classList.toggle('hidden')}});
+ document.querySelectorAll('[data-stage]').forEach(function(a){a.onclick=function(){
+ var box=el('stage-'+a.dataset.stage);box.classList.toggle('hidden');
+ if(!box.classList.contains('hidden')&&can('minutes.view'))showStageMinutes(box);
+ }});
+
+}
+var stageMinutesCache=null;
+function showStageMinutes(box){
+ if(!stageMinutesCache)stageMinutesCache=api('listMinutes',{}).catch(function(e){stageMinutesCache=null;throw e});
+ stageMinutesCache.then(function(all){
+  if(!box.isConnected)return;
+  box.querySelectorAll('[data-inline-atas]').forEach(function(target){
+   var items=all.filter(function(x){return x.ATIVIDADE_ID===target.dataset.inlineAtas});
+   target.innerHTML=items.length?items.map(function(x){return '<button type="button" class="link" data-inline-ata-id="'+attr(x.ID)+'">Ata: '+esc(x.TITULO)+' ('+esc(x.STATUS)+')</button>'}).join('<br>'):'Sem atas';
+  });
+  box.querySelectorAll('[data-inline-ata-id]').forEach(function(btn){btn.onclick=function(e){
+   e.stopPropagation();var item=all.find(function(x){return x.ID===btn.dataset.inlineAtaId});if(item)minutesEditor(item);
+  }});
+ }).catch(function(e){box.querySelectorAll('[data-inline-atas]').forEach(function(t){t.textContent='Atas indisponíveis: '+e.message})});
 }
 function searchbar(){return '<input id="q" class="field search" placeholder="Pesquisar..." value="'+attr(search)+'">'}
 
@@ -718,7 +736,7 @@ function minutesView(root,activityId){
  minutesActivityFilter=activityId||'';
  root.innerHTML='<div class="toolbar"><h2 class="sectiontitle">Atas de reunião</h2><span class="spacer"></span><button class="btn primary" id="newMinutes">+ Nova ata</button></div><div id="minutesList" class="card">Carregando...</div>';
  if(el('newMinutes'))el('newMinutes').onclick=function(){try{minutesEditor(null,minutesActivityFilter)}catch(e){notify('Erro ao abrir ata: '+e.message,true);alert('Erro ao abrir ata: '+e.message)}};
- api('listMinutes',{}).then(function(items){
+ api('listMinutes',{}).then(function(items){stageMinutesCache=Promise.resolve(items);
   var rows=items.filter(function(x){return !minutesActivityFilter||x.ATIVIDADE_ID===minutesActivityFilter});
   if(!el('minutesList'))return;
   el('minutesList').innerHTML=rows.length?rows.map(function(x){return '<div class="listrow"><div><b>'+esc(x.TITULO)+'</b><div class="small muted">'+fmt(x.DATA_REUNIAO)+' · '+esc(stage(x.ETAPA_ID))+' · '+esc(x.STATUS)+'</div></div><button class="btn" data-ata="'+attr(x.ID)+'">Abrir</button></div>'}).join(''):'<div class="empty">Nenhuma ata cadastrada.</div>';
@@ -805,9 +823,9 @@ function minutesEditor(item,activityId){
    PARTICIPANTES_JSON:JSON.stringify(Array.from(document.querySelectorAll('.ata-person:checked')).map(function(x){return x.value})),
    ASSUNTOS:el('ata_ASSUNTOS').value,PROBLEMAS:el('ata_PROBLEMAS').value,DECISOES:el('ata_DECISOES').value,
    ENCAMINHAMENTOS_JSON:JSON.stringify(el('ata_ENCAMINHAMENTOS_JSON').value.split('\n').filter(Boolean).map(function(x){return {descricao:x,responsavel:'',prazo:''}}))};
-  preserveAta();busy(true);try{await api('saveMinutes',{item:data});localStorage.removeItem(draftKey);closePop();minutesView(el('content'),minutesActivityFilter);notify('Ata salva.')}catch(e){notify('Ata NÃO salva no servidor: '+e.message,true);alert('A ata não foi salva no servidor. O texto foi preservado neste navegador. Erro: '+e.message)}finally{busy(false)}
+  preserveAta();busy(true);try{await api('saveMinutes',{item:data});stageMinutesCache=null;localStorage.removeItem(draftKey);closePop();minutesView(el('content'),minutesActivityFilter);notify('Ata salva.')}catch(e){notify('Ata NÃO salva no servidor: '+e.message,true);alert('A ata não foi salva no servidor. O texto foi preservado neste navegador. Erro: '+e.message)}finally{busy(false)}
  };
- if(item&&!done&&can('minutes.finalize'))el('ataFinalize').onclick=async function(){if(!confirm('Finalizar e bloquear a edição desta ata?'))return;busy(true);try{await api('finalizeMinutes',{id:item.ID});closePop();minutesView(el('content'),minutesActivityFilter)}catch(e){notify(e.message,true)}finally{busy(false)}};
+ if(item&&!done&&can('minutes.finalize'))el('ataFinalize').onclick=async function(){if(!confirm('Finalizar e bloquear a edição desta ata?'))return;busy(true);try{await api('finalizeMinutes',{id:item.ID});stageMinutesCache=null;closePop();minutesView(el('content'),minutesActivityFilter)}catch(e){notify(e.message,true)}finally{busy(false)}};
 }
 window.nav=nav;
 start();
