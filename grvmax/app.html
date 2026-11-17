@@ -397,7 +397,7 @@ function minutesEditor(item,activityId){
  '<div class="fitem wide"><label>Objetivo</label><textarea class="field" id="ataObjective" '+locked+'>'+esc(item&&item.OBJETIVO||a.DESCRICAO||a.TITULO)+'</textarea></div>'+
  '<div class="fitem wide"><label>Participantes</label><div class="checkgrid">'+choices+'</div></div>'+
  [['ASSUNTOS','Assuntos discutidos'],['PROBLEMAS','Problemas identificados'],['DECISOES','Decisões tomadas'],['ENCAMINHAMENTOS_JSON','Encaminhamentos (um por linha)']].map(function(f){var val=f[0]==='ENCAMINHAMENTOS_JSON'?(function(){try{return JSON.parse(item&&item[f[0]]||'[]').map(function(x){return x.descricao}).join('\n')}catch(e){return ''}})():item&&item[f[0]]||'';return '<div class="fitem wide"><label>'+f[1]+'</label><textarea class="field" id="ata_'+f[0]+'" '+locked+'>'+esc(val)+'</textarea></div>'}).join('')+'</div>';
- var actions='<button class="btn" onclick="closePop()">Fechar</button><button class="btn" id="ataPrint">Imprimir / PDF</button>'+(done?'':'<button class="btn primary" id="ataSave" data-save>Salvar rascunho</button>'+(item?'<button class="btn" id="ataFinalize" data-save>Finalizar</button>':''));
+ var actions='<button class="btn" onclick="closePop()">Fechar</button><button class="btn" id="ataPrint">Salvar PDF / Imprimir</button>'+(done?'<button class="btn primary" id="ataEmail">Enviar por e-mail</button>':'')+(done?'':'<button class="btn primary" id="ataSave" data-save>Salvar rascunho</button>'+(item?'<button class="btn" id="ataFinalize" data-save>Finalizar</button>':''));
  modal('Ata de reunião · '+a.TITULO,body,actions);
  el('ataPrint').onclick=function(){
   var labels=[['Objetivo','ataObjective'],['Assuntos discutidos','ata_ASSUNTOS'],['Problemas identificados','ata_PROBLEMAS'],['Decisões','ata_DECISOES'],['Encaminhamentos','ata_ENCAMINHAMENTOS_JSON']];
@@ -406,7 +406,10 @@ function minutesEditor(item,activityId){
   html+='</body></html>';
   var win=window.open('','_blank');if(!win){notify('Permita pop-ups para imprimir.',true);return}win.document.write(html);win.document.close();win.focus();setTimeout(function(){win.print()},300);
  };
- if(done)return;
+ if(done){el('ataEmail').onclick=function(){
+  modal('Enviar ata por e-mail','<p class="muted small">Envio pelo sistema atual do GRVMAX, com registro no histórico.</p><div class="checkgrid">'+S.people.filter(function(p){return p.ATIVO==='SIM'}).map(function(p){return '<label class="checkitem"><input type="checkbox" class="ata-recipient" value="'+attr(p.ID)+'">'+esc(p.NOME)+' <span class="tiny muted">'+esc(p.EMAIL)+'</span></label>'}).join('')+'</div>','<button class="btn" onclick="closePop()">Cancelar</button><button class="btn primary" id="sendAta" data-save>Enviar</button>');
+  el('sendAta').onclick=async function(){var ids=Array.from(document.querySelectorAll('.ata-recipient:checked')).map(function(x){return x.value});if(!ids.length){notify('Selecione os destinatários.',true);return}busy(true);try{var r=await api('emailMinutes',{id:item.ID,peopleIds:ids});closePop();notify(r.results.filter(function(x){return x.status==='ENVIADO'}).length+' de '+r.results.length+' e-mails enviados.')}catch(e){notify(e.message,true)}finally{busy(false)}};
+ };return;}
  el('ataSave').onclick=async function(){
   var data={ID:item&&item.ID||'',ATIVIDADE_ID:el('ataActivity').value,DATA_REUNIAO:el('ataDate').value,TITULO:el('ataTitle').value,OBJETIVO:el('ataObjective').value,
    PARTICIPANTES_JSON:JSON.stringify(Array.from(document.querySelectorAll('.ata-person:checked')).map(function(x){return x.value})),
