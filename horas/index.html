@@ -12,8 +12,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
   <script src="https://unpkg.com/lucide@latest" defer></script>
-  <link rel="stylesheet" href="./horas.css?v=20261117-gauge2">
-  <script src="./horas.js?v=20261117-gauge2" defer></script>
+  <link rel="stylesheet" href="./horas.css?v=20261117-audit3">
+  <script src="./horas.js?v=20261117-audit3" defer></script>
 </head>
 <body>
   <div id="accessGate" class="access-gate"><div class="loader"></div><strong>Validando acesso ao fechamento de horas...</strong></div>
@@ -51,6 +51,7 @@
         <button class="tab active" data-view="segmentos" role="tab" aria-selected="true">Segmentos</button>
         <button class="tab" data-view="maquinas" role="tab" aria-selected="false">Máquinas</button>
         <button class="tab" data-view="funcionarios" role="tab" aria-selected="false">Funcionários</button>
+        <button class="tab" data-view="auditoria" role="tab" aria-selected="false">Conciliação</button>
         <button class="tab" data-view="metas" role="tab" aria-selected="false">Metas</button>
         <button class="tab" data-view="detalhamento" role="tab" aria-selected="false">Detalhamento</button>
       </section>
@@ -65,6 +66,19 @@
       </section>
       <section class="view" id="view-funcionarios" hidden>
         <div class="card table-card"><div class="table-head"><div><h3>Resultado por funcionário</h3><p>Horas disponíveis proporcionais aos apontamentos de cada pessoa</p></div><button data-export="funcionarios" class="btn export">Exportar Excel</button></div><div class="table-scroll"><table id="table-funcionarios"></table></div></div>
+      </section>
+      <section class="view" id="view-auditoria" hidden>
+        <div class="card table-card">
+          <div class="table-head">
+            <div>
+              <h3>Conciliação Aponta Fácil × GRV</h3>
+              <p id="auditSummary">Identificando funcionários que não foram relacionados aos apontamentos do período...</p>
+            </div>
+            <button data-export="auditoria" class="btn export">Exportar divergências</button>
+          </div>
+          <div class="table-scroll"><table id="table-auditoria"></table></div>
+          <p class="table-foot">Estas horas não entram automaticamente no cálculo. A inclusão depende da validação da regra de rateio do Power BI.</p>
+        </div>
       </section>
       <section class="view" id="view-metas" hidden>
         <div class="targets">
