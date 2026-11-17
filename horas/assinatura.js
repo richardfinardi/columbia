@@ -61,7 +61,7 @@ function applyPreferences(p){
 }
 async function populate(){
  const raw=await request(BASE+"/custos_apontamento");
- const rows=Array.isArray(raw)?raw:Array.isArray(raw.data)?raw.data:Array.isArray(raw.dados)?raw.dados:[];
+ const rows=Array.isArray(raw)?raw:Array.isArray(raw.data)?raw.data:Array.isArray(raw.dados)?raw.dados:Array.isArray(raw.apontamentos)?raw.apontamentos:Array.isArray(raw.custos_apontamento)?raw.custos_apontamento:[];
  if(!rows.length)return notify("Não foi possível listar máquinas, funcionários e segmentos. A assinatura ainda pode usar 'Todos'.",true);
  picker("segmentos",rows.map(r=>r.seguimento||r.segmento));
  picker("maquinas",rows.map(r=>r.maquina));
