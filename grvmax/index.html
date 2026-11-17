@@ -728,7 +728,7 @@ function minutesEditor(item,activityId){
  var draftKey='grvmax_ata_draft_'+(item&&item.ID||activityId||'nova');
  var savedDraft=null;
  if(!item){try{savedDraft=JSON.parse(localStorage.getItem(draftKey)||'null')}catch(e){}}
- var done=item&&item.STATUS==='Finalizada',locked=done?'disabled';
+ var done=item&&item.STATUS==='Finalizada',locked=done?'disabled':'';
  function value(k){return attr(item&&item[k]||'')}
  var people=[];try{people=JSON.parse(item&&item.PARTICIPANTES_JSON||'[]')}catch(e){}
  var choices=S.people.map(function(p){return '<label class="checkitem"><input type="checkbox" class="ata-person" value="'+attr(p.NOME)+'" '+(people.includes(p.NOME)?'checked':'')+' '+locked+'>'+esc(p.NOME)+'</label>'}).join('');
