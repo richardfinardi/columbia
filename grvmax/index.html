@@ -368,7 +368,7 @@ function taskRows(){
  el('taskList').innerHTML='<div class="tablewrap"><table class="grid"><thead><tr><th>Atividade</th><th>Etapa</th><th>Responsável</th><th>Orientação</th><th>Validação</th><th>Status</th><th></th></tr></thead><tbody>'+tasks.map(function(a){return '<tr><td class="title">'+esc(a.TITULO)+'</td><td>'+esc(stage(a.ETAPA_ID))+'</td><td>'+esc(person(a.RESPONSAVEL_ID))+'<div class="tiny muted">'+esc(activityTeam(a.ID,'PARTICIPANTE').map(person).join(', '))+'</div></td><td>'+fmt(a.DATA_ORIENTACAO)+'</td><td>'+fmt(a.PRAZO)+(taskLate(a)?' <span class="pill bad">ATRASO</span>':'')+'</td><td>'+taskStatusCell(a)+'</td><td><button class="link" data-task-open="'+attr(a.ID)+'">Abrir</button> <button class="btn" data-task-ata="'+attr(a.ID)+'">Ata</button></td></tr>'}).join('')+'</tbody></table>'+(tasks.length?'':'<div class="empty">'+msg+'</div>')+'</div><div class="muted small" style="margin-top:10px">'+tasks.length+' de '+scoped.length+' atividades nesta visualização</div>';
  document.querySelectorAll('[data-quick]').forEach(function(b){b.onchange=function(){changeTaskStatus(this.dataset.quick,this.value)}});
  document.querySelectorAll('[data-task-open]').forEach(function(b){b.onclick=function(){editItem('ATIVIDADES',this.dataset.taskOpen)}});
- document.querySelectorAll('[data-task-ata]').forEach(function(b){b.onclick=function(){minutesEditor(null,this.dataset.taskAta)}});
+ document.querySelectorAll('[data-task-ata]').forEach(function(b){b.onclick=function(){try{minutesEditor(null,this.dataset.taskAta)}catch(e){notify('Erro ao abrir ata: '+e.message,true);alert('Erro ao abrir ata: '+e.message)}}});
 }
 window.changeTaskStatus=async function(id,next){
  var row=S.activities.find(function(a){return a.ID===id});if(!row||!next||next===row.STATUS)return;
@@ -553,8 +553,9 @@ window.editItem=function(table,id,stageId,desiredStatus){
    info='<div class="hint" style="margin-bottom:17px">Período automático: início = primeira orientação; fim = última validação. Para mudar as datas, altere as atividades da etapa.</div>';
 
  if(row&&table==='ATIVIDADES')info+='<p class="small muted"><b>Status:</b> '+esc(row.STATUS)+' · <b>Responsável principal:</b> '+esc(person(row.RESPONSAVEL_ID))+' · <b>Participantes:</b> '+esc(activityTeam(row.ID,'PARTICIPANTE').map(person).join(', ')||'Nenhum')+' · <b>Homologador:</b> '+esc(person(activityTeam(row.ID,'HOMOLOGADOR')[0]))+' · <b>Homologada por:</b> '+esc(person(row.HOMOLOGADO_POR))+'</p>';
- modal((row?(maySave?'Editar ':'Detalhes de '):'Nova ')+(tableNames[table]||table),info+'<form id="itemForm"><div class="formgrid">'+fields.map(function(f){return formField(f,data,meRestricted&&maySave)}).join('')+'</div></form>'+(table==='ATIVIDADES'?(row?(can('activities.comment')&&maySave?activityNewNoteHtml(row):activityNotesHtml(row)):(can('activities.comment')?activityNewNoteHtml(null):'')):''),(row&&table==='ATIVIDADES'&&canApprove(row.ID)&&['Aguardando validação','Devolvida','Em execução'].includes(row.STATUS)?'<button class="btn" onclick="approveItem(\''+row.ID+'\')">Homologar / devolver</button>':'')+(row&&table==='ATIVIDADES'&&can('activities.delete')?'<button class="btn danger" type="button" id="deleteActivityBtn">Excluir atividade</button>':'')+'<button class="btn" onclick="closePop()">'+(maySave?'Cancelar':'Fechar')+'</button>'+(maySave?'<button class="btn primary" data-save id="saveItem">Salvar alterações</button>':''));
+ modal((row?(maySave?'Editar ':'Detalhes de '):'Nova ')+(tableNames[table]||table),info+'<form id="itemForm"><div class="formgrid">'+fields.map(function(f){return formField(f,data,meRestricted&&maySave)}).join('')+'</div></form>'+(table==='ATIVIDADES'?(row?(can('activities.comment')&&maySave?activityNewNoteHtml(row):activityNotesHtml(row)):(can('activities.comment')?activityNewNoteHtml(null):'')):''),(row&&table==='ATIVIDADES'&&canApprove(row.ID)&&['Aguardando validação','Devolvida','Em execução'].includes(row.STATUS)?'<button class="btn" onclick="approveItem(\''+row.ID+'\')">Homologar / devolver</button>':'')+(row&&table==='ATIVIDADES'?'<button class="btn" type="button" id="activityAtaBtn">Criar ata</button>':'')+(row&&table==='ATIVIDADES'&&can('activities.delete')?'<button class="btn danger" type="button" id="deleteActivityBtn">Excluir atividade</button>':'')+'<button class="btn" onclick="closePop()">'+(maySave?'Cancelar':'Fechar')+'</button>'+(maySave?'<button class="btn primary" data-save id="saveItem">Salvar alterações</button>':''));
 
+ if(row&&table==='ATIVIDADES'&&el('activityAtaBtn'))el('activityAtaBtn').onclick=function(){try{minutesEditor(null,row.ID)}catch(e){notify('Erro ao abrir ata: '+e.message,true);alert('Erro ao abrir ata: '+e.message)}};
  if(row&&table==='ATIVIDADES'&&can('activities.delete')){
    var deleteButton=el('deleteActivityBtn');
    deleteButton.onclick=async function(){
@@ -717,7 +718,7 @@ start();
 function minutesView(root,activityId){
  minutesActivityFilter=activityId||'';
  root.innerHTML='<div class="toolbar"><h2 class="sectiontitle">Atas de reunião</h2><span class="spacer"></span><button class="btn primary" id="newMinutes">+ Nova ata</button></div><div id="minutesList" class="card">Carregando...</div>';
- el('newMinutes').onclick=function(){minutesEditor(null,minutesActivityFilter)};
+ el('newMinutes').onclick=function(){try{minutesEditor(null,minutesActivityFilter)}catch(e){notify('Erro ao abrir ata: '+e.message,true);alert('Erro ao abrir ata: '+e.message)}};
  api('listMinutes',{}).then(function(items){
   var rows=items.filter(function(x){return !minutesActivityFilter||x.ATIVIDADE_ID===minutesActivityFilter});
   if(!el('minutesList'))return;
