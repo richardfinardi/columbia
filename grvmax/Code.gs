@@ -887,16 +887,16 @@ function grvSaveMinutes(who,p){
  return grvLock(()=>{
   const sh=grvMinutesSheet(),old=id?grvMinutesRows().find(x=>x.ID===id):null;
   if(id&&!old)throw Error('Ata não encontrada.');
-  if(old&&old.STATUS==='Finalizada')throw Error('Ata finalizada não pode ser editada.');
+  if(old&&old.STATUS==='Finalizada'&&grvNormalizeRole(who.PERFIL)!=='Administrador')throw Error('Somente o administrador pode editar uma ata finalizada.');
   if(old&&old.ATIVIDADE_ID!==a.ID)throw Error('Não é permitido mudar a atividade vinculada.');
   const now=grvNow(),row={ID:id||grvId('ATA'),ATIVIDADE_ID:a.ID,ETAPA_ID:a.ETAPA_ID,DATA_REUNIAO:clean.DATA_REUNIAO,
    TITULO:clean.TITULO||'Reunião de '+clean.DATA_REUNIAO,OBJETIVO:clean.OBJETIVO,PARTICIPANTES_JSON:JSON.stringify(participants),
    ASSUNTOS:clean.ASSUNTOS,PROBLEMAS:clean.PROBLEMAS,DECISOES:clean.DECISOES,ENCAMINHAMENTOS_JSON:JSON.stringify(encaminhamentos),
-   STATUS:'Rascunho',CRIADO_EM:old?old.CRIADO_EM:now,CRIADO_POR:old?old.CRIADO_POR:who.EMAIL,
-   ATUALIZADO_EM:now,ATUALIZADO_POR:who.EMAIL,FINALIZADO_EM:''};
+   STATUS:old&&old.STATUS==='Finalizada'?'Finalizada':'Rascunho',CRIADO_EM:old?old.CRIADO_EM:now,CRIADO_POR:old?old.CRIADO_POR:who.EMAIL,
+   ATUALIZADO_EM:now,ATUALIZADO_POR:who.EMAIL,FINALIZADO_EM:old&&old.STATUS==='Finalizada'?old.FINALIZADO_EM:''};
   const values=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0].map(k=>row[k]||'');
   if(old)sh.getRange(old._row,1,1,values.length).setValues([values]);else sh.appendRow(values);
-  grvLog(who,'ATAS',row.ID,old?'ATA_ATUALIZADA':'ATA_CRIADA',old||null,row,'Ata vinculada à atividade '+a.ID);
+  grvLog(who,'ATAS',row.ID,old&&old.STATUS==='Finalizada'?'ATA_FINALIZADA_EDITADA_ADMIN':old?'ATA_ATUALIZADA':'ATA_CRIADA',old||null,row,'Ata vinculada à atividade '+a.ID);
   return row;
  });
 }
