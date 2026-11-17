@@ -30,7 +30,7 @@ const GRV_PERMISSION_MODULES={
   emails:['view','send','reminders','schedule'],
   agenda:['view','create','edit'],pending:['view','create','edit'],
   changes:['view','create','edit'],training:['view','create','edit'],
-  golive:['view','edit','decide'],history:['view'],permissions:['view','manage']
+  golive:['view','edit','decide'],minutes:['view','create','edit','finalize','send'],history:['view'],permissions:['view','manage']
 };
 const GRV_TABLE_MODULE={ETAPAS:'stages',ATIVIDADES:'activities',PESSOAS:'people',
   PENDENCIAS:'pending',MUDANCAS:'changes',AGENDA:'agenda',
@@ -45,6 +45,7 @@ function grvPermissionDefaults(role){
   const views=['dashboard','stages','activities','approvals','people','emails',
     'agenda','pending','changes','training','golive','history'];
   if(role!=='Usuário')views.push('plano');
+  result['minutes.view']=true;result['minutes.create']=true;result['minutes.edit']=true;result['minutes.finalize']=true;result['minutes.send']=true;
   views.forEach(m=>result[m+'.view']=true);
   if(['Consultor','Gestor'].includes(role))result['activities.view_all']=true;
   ['activities.status','activities.comment','emails.send'].forEach(k=>result[k]=true);
@@ -849,7 +850,7 @@ function grvMinutesRows(){
  return sh.getRange(2,1,sh.getLastRow()-1,headers.length).getDisplayValues().map((row,i)=>{const obj={_row:i+2};headers.forEach((h,j)=>obj[h]=row[j]);return obj;}).filter(x=>x.ID);
 }
 function grvMinutesActivity(who,id){
- if(!grvCan(who,'activities.view'))throw Error('Sem acesso às atividades.');
+ if(!grvCan(who,'minutes.view')||!grvCan(who,'activities.view'))throw Error('Sem acesso às atas desta atividade.');
  const a=grvFind('ATIVIDADES',id);
  if(!a)throw Error('Atividade não encontrada.');
  if(!grvCan(who,'activities.view_all')){
@@ -859,7 +860,7 @@ function grvMinutesActivity(who,id){
  return a;
 }
 function grvListMinutes(who,p){
- if(!grvCan(who,'activities.view'))throw Error('Sem acesso às atividades.');
+ if(!grvCan(who,'minutes.view')||!grvCan(who,'activities.view'))throw Error('Sem acesso às atividades.');
  const id=String(p.activityId||'');
  const all=grvMinutesRows();
  const activities=grvRows('ATIVIDADES');
@@ -875,7 +876,7 @@ function grvListMinutes(who,p){
 }
 function grvSaveMinutes(who,p){
  const body=p.item||{},id=String(body.ID||''),a=grvMinutesActivity(who,String(body.ATIVIDADE_ID||''));
- if(!grvCan(who,'activities.comment'))throw Error('Sem permissão para registrar atas.');
+ if(!grvCan(who,id?'minutes.edit':'minutes.create'))throw Error('Sem permissão para salvar atas.');
  const fields=['TITULO','OBJETIVO','ASSUNTOS','PROBLEMAS','DECISOES','DATA_REUNIAO'];
  const clean={};fields.forEach(k=>{clean[k]=String(body[k]||'').trim();if(clean[k].length>15000)throw Error('Campo excede o limite: '+k);});
  if(!/^\d{4}-\d{2}-\d{2}$/.test(clean.DATA_REUNIAO))throw Error('Informe uma data válida.');
@@ -901,7 +902,7 @@ function grvSaveMinutes(who,p){
  });
 }
 function grvFinalizeMinutes(who,p){
- if(!grvCan(who,'activities.comment'))throw Error('Sem permissão para finalizar atas.');
+ if(!grvCan(who,'minutes.finalize'))throw Error('Sem permissão para finalizar atas.');
  return grvLock(()=>{
   const old=grvMinutesRows().find(x=>x.ID===String(p.id||''));
   if(!old)throw Error('Ata não encontrada.');
@@ -916,7 +917,7 @@ function grvFinalizeMinutes(who,p){
 }
 
 function grvEmailMinutes(who,p){
- if(!grvCan(who,'emails.send'))throw Error('Sem permissão para enviar e-mails.');
+ if(!grvCan(who,'minutes.send'))throw Error('Sem permissão para enviar atas.');
  const ata=grvMinutesRows().find(x=>x.ID===String(p.id||''));
  if(!ata||ata.STATUS!=='Finalizada')throw Error('Finalize a ata antes de enviar.');
  const activity=grvMinutesActivity(who,ata.ATIVIDADE_ID);
