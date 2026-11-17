@@ -57,6 +57,14 @@
     }) : [];
     var stageById = {};
     stages.forEach(function(s) { stageById[s.ID] = s; });
+    function stageTag(id) {
+      var s=stageById[id];
+      return s ? 'E'+String(s.ORDEM||'?').padStart(2,'0') : 'Sem etapa';
+    }
+    function stagePosition(id) {
+      var s=stageById[id];
+      return s ? Number(s.ORDEM)||9999 : 9999;
+    }
     var visibleById = {};
     allowedActivities.forEach(function(a){visibleById[a.ID]=a;});
     if (ops.can('stages.view')) stages.forEach(function(s) {
@@ -72,6 +80,7 @@
       if (s.STATUS==='Cancelada') pct=0;
       events.push({type:'stage',id:String(s.ID),title:String(s.ORDEM||'')+' · '+(s.TITULO||'Etapa'),start:range.start,end:range.end,
         status:s.STATUS||'Não iniciada', progress:limit(pct), responsible:s.RESPONSAVEL_ID, stageId:s.ID,
+        stageTag:stageTag(s.ID),stageNumber:stagePosition(s.ID),stageName:s.TITULO||'',
         description:s.DESCRICAO||s.ENTREGAVEL||'', record:s});
     });
     allowedActivities.forEach(function(a) {
@@ -80,6 +89,7 @@
       events.push({type:'activity',id:String(a.ID),title:a.TITULO||'Atividade',start:range.start,end:range.end,
         status:a.STATUS||'Não iniciada',progress:statusProgress(a.STATUS,'activity'),responsible:a.RESPONSAVEL_ID,
         stageId:a.ETAPA_ID,stageName:stageById[a.ETAPA_ID]&&stageById[a.ETAPA_ID].TITULO||'',
+        stageTag:stageTag(a.ETAPA_ID),stageNumber:stagePosition(a.ETAPA_ID),
         description:a.DESCRICAO||'',record:a});
     });
     if (ops.can('agenda.view')) meetings.forEach(function(a) {
@@ -91,6 +101,7 @@
       events.push({type:'meeting',id:String(a.ID),title:a.TITULO||'Compromisso',start:range.start,end:range.end,
         status:a.STATUS||'Agendado',progress:statusProgress(a.STATUS,'meeting'),responsible:a.RESPONSAVEL_ID,
         stageId:stageId,stageName:stageById[stageId]&&stageById[stageId].TITULO||'',description:a.DESCRICAO||'',
+        stageTag:stageTag(stageId),stageNumber:stagePosition(stageId),
         subtype:a.TIPO||'Compromisso',record:a});
     });
     return events;
@@ -116,16 +127,14 @@
       });
       var orders={stage:0,activity:1,meeting:2};
       segments.sort(function(a,b){
-        return orders[a.event.type]-orders[b.event.type] || a.first-b.first || b.last-a.last ||
+        return a.event.stageNumber-b.event.stageNumber ||
+          orders[a.event.type]-orders[b.event.type] || a.first-b.first || b.last-a.last ||
           a.event.title.localeCompare(b.event.title,'pt-BR');
       });
-      var lanes=[];
-      segments.forEach(function(s) {
-        var index=lanes.findIndex(function(x){return x<s.first;});
-        if(index<0){index=lanes.length;lanes.push(s.last);}else lanes[index]=s.last;
-        s.lane=index;
-      });
-      result+='<div class="gcal-week" style="height:'+Math.max(66,36+lanes.length*28+5)+'px">';
+      // Um registro por linha: a faixa azul da etapa fica sempre acima das suas atividades verdes.
+      // Evita misturar atividades de etapas diferentes quando os períodos não se sobrepõem.
+      segments.forEach(function(s,index) { s.lane=index; });
+      result+='<div class="gcal-week" style="height:'+Math.max(66,36+segments.length*28+5)+'px">';
       for(var d=0;d<7;d++) {
         var date=shift(week,d), k=dayKey(date);
         result+='<button type="button" class="gcal-day'+(date.getUTCMonth()!==mo?' gcal-outside':'')+(k===today?' gcal-today':'')+(d>4?' gcal-weekend':'')+'" data-day="'+k+'" style="left:'+(d*100/7)+'%;width:'+(100/7)+'%" aria-label="Ver compromissos de '+nice(k)+'"><span>'+date.getUTCDate()+'</span></button>';
@@ -133,11 +142,13 @@
       segments.forEach(function(s){
         var e=s.event, span=s.last-s.first+1,shade=Math.round(limit(e.progress)*0.63),cls=e.status==='Cancelada'?' gcal-cancelled':'';
         var label=(s.left?'‹ ':'')+e.title+(s.right?' ›':'');
+        var stageInfo=e.type==='stage'?'':(' | '+e.stageTag+(e.stageName&&e.stageTag!=='Sem etapa'?' · '+e.stageName:''));
+        var tag=e.type==='activity'||e.type==='meeting' ? '<span class="gcal-stage-tag">'+safe(e.stageTag)+'</span> ' : '';
         result+='<button type="button" class="gcal-span gcal-'+e.type+cls+'" data-item="'+safe(eventKey(e))+'" '+
-          'title="'+safe(kindLabel(e.type)+': '+e.title+' | '+nice(e.start)+' até '+nice(e.end)+' | '+e.status+' | '+e.progress+'%')+'" '+
-          'aria-label="'+safe(kindLabel(e.type)+' '+e.title+', '+nice(e.start)+' até '+nice(e.end)+', '+e.status+', '+e.progress+'%')+'" '+
+          'title="'+safe(kindLabel(e.type)+': '+e.title+stageInfo+' | '+nice(e.start)+' até '+nice(e.end)+' | '+e.status+' | '+e.progress+'%')+'" '+
+          'aria-label="'+safe(kindLabel(e.type)+' '+e.title+stageInfo+', '+nice(e.start)+' até '+nice(e.end)+', '+e.status+', '+e.progress+'%')+'" '+
           'style="left:calc('+(s.first*100/7)+'% + 3px);width:calc('+(span*100/7)+'% - 6px);top:'+(34+s.lane*28)+'px;--gcal-shade:'+shade+'%;--gcal-progress:'+e.progress+'%">'+
-          '<span class="gcal-span-label">'+safe(label)+'</span></button>';
+          '<span class="gcal-span-label">'+tag+safe(label)+'</span></button>';
       });
       result+='</div>';
     }
@@ -150,7 +161,7 @@
       '<div class="small muted">'+safe(nice(e.start))+' até '+safe(nice(e.end))+' · '+safe(e.status||'Não iniciada')+'</div></div>'+
       (canOpen?'<button class="btn" type="button" data-open="'+safe(eventKey(e))+'">Abrir cadastro</button>':'')+'</div>'+
       '<div class="gcal-detail-meta"><span><b>Progresso</b> '+e.progress+'%</span><span><b>Responsável</b> '+safe(person)+'</span>'+
-      (e.type==='activity'||e.type==='meeting'&&e.stageName?'<span><b>Etapa</b> '+safe(e.stageName||'—')+'</span>':'')+
+      (e.type!=='stage'?'<span><b>Etapa</b> '+safe(e.stageTag)+' · '+safe(e.stageName||'Não vinculada')+'</span>':'')+
       (e.type==='meeting'?'<span><b>Tipo</b> '+safe(e.subtype)+'</span>':'')+'</div>'+
       '<div class="gcal-detail-track"><span class="gcal-'+e.type+'" style="width:'+e.progress+'%"></span></div>'+
       (e.description?'<p class="gcal-detail-description">'+safe(e.description)+'</p>':'');
@@ -162,7 +173,7 @@
     var all=collect(S,ops);
     var stageOptions=(S.stages||[]).map(function(s) {return '<option value="'+safe(s.ID)+'"'+(stageFilter===s.ID?' selected':'')+'>'+safe(s.ORDEM+' · '+s.TITULO)+'</option>';}).join('');
     root.innerHTML='<div class="gcal-wrap">'+
-      '<div class="gcal-toolbar"><div><h2>Calendário da implantação</h2><p class="small muted">Datas sincronizadas automaticamente com as etapas e atividades do projeto. Faixas contínuas incluem todos os dias do período.</p></div>'+
+      '<div class="gcal-toolbar"><div><h2>Calendário da implantação</h2><p class="small muted">Atividades agrupadas sob suas etapas e identificadas por E01, E02, E03… As faixas atravessam todos os dias do período.</p></div>'+
       '<div class="gcal-nav"><button class="btn" type="button" data-action="prev" aria-label="Mês anterior">‹</button>'+
       '<strong id="gcal-month-title"></strong><button class="btn" type="button" data-action="next" aria-label="Próximo mês">›</button>'+
       '<button class="btn" type="button" data-action="today">Hoje</button></div></div>'+
@@ -239,7 +250,7 @@
         root.querySelectorAll('.gcal-selected').forEach(function(b){b.classList.remove('gcal-selected');});
         panel.innerHTML='<div class="gcal-detail-heading"><h3>'+nice(t.dataset.day)+'</h3><span class="small muted">'+list.length+' itens neste dia</span></div>'+
           (list.length?list.map(function(e){return '<button type="button" class="gcal-day-result" data-item="'+safe(eventKey(e))+'">'+
-            '<span class="gcal-kind gcal-'+e.type+'">'+kindLabel(e.type)+'</span><b>'+safe(e.title)+'</b><span class="muted">'+safe(e.status)+'</span></button>';}).join(''):
+            '<span class="gcal-kind gcal-'+e.type+'">'+kindLabel(e.type)+'</span><b>'+(e.type==='stage'?'':safe(e.stageTag)+' · ')+safe(e.title)+'</b><span class="muted">'+safe(e.status)+'</span></button>';}).join(''):
             '<p class="small muted">Nenhuma atividade ou compromisso neste dia.</p>');
         panel.hidden=false;
       }
