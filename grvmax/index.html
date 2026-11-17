@@ -758,11 +758,39 @@ function minutesEditor(item,activityId){
   preserveAta();
  }
  el('ataPrint').onclick=function(){
-  var labels=[['Objetivo','ataObjective'],['Assuntos discutidos','ata_ASSUNTOS'],['Problemas identificados','ata_PROBLEMAS'],['Decisões','ata_DECISOES'],['Encaminhamentos','ata_ENCAMINHAMENTOS_JSON']];
-  var html='<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Ata GRVMAX</title><style>body{font:14px Arial;margin:35px;color:#222}h1{font-size:22px}h2{font-size:15px;margin-top:24px;border-bottom:1px solid #aaa;padding-bottom:5px}p{white-space:pre-wrap;line-height:1.5}</style></head><body><h1>Ata de reunião | GRVMAX</h1><p><b>Atividade:</b> '+esc(a.TITULO)+'<br><b>Etapa:</b> '+esc(stage(a.ETAPA_ID))+'<br><b>Data:</b> '+esc(fmt(el('ataDate').value))+'<br><b>Participantes:</b> '+esc(Array.from(document.querySelectorAll('.ata-person:checked')).map(function(x){return x.value}).join(', '))+'</p>';
-  labels.forEach(function(x){html+='<h2>'+x[0]+'</h2><p>'+esc(el(x[1]).value)+'</p>'});
-  html+='</body></html>';
-  var win=window.open('','_blank');if(!win){notify('Permita pop-ups para imprimir.',true);return}win.document.write(html);win.document.close();win.focus();setTimeout(function(){win.print()},300);
+  var win=window.open('about:blank','_blank');
+  if(!win){notify('Permita pop-ups para visualizar e imprimir a ata.',true);return}
+  var date=el('ataDate').value, title=el('ataTitle').value||'Ata de reunião';
+  var participants=Array.from(document.querySelectorAll('.ata-person:checked')).map(function(x){return x.value});
+  var fields=[['01','Objetivo','ataObjective'],['02','Assuntos discutidos','ata_ASSUNTOS'],['03','Problemas identificados','ata_PROBLEMAS'],['04','Decisões tomadas','ata_DECISOES'],['05','Encaminhamentos','ata_ENCAMINHAMENTOS_JSON']];
+  var css=`@page{size:A4 portrait;margin:16mm 14mm 17mm}
+  *{box-sizing:border-box}html,body{margin:0;padding:0;background:#eef2f7;color:#182d44;font:12px/1.52 Arial,Helvetica,sans-serif}
+  .tools{position:sticky;top:0;z-index:8;background:#0d2544;color:white;padding:12px 28px;display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px}
+  .tools button{background:white;color:#0d2544;border:0;border-radius:7px;padding:9px 15px;font-weight:bold;cursor:pointer}
+  .paper{max-width:210mm;margin:22px auto;padding:17mm 16mm 22mm;background:white;box-shadow:0 4px 30px #0b1a2c21}
+  .cover{border-top:7px solid #0e406d;padding-top:20px;margin-bottom:25px}
+  .coverhead{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .coverhead img{width:46px;height:46px;object-fit:contain}
+  .label{font-size:10px;letter-spacing:1px;text-transform:uppercase;font-weight:bold;color:#54708a}
+  h1{font-size:27px;margin:18px 0 1px;line-height:1.18;color:#0d2544}
+  h2{font-size:16px;margin:28px 0 10px;border-bottom:2px solid #14578e;padding-bottom:6px;color:#11416c;break-after:avoid}
+  .subtitle{font-size:15px;color:#44637e;margin:3px 0 10px}
+  .abstract{padding:13px 16px;border-left:4px solid #1f6fac;background:#f0f6fc;margin-top:15px}
+  .facts{font-size:11px;padding:12px 14px;border:1px solid #e4ecf2;background:#f7fafc;margin:14px 0}
+  .facts div{margin:4px 0;overflow-wrap:anywhere}
+  .bodytext{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;margin:8px 0 18px;orphans:3;widows:3;text-align:justify}
+  .empty{color:#788a9b;font-style:italic}
+  .foot{font-size:9px;margin-top:30px;border-top:1px solid #cbd9e5;padding-top:8px;color:#718397}
+  @media print{html,body{background:white}.tools{display:none}.paper{margin:0;padding:0;box-shadow:none;max-width:none}h2{break-after:avoid} .cover{break-after:avoid}}
+  @media screen and (max-width:680px){.paper{margin:0;padding:18px;max-width:100%;box-shadow:none}.tools{padding:10px;flex-wrap:wrap}}`;
+  var html='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ata de reunião | GRVMAX</title><style>'+css+'</style></head><body>';
+  html+='<div class="tools"><span>ATA DE REUNIÃO · COLUMBIA · GRVMAX</span><button type="button" onclick="window.print()">Imprimir / Salvar PDF</button></div><article class="paper">';
+  html+='<div class="cover"><div class="coverhead"><div><div class="label">COLUMBIA MACHINE · GRVMAX ERP</div><div class="label">Registro de reunião · Implantação</div></div><img src="https://consultoriarf.net/columbia/LOGO%20MINIMALISTA.png" alt="Logo"></div>';
+  html+='<h1>ATA DE REUNIÃO</h1><div class="subtitle">'+esc(title)+'</div><div class="abstract"><strong>Projeto:</strong> Implantação GRVMAX ERP · Columbia Machine<br><strong>Data da reunião:</strong> '+esc(fmt(date))+'<br><strong>Situação:</strong> '+esc(done?'Finalizada':'Rascunho')+'</div></div>';
+  html+='<h2>Identificação da reunião</h2><div class="facts"><div><strong>Etapa:</strong> '+esc(stage(a.ETAPA_ID))+'</div><div><strong>Atividade:</strong> '+esc(a.TITULO)+'</div><div><strong>Participantes:</strong> '+esc(participants.join(', ')||'Não informados')+'</div></div>';
+  fields.forEach(function(f){var val=el(f[2]).value.trim();html+='<section><h2>'+f[0]+'. '+esc(f[1])+'</h2><div class="bodytext'+(val?'':' empty')+'">'+esc(val||'Não registrado.')+'</div></section>'});
+  html+='<div class="foot">GRVMAX ERP · COLUMBIA MACHINE · Documento emitido em '+esc(new Date().toLocaleString('pt-BR'))+' · Registro vinculado ao controle de implantação.</div></article></body></html>';
+  win.document.open();win.document.write(html);win.document.close();win.focus();
  };
  if(done){el('ataEmail').onclick=function(){
   modal('Enviar ata por e-mail','<p class="muted small">Envio pelo sistema atual do GRVMAX, com registro no histórico.</p><div class="checkgrid">'+S.people.filter(function(p){return p.ATIVO==='SIM'}).map(function(p){return '<label class="checkitem"><input type="checkbox" class="ata-recipient" value="'+attr(p.ID)+'">'+esc(p.NOME)+' <span class="tiny muted">'+esc(p.EMAIL)+'</span></label>'}).join('')+'</div>','<button class="btn" onclick="closePop()">Cancelar</button><button class="btn primary" id="sendAta" data-save>Enviar</button>');
