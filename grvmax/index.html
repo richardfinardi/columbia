@@ -150,7 +150,7 @@ async function reload(silent){
  try{var data=await api('state');S=data;render();if(!silent)notify('Dados atualizados.');}
  catch(e){notify(e.message,true);if(/Sessão|sessão|expirada/.test(e.message)){token='';sessionStorage.removeItem('grvmax_session');authScreen('login')}throw e;}
 }
-function nav(name){if(name==='mine')name='activities';if(!can(name+'.view'))return;if(name==='activities'&&screen!=='activities')taskScope='mine';screen=name;search='';filterStage='';filterStatus='';filterResponsible='';filterDeadline='';render();}
+function nav(name){if(name==='mine')name='activities';if(!(name==='minutes'?can('activities.view'):can(name+'.view')))return;if(name==='activities'&&screen!=='activities')taskScope='mine';screen=name;search='';filterStage='';filterStatus='';filterResponsible='';filterDeadline='';render();}
 function activityTeam(id,type){return (S.vinculos||[]).filter(function(v){return v.ATIVIDADE_ID===id&&v.TIPO===type}).map(function(v){return v.PESSOA_ID})}
 function canApprove(id){return can('approvals.decide')&&(can('approvals.decide_all')||activityTeam(id,'HOMOLOGADOR').includes(S.me.ID))}
 function person(id){var x=S.people.find(function(p){return p.ID===id});return x?x.NOME:'—'}
