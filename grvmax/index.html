@@ -15,11 +15,13 @@ body.dark{--nav:#071526;--nav2:#102a45;--accent:#66b2ff;--bg:#101a27;--card:#192
 .perm-controls{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:18px;flex-wrap:wrap}.perm-controls p{max-width:770px;margin-bottom:0}.perm-toolbar{display:flex;gap:9px;flex-wrap:wrap;align-items:center}.perm-toolbar .field{min-width:170px}.perm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(275px,1fr));gap:14px;margin-bottom:16px}.perm-card{padding:17px}.perm-card h3{font-size:14px;margin:0 0 13px}.perm-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.perm-item{display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;line-height:1.4;min-width:0}.perm-item input{width:16px;height:16px;accent-color:var(--accent);flex:0 0 auto}.perm-item input:disabled+span{opacity:.48}.perm-view{font-weight:800;grid-column:1/-1;padding-bottom:10px;border-bottom:1px solid var(--line)}.perm-footer{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;position:sticky;bottom:8px;z-index:2;box-shadow:var(--shadow)}@media(max-width:600px){.perm-grid{grid-template-columns:1fr}.perm-controls{padding:15px}.perm-toolbar{width:100%}.perm-toolbar select{width:100%}.perm-footer{bottom:0;border-radius:10px}}
 </style>
 <link rel="stylesheet" href="https://consultoriarf.net/columbia/grvmax/mobile.css?v=20261020-1">
+<link rel="stylesheet" href="./agenda-calendario.css?v=20261117-1">
 </head>
 <body>
 <div id="app" class="skeleton">Carregando GRVMAX…</div>
 <div id="pop" class="hidden backdrop"><div class="modal"><div class="modalheader"><h2 id="popTitle">Editar</h2><button class="btn" onclick="closePop()">✕</button></div><div class="modalbody" id="popBody"></div><div class="modalfooter" id="popActions"></div></div></div>
 <div class="hidden toast" id="toast"></div>
+<script src="./agenda-calendario.js?v=20261117-1"></script>
 <script>
 (function(){
 'use strict';
@@ -224,7 +226,7 @@ function render(){
  el('logoutBtn').onclick=async function(){try{await api('logout')}catch(e){}token='';sessionStorage.removeItem('grvmax_session');S=null;authScreen('login')};
  var content=el('content');
  if(window.grvTableObserver)window.grvTableObserver.disconnect();
- switch(screen){case 'dashboard':dashboard(content);break;case 'plano':window.GRVMAX_PlanoDiretor?window.GRVMAX_PlanoDiretor.render(content,S,api):content.textContent='Carregando Plano Diretor...';break;case 'stages':stagesView(content);break;case 'activities':activitiesView(content);break;case 'approvals':approvalsView(content);break;case 'people':peopleView(content);break;case 'emails':emailsView(content);break;case 'agenda':genericView(content,'AGENDA',S.agenda);break;case 'pending':genericView(content,'PENDENCIAS',S.pending);break;case 'changes':genericView(content,'MUDANCAS',S.changes);break;case 'training':genericView(content,'TREINAMENTOS',S.trainings);break;case 'golive':goLiveView(content);break;case 'history':historyView(content);break;case 'permissions':permissionsView(content);break;default:content.innerHTML='<div class="card">Seu perfil não possui módulos habilitados. Contate o administrador.</div>';break;}
+ switch(screen){case 'dashboard':dashboard(content);break;case 'plano':window.GRVMAX_PlanoDiretor?window.GRVMAX_PlanoDiretor.render(content,S,api):content.textContent='Carregando Plano Diretor...';break;case 'stages':stagesView(content);break;case 'activities':activitiesView(content);break;case 'approvals':approvalsView(content);break;case 'people':peopleView(content);break;case 'emails':emailsView(content);break;case 'agenda':if(window.GRVMAX_Agenda){window.GRVMAX_Agenda.render(content,S,{can:can,person:person,open:function(table,id){editItem(table,id)}});genericView(content.querySelector('#gcal-legacy-list'),'AGENDA',S.agenda);}else genericView(content,'AGENDA',S.agenda);break;case 'pending':genericView(content,'PENDENCIAS',S.pending);break;case 'changes':genericView(content,'MUDANCAS',S.changes);break;case 'training':genericView(content,'TREINAMENTOS',S.trainings);break;case 'golive':goLiveView(content);break;case 'history':historyView(content);break;case 'permissions':permissionsView(content);break;default:content.innerHTML='<div class="card">Seu perfil não possui módulos habilitados. Contate o administrador.</div>';break;}
  decorateMobileTables(content);
  window.grvTableObserver=new MutationObserver(function(){decorateMobileTables(content)});
  window.grvTableObserver.observe(content,{subtree:true,childList:true});
