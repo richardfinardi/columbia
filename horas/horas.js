@@ -8,6 +8,26 @@ const APONTAMENTOS=BASE+"/custos_apontamento";
 const DISPONIVEIS=BASE+"/horas_disponiveis";
 const META_SHEET="https://docs.google.com/spreadsheets/d/1zUhza1A-dpdw2pnqXjKr_HAYHW0nEVi4QZFa_UMI_S8/gviz/tq?tqx=out:json&sheet=META_PRODUTIVIDADE";
 const TOKEN_KEY="columbia_analista_token";
+const HOURS_CACHE_KEY="columbia_horas_apontafacil_mensal_v4";
+const CACHE_LIMIT=48;
+function currentPeriod(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")}
+function loadAvailableCache(){
+ try{
+  const saved=JSON.parse(localStorage.getItem(HOURS_CACHE_KEY)||"{}");
+  if(!saved||saved.version!==4||!saved.months||typeof saved.months!=="object")return;
+  const cutoff=new Date().getFullYear()-4;
+  for(const [period,values] of Object.entries(saved.months)){
+   if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(period)||Number(period.slice(0,4))<cutoff||!Array.isArray(values))continue;
+   state.availabilityCache.set(period,values.filter(x=>x&&x.period===period&&Number.isFinite(Number(x.available))&&typeof x.employee==="string"));
+  }
+ }catch(_){}
+}
+function saveAvailableCache(){
+ try{
+  const months=Object.fromEntries([...state.availabilityCache.entries()].sort(([a],[b])=>b.localeCompare(a)).slice(0,CACHE_LIMIT));
+  localStorage.setItem(HOURS_CACHE_KEY,JSON.stringify({version:4,months}));
+ }catch(_){}
+}
 const now=new Date();
 const state={rows:[],available:[],targets:[],loaded:false,loading:false,selected:"segmentos",sort:{},charts:{},issues:[],metaLive:false,availabilityLive:false,sourceData:null,availabilityCache:new Map(),availabilityFetchSeq:0};
 const $=id=>document.getElementById(id);
@@ -152,7 +172,7 @@ function buildFilters(){
  opt("yearFilter",yearsInData(),"Todos");
  if(!year && yearsInData().includes(String(now.getFullYear())))$("yearFilter").value=String(now.getFullYear());
  opt("monthFilter",MONTHS.map((m,i)=>({value:String(i+1).padStart(2,"0"),label:m})),"Todos");
- if(!month){const inYear=state.rows.map(ymonth).concat(state.available.map(r=>r.period)).filter(m=>m.startsWith($("yearFilter").value+"-")).sort();if(inYear.length)$("monthFilter").value=inYear.at(-1).slice(5,7)}
+ // Ao abrir, mantém mês "Todos" para mostrar o ano inteiro.
  const f=selected();
  const visible=state.rows.filter(r=>(!f.yearFilter||r.date.slice(0,4)===f.yearFilter)&&(!f.monthFilter||r.date.slice(5,7)===f.monthFilter));
  opt("segmentFilter",[...new Set(visible.map(r=>r.segment))].sort(),"Todos");
@@ -379,35 +399,53 @@ function restore(){
 function restorePending(){
  for(const id of FILTERS){const e=$(id);if(e.dataset.restore&&[...e.options].some(o=>o.value===e.dataset.restore))e.value=e.dataset.restore;delete e.dataset.restore}
 }
-async function syncAvailability({force=false}={}){
+async function syncAvailability({refreshCurrent=false}={}){
  if(!state.loaded)return;
  const sequence=++state.availabilityFetchSeq;
  const months=selectedMonths().slice(-24);
- state.available=[];state.availabilityLive=false;
- if(!months.length){renderAll();return}
- $("sourceStatus").textContent="GRV conectado · Consultando Aponta Fácil ("+months.length+" mês(es))...";
- let all=[],failed=false;
- for(const period of months){
+ const current=currentPeriod();
+ function rebuild(){
   if(sequence!==state.availabilityFetchSeq)return;
-  try{
-   if(force||!state.availabilityCache.has(period)){
-    const [ano,mes]=period.split("-");
-    const payload=await getJson(DISPONIVEIS+"?ano="+ano+"&mes="+Number(mes));
-    state.availabilityCache.set(period,parseAvailableResponse(payload));
-   }
-   all.push(...state.availabilityCache.get(period));
-  }catch(e){
+  const cached=months.filter(p=>state.availabilityCache.has(p));
+  state.available=cached.flatMap(p=>state.availabilityCache.get(p)||[]);
+  state.availabilityLive=!!months.length&&cached.length===months.length&&state.available.length>0;
+  renderAll();
+  return cached.length;
+ }
+ const ready=rebuild();
+ if(!months.length)return;
+ const pending=months.filter(p=>!state.availabilityCache.has(p)||(refreshCurrent&&p===current));
+ if(!pending.length){
+  $("sourceStatus").textContent="GRV conectado · Aponta Fácil em cache ("+ready+" meses) · Metas "+(state.metaLive?"online":"referência 2026");
+  return;
+ }
+ let cursor=0,failed=[];
+ $("sourceStatus").textContent="GRV conectado · Cache "+ready+"/"+months.length+" meses · Atualizando "+pending.length+" mês(es)...";
+ async function worker(){
+  while(cursor<pending.length){
+   const period=pending[cursor++];
    if(sequence!==state.availabilityFetchSeq)return;
-   failed=true;
-   warning("Aponta Fácil: "+e.message+". Os indicadores de horas disponíveis seguem ocultos até a consulta funcionar.");
-   break;
+   const [ano,mes]=period.split("-");
+   try{
+    const payload=await getJson(DISPONIVEIS+"?ano="+ano+"&mes="+Number(mes));
+    if(sequence!==state.availabilityFetchSeq)return;
+    state.availabilityCache.set(period,parseAvailableResponse(payload));
+    saveAvailableCache();
+   }catch(e){
+    if(sequence!==state.availabilityFetchSeq)return;
+    failed.push(period);
+    if(!state.availabilityCache.has(period))warning("Aponta Fácil: "+period+": "+e.message);
+   }
+   if(sequence!==state.availabilityFetchSeq)return;
+   const completed=rebuild();
+   if(completed!==undefined)$("sourceStatus").textContent="GRV conectado · Aponta Fácil "+completed+"/"+months.length+" meses em cache · Metas "+(state.metaLive?"online":"referência 2026");
   }
  }
+ await Promise.all(Array.from({length:Math.min(2,pending.length)},()=>worker()));
  if(sequence!==state.availabilityFetchSeq)return;
- state.available=failed?[]:all;
- state.availabilityLive=!failed&&all.length>0;
- if(!failed&&!all.length)warning("Aponta Fácil não retornou horas disponíveis para os períodos consultados.");
- renderAll();
+ const completed=rebuild();
+ if(failed.length)warning("Não foi possível atualizar "+failed.length+" mês(es). Dados do cache preservados quando disponíveis.");
+ $("sourceStatus").textContent="GRV conectado · Aponta Fácil "+completed+"/"+months.length+" meses "+(failed.length?"(parcial)":"(cache atualizado)")+" · Metas "+(state.metaLive?"online":"referência 2026");
 }
 async function load(){
  if(state.loading)return;state.loading=true;$("refreshBtn").disabled=true;$("alertArea").replaceChildren();
@@ -426,7 +464,7 @@ async function load(){
   state.loaded=true;
   buildFilters();restorePending();renderAll();
   $("updatedAt").textContent="Atualizado "+new Date().toLocaleString("pt-BR");
-  await syncAvailability({force:true});
+  void syncAvailability({refreshCurrent:true});
  }catch(e){warning(e.message,"error");$("sourceStatus").textContent="Falha na atualização";}
  finally{state.loading=false;$("refreshBtn").disabled=false}
 }
@@ -441,13 +479,13 @@ async function boot(){
   }
   $("userName").textContent=me.usuario||localStorage.getItem("columbia_analista_usuario")||"Usuário";
   $("accessGate").hidden=true;$("app").hidden=false;
-  restore();init();await load();
+  loadAvailableCache();init();await load();
  }catch(e){$("accessGate").innerHTML='<strong>Não foi possível validar o acesso</strong><p>'+escapeHtml(e.message)+'</p><a href="../login.html">Entrar novamente</a>'}
 }
 function init(){
- FILTERS.forEach(id=>$(id).addEventListener("change",()=>{buildFiltersDependents(id);persist();renderAll();if(id==="yearFilter"||id==="monthFilter")void syncAvailability()}));
+ FILTERS.forEach(id=>$(id).addEventListener("change",()=>{buildFiltersDependents(id);persist();renderAll();if(id==="yearFilter"||id==="monthFilter")void syncAvailability({refreshCurrent:true})}));
  $("refreshBtn").addEventListener("click",load);
- $("clearFilters").addEventListener("click",()=>{FILTERS.forEach(id=>$(id).value="");localStorage.removeItem("columbia_horas_filters");buildFiltersDependents("yearFilter");renderAll();void syncAvailability()});
+ $("clearFilters").addEventListener("click",()=>{FILTERS.forEach(id=>$(id).value="");$("yearFilter").value=String(new Date().getFullYear());$("monthFilter").value="";localStorage.removeItem("columbia_horas_filters");buildFiltersDependents("yearFilter");renderAll();void syncAvailability({refreshCurrent:true})});
  $("detailSearch").addEventListener("input",renderAll);
  document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>{
   state.selected=btn.dataset.view;document.querySelectorAll(".tab").forEach(t=>{t.classList.toggle("active",t===btn);t.setAttribute("aria-selected",t===btn?"true":"false")});
