@@ -365,9 +365,10 @@ function taskRows(){
  var counts=[['Atividades',summary.length],['Pendentes',summary.filter(function(a){return ['Não iniciada','Devolvida','Aguardando validação'].includes(a.STATUS)}).length],['Em andamento',summary.filter(function(a){return ['Orientada','Em execução'].includes(a.STATUS)}).length],['Atrasadas',summary.filter(taskLate).length],['Concluídas',summary.filter(function(a){return a.STATUS==='Homologada'}).length]];
  el('taskStats').innerHTML=counts.map(function(c){return '<div class="stat"><span class="muted small">'+esc(c[0])+'</span><div class="value">'+c[1]+'</div></div>'}).join('');
  var msg=taskScope==='created'?'Nenhuma atividade criada por você com autoria registrada. Cadastros iniciais sem registro de criação não entram nesta visão.':taskScope==='mine'?'Nenhuma atividade atribuída a você corresponde aos filtros.':'Nenhuma atividade corresponde aos filtros.';
- el('taskList').innerHTML='<div class="tablewrap"><table class="grid"><thead><tr><th>Atividade</th><th>Etapa</th><th>Responsável</th><th>Orientação</th><th>Validação</th><th>Status</th><th></th></tr></thead><tbody>'+tasks.map(function(a){return '<tr><td class="title">'+esc(a.TITULO)+'</td><td>'+esc(stage(a.ETAPA_ID))+'</td><td>'+esc(person(a.RESPONSAVEL_ID))+'<div class="tiny muted">'+esc(activityTeam(a.ID,'PARTICIPANTE').map(person).join(', '))+'</div></td><td>'+fmt(a.DATA_ORIENTACAO)+'</td><td>'+fmt(a.PRAZO)+(taskLate(a)?' <span class="pill bad">ATRASO</span>':'')+'</td><td>'+taskStatusCell(a)+'</td><td><button class="link" data-task-open="'+attr(a.ID)+'">Abrir</button></td></tr>'}).join('')+'</tbody></table>'+(tasks.length?'':'<div class="empty">'+msg+'</div>')+'</div><div class="muted small" style="margin-top:10px">'+tasks.length+' de '+scoped.length+' atividades nesta visualização</div>';
+ el('taskList').innerHTML='<div class="tablewrap"><table class="grid"><thead><tr><th>Atividade</th><th>Etapa</th><th>Responsável</th><th>Orientação</th><th>Validação</th><th>Status</th><th></th></tr></thead><tbody>'+tasks.map(function(a){return '<tr><td class="title">'+esc(a.TITULO)+'</td><td>'+esc(stage(a.ETAPA_ID))+'</td><td>'+esc(person(a.RESPONSAVEL_ID))+'<div class="tiny muted">'+esc(activityTeam(a.ID,'PARTICIPANTE').map(person).join(', '))+'</div></td><td>'+fmt(a.DATA_ORIENTACAO)+'</td><td>'+fmt(a.PRAZO)+(taskLate(a)?' <span class="pill bad">ATRASO</span>':'')+'</td><td>'+taskStatusCell(a)+'</td><td><button class="link" data-task-open="'+attr(a.ID)+'">Abrir</button> <button class="btn" data-task-ata="'+attr(a.ID)+'">Ata</button></td></tr>'}).join('')+'</tbody></table>'+(tasks.length?'':'<div class="empty">'+msg+'</div>')+'</div><div class="muted small" style="margin-top:10px">'+tasks.length+' de '+scoped.length+' atividades nesta visualização</div>';
  document.querySelectorAll('[data-quick]').forEach(function(b){b.onchange=function(){changeTaskStatus(this.dataset.quick,this.value)}});
  document.querySelectorAll('[data-task-open]').forEach(function(b){b.onclick=function(){editItem('ATIVIDADES',this.dataset.taskOpen)}});
+ document.querySelectorAll('[data-task-ata]').forEach(function(b){b.onclick=function(){minutesEditor(null,this.dataset.taskAta)}});
 }
 window.changeTaskStatus=async function(id,next){
  var row=S.activities.find(function(a){return a.ID===id});if(!row||!next||next===row.STATUS)return;
@@ -719,9 +720,10 @@ function minutesView(root,activityId){
  el('newMinutes').onclick=function(){minutesEditor(null,minutesActivityFilter)};
  api('listMinutes',{}).then(function(items){
   var rows=items.filter(function(x){return !minutesActivityFilter||x.ATIVIDADE_ID===minutesActivityFilter});
+  if(!el('minutesList'))return;
   el('minutesList').innerHTML=rows.length?rows.map(function(x){return '<div class="listrow"><div><b>'+esc(x.TITULO)+'</b><div class="small muted">'+fmt(x.DATA_REUNIAO)+' · '+esc(stage(x.ETAPA_ID))+' · '+esc(x.STATUS)+'</div></div><button class="btn" data-ata="'+attr(x.ID)+'">Abrir</button></div>'}).join(''):'<div class="empty">Nenhuma ata cadastrada.</div>';
   document.querySelectorAll('[data-ata]').forEach(function(b){b.onclick=function(){minutesEditor(rows.find(function(x){return x.ID===b.dataset.ata}))}});
- }).catch(function(e){el('minutesList').textContent=e.message});
+ }).catch(function(e){if(el('minutesList'))el('minutesList').innerHTML='<div class="empty">'+esc(e.message)+'</div>';notify('Não foi possível carregar as atas: '+e.message,true)});
 }
 function minutesEditor(item,activityId){
  var a=S.activities.find(function(x){return x.ID===(item?item.ATIVIDADE_ID:activityId)})||S.activities[0];
