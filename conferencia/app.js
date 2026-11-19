@@ -111,6 +111,24 @@
     if (!t) throw new Error("Sessão encerrada. Entre novamente.");
     return { "Authorization": "Bearer " + t, "Accept": "application/json" };
   }
+  // FastAPI retorna detail como texto nas regras de negocio e como lista
+  // nas falhas de validacao (HTTP 422). Mostrar a causa exata ao usuario.
+  function describeApiError(body, status) {
+    const details = body && body.detail;
+    if (typeof details === "string" && details.trim()) return details.trim();
+    if (Array.isArray(details) && details.length) {
+      const reasons = details.map((item) => {
+        if (typeof item === "string") return item;
+        if (!item || typeof item !== "object") return "";
+        const path = Array.isArray(item.loc) ? item.loc.filter((p) => p !== "body").join(" → ") : "";
+        return (path ? path + ": " : "") + (item.msg || item.message || "valor inválido");
+      }).filter(Boolean);
+      if (reasons.length) return "Erro de validação: " + reasons.slice(0, 4).join("; ");
+    }
+    if (body && typeof body.message === "string") return body.message;
+    if (body && typeof body.erro === "string") return body.erro;
+    return "A API retornou HTTP " + status + " sem descrever o motivo.";
+  }
   async function apiFetch(url, options) {
     const timeout = new AbortController();
     const timer = setTimeout(() => timeout.abort(), 45000);
@@ -125,9 +143,7 @@
         throw new Error("Sessão expirada. Faça login novamente.");
       }
       if (!res.ok) {
-        const detail = body && body.detail;
-        const message = typeof detail === "string" ? detail : "Erro HTTP " + res.status;
-        const err = new Error(message);
+        const err = new Error(describeApiError(body, res.status));
         err.status = res.status;
         throw err;
       }
