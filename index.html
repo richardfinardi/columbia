@@ -22,6 +22,7 @@
       </div>
       <div class="flex items-center gap-2">
         <span id="userDisplay" class="hidden sm:inline text-xs font-bold bg-columbia-800 px-3 py-2 rounded-xl"></span>
+        <a id="linkGestaoAcessos" href="./gerenciar-acessos.html" class="hidden items-center justify-center rounded-xl px-2.5 py-2 bg-white/15 hover:bg-white/25 border border-white/20" title="Gerenciar acessos (gestor)" aria-label="Gerenciar acessos"><i data-lucide="shield-check" class="w-5 h-5"></i></a>
         <button onclick="logout()" class="flex items-center gap-1.5 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-xl text-xs font-bold"><i data-lucide="log-out" class="w-4 h-4"></i>Sair</button>
       </div>
     </div>
@@ -97,7 +98,20 @@
       }
     }
     function logout(){localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(PERMISSIONS_KEY);localStorage.removeItem('columbia_analista_usuario');localStorage.removeItem('columbia_analista_cod_responsavel');window.location.href='login.html'}
-    lucide.createIcons();carregarPermissoes();
+    async function verificarGestor(){
+      const token=localStorage.getItem(TOKEN_KEY);
+      if(!token)return;
+      try{
+        const r=await fetch(API_BASE+'/permissoes/me',{headers:{Authorization:'Bearer '+token},cache:'no-store'});
+        if(!r.ok)return;
+        const p=await r.json();
+        const gestor=Number(p.u_gestor||0)===1;
+        const link=document.getElementById('linkGestaoAcessos');
+        link.classList.toggle('hidden',!gestor);
+        link.classList.toggle('inline-flex',gestor);
+      }catch(_){ /* gestor nao liberado quando a API estiver indisponivel */ }
+    }
+    lucide.createIcons();carregarPermissoes();verificarGestor();
   </script>
 </body>
 </html>
