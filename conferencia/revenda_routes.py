@@ -14,7 +14,6 @@ no banco antes do UPDATE, na mesma transação.
 from __future__ import annotations
 
 import logging
-import re
 from decimal import Decimal, InvalidOperation
 from typing import Any, Callable
 
@@ -144,8 +143,6 @@ def build_revenda_router(
             raise HTTPException(status_code=403, detail="Sem permissão para conferir materiais de revenda.")
 
         gtin = payload.cean_i03.strip()
-        if gtin and not re.fullmatch(r"\d{8,14}", gtin):
-            raise HTTPException(status_code=422, detail="GTIN inválido: use apenas 8 a 14 dígitos.")
         codigo_cbs = normalize_optional(payload.cbs_codigo)
         if codigo_cbs and len(codigo_cbs) > 40:
             raise HTTPException(status_code=422, detail="Código CBS/IBS inválido.")
