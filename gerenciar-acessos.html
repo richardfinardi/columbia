@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" type="image/png" href="./LOGO MINIMALISTA.png">
+  <title>Gerenciar Acessos | Columbia Machine</title>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root{--nav:#003e7e;--accent:#155b96;--bg:#f3f6fb;--panel:#fff;--ink:#14243d;--muted:#64748b;--line:#dce6f2;--warning:#fffae9;--green:#16744f;--red:#b42336}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:13px "Segoe UI",system-ui,Arial,sans-serif}
+    button,input,select{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.5}
+    a{color:inherit;text-decoration:none}header{background:var(--nav);color:#fff;box-shadow:0 2px 14px #001e402c}
+    .head{max-width:1530px;margin:auto;padding:14px 20px;min-height:72px;display:flex;align-items:center;gap:13px;flex-wrap:wrap}
+    .brand{display:flex;align-items:center;gap:10px}.brand img{width:44px;height:44px;object-fit:contain;background:white;padding:5px;border-radius:11px}
+    .brand b{font-size:16px;display:block}.brand small{font-size:11px;color:#d2e6ff;display:block;margin-top:3px}
+    .grow{flex:1}.user{font-size:12px;font-weight:800;color:#deecfc}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 13px;min-height:38px;border-radius:10px;border:1px solid var(--line);background:white;color:var(--accent);font-size:12px;font-weight:750}
+    .btn:hover:not(:disabled){background:#eaf4ff}.btn.primary{background:var(--accent);border-color:var(--accent);color:white}.btn.primary:hover:not(:disabled){background:#003e7e}
+    header .btn{color:white;border-color:#ffffff43;background:#ffffff16}header .btn:hover:not(:disabled){background:#ffffff29}
+    .btn svg{width:16px;height:16px}main{max-width:1530px;margin:auto;padding:25px 20px 48px}
+    h1{font-size:28px;letter-spacing:-.5px;margin:4px 0 7px}.label{color:var(--accent);font-size:11px;letter-spacing:1.3px;text-transform:uppercase;font-weight:850}
+    p{margin:0;color:var(--muted);line-height:1.5}
+    .toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:22px 0 12px}
+    .search{display:flex;align-items:center;gap:8px;background:white;border:1px solid var(--line);border-radius:10px;padding:0 12px;min-width:min(100%,270px);flex:1;max-width:390px}
+    .search input{border:none;outline:0;width:100%;height:43px;background:transparent;color:var(--ink)}
+    .search svg{width:17px;color:var(--muted)}select{height:43px;max-width:100%;padding:0 11px;border:1px solid var(--line);border-radius:10px;background:white;color:var(--ink)}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+    #counter,#pending{font-size:12px;font-weight:750;color:var(--muted)}
+    .summary{display:flex;justify-content:space-between;gap:9px;margin-bottom:12px;flex-wrap:wrap}
+    .panel{border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden;box-shadow:0 4px 16px #003e7e0b}
+    .panel-head{padding:16px 18px;display:flex;justify-content:space-between;gap:14px;align-items:center;border-bottom:1px solid var(--line)}
+    .panel-head b{font-size:15px}.panel-head small{color:var(--muted)}
+    .scroll{overflow:auto;max-height:min(73dvh,760px);scrollbar-gutter:stable;overscroll-behavior:contain}
+    table{border-collapse:separate;border-spacing:0;min-width:1440px;width:100%;font-size:12px}
+    th{text-transform:uppercase;letter-spacing:.35px;color:#536b88;font-size:10px;white-space:nowrap;background:#eef4fb;position:sticky;top:0;z-index:3}
+    th,td{border-bottom:1px solid #e7edf5;text-align:center;padding:12px 8px}
+    th:first-child,td:first-child{position:sticky;left:0;min-width:205px;text-align:left;padding-left:17px;z-index:2;background:white;box-shadow:1px 0 #e4edf5}
+    th:first-child{background:#eef4fb;z-index:5}
+    tbody tr:hover td{background:#f7fbff}tbody tr:hover td:first-child{background:#f7fbff}
+    tbody tr.dirty td{background:var(--warning)}tbody tr.dirty td:first-child{background:var(--warning)}
+    tbody tr:last-child td{border-bottom:0}
+    .name{font-size:12px;font-weight:800}.sub{display:block;font-size:10px;color:var(--muted);margin-top:3px}
+    .role{display:inline-block;font-size:9px;letter-spacing:.2px;color:#53708c;background:#edf2f8;padding:4px 7px;border-radius:7px;margin-top:7px;font-weight:850}
+    .role.manager{background:#edf2ff;color:#354d9d}
+    input[type=checkbox]{width:18px;height:18px;accent-color:#155b96;cursor:pointer}
+    input[type=checkbox].manager{accent-color:#7244a8}
+    .row-save{padding:7px 12px;color:white;background:var(--accent);font-weight:750;border:0;border-radius:8px;min-width:65px}
+    .message{display:none;margin:12px 0;padding:12px 14px;border-radius:10px;font-weight:700;line-height:1.5}
+    .message.show{display:block;background:#e6f7ed;border:1px solid #a9e2bf;color:#18663d}
+    .message.error{background:#fff0f1;border-color:#f4adb5;color:#aa2336}
+    #empty{padding:38px;text-align:center;color:var(--muted)}
+    @media(max-width:700px){h1{font-size:23px}.head{padding:12px 15px}.brand b{font-size:13px}.user{display:none}main{padding:19px 12px}.toolbar{align-items:stretch}.actions{margin-left:0;width:100%;justify-content:flex-end}.search{min-width:100%;max-width:none}.panel-head{padding:13px}.scroll{max-height:66dvh}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="head">
+      <div class="brand"><img src="./logo.png" alt="Columbia Machine"><div><b>COLUMBIA MACHINE BRASIL</b><small>Administração de acessos</small></div></div>
+      <div class="grow"></div>
+      <span id="usuarioLogado" class="user"></span>
+      <a class="btn" href="./index.html"><i data-lucide="arrow-left"></i>Voltar ao portal</a>
+    </div>
+  </header>
+  <main>
+    <div class="label">Gestão de usuários</div>
+    <h1>Gerenciar acessos</h1>
+    <p>Controle os módulos disponíveis para cada usuário. Gestores podem administrar as permissões.</p>
+    <div id="message" class="message" role="status" aria-live="polite"></div>
+    <div class="toolbar">
+      <label class="search"><i data-lucide="search"></i><input id="busca" placeholder="Pesquisar usuário..." autocomplete="off"></label>
+      <select id="modulo" aria-label="Filtrar módulo"><option value="">Todos os módulos</option></select>
+      <select id="situacao" aria-label="Filtrar situação">
+        <option value="todos">Todos os usuários</option>
+        <option value="tem">Com acesso ao módulo</option>
+        <option value="nao">Sem acesso ao módulo</option>
+        <option value="gestores">Somente gestores</option>
+      </select>
+      <div class="actions">
+        <button class="btn" id="atualizar" type="button"><i data-lucide="refresh-cw"></i>Atualizar</button>
+        <button class="btn primary" id="salvarTodos" type="button" disabled><i data-lucide="save"></i>Salvar alterações</button>
+      </div>
+    </div>
+    <div class="summary"><span id="counter"></span><span id="pending"></span></div>
+    <section class="panel">
+      <div class="panel-head"><b>Usuários e permissões</b><small>Deslize a tabela para ver todos os módulos</small></div>
+      <div class="scroll" role="region" aria-label="Tabela de permissões" tabindex="0">
+        <table><thead><tr id="cabecalho"></tr></thead><tbody id="linhas"></tbody></table>
+      </div>
+      <div id="empty" hidden>Nenhum usuário encontrado com os filtros selecionados.</div>
+    </section>
+  </main>
+  <script>
+  (() => {
+    'use strict';
+    const BASE = 'https://columbia.consultoriarf.net/producao/permissoes';
+    const TOKEN_KEY = 'columbia_analista_token';
+    const CAMPOS = [
+      ['analista_cadastro','Conferência'],['anexo','Anexos'],['custos','Custos'],
+      ['engenharia','Engenharia'],['faturamento','Faturamento'],['finalizacao','Finalização'],
+      ['notas','Notas fiscais'],['pcp','PCP'],['vendedor','Vendedor'],
+      ['horas','Horas'],['gestor','Gestor']
+    ];
+    const $ = id => document.getElementById(id);
+    const flag = v => v === true || v === 1 || String(v).trim() === '1';
+    let usuarios = [], carregando = false, salvando = false;
+    $('usuarioLogado').textContent = localStorage.getItem('columbia_analista_usuario') || 'Usuário';
+    function icon(){ if(window.lucide) lucide.createIcons(); }
+    function erro(m, isError=false){const el=$('message');el.textContent=m||'';el.className='message'+(m?' show':'')+(isError?' error':'');}
+    function auth(){return {'Authorization':'Bearer '+(localStorage.getItem(TOKEN_KEY)||''),'Content-Type':'application/json'};}
+    async function req(caminho, init={}){
+      const r=await fetch(BASE+caminho,{...init,headers:auth(),cache:'no-store'});
+      const data=await r.json().catch(()=>({}));
+      if(r.status===401){localStorage.removeItem(TOKEN_KEY);window.location.replace('./login.html');throw Error('Sessão expirada.');}
+      if(r.status===403){throw Error('Seu usuário não possui mais permissão de gestor.');}
+      if(!r.ok)throw Error(typeof data.detail==='string'?data.detail:'Erro ao comunicar com a API ('+r.status+').');
+      return data;
+    }
+    function mudou(u){return CAMPOS.some(([c]) => u['u_'+c] !== u.original['u_'+c]);}
+    function pendentes(){return usuarios.filter(mudou).length;}
+    function estado(){
+      const n=pendentes();
+      $('pending').textContent=n?n+' usuário(s) com alterações pendentes':'Nenhuma alteração pendente';
+      $('salvarTodos').disabled=carregando||salvando||!n;
+      document.querySelectorAll('tr[data-codigo]').forEach(tr=>{
+        const u=usuarios.find(x=>String(x.codigo)===tr.dataset.codigo);
+        if(!u)return;
+        tr.classList.toggle('dirty',mudou(u));
+        const btn=tr.querySelector('.row-save');
+        if(btn)btn.disabled=carregando||salvando||!mudou(u);
+      });
+    }
+    function tabela(){
+      const termo=$('busca').value.trim().toLocaleUpperCase('pt-BR');
+      const modulo=$('modulo').value;
+      const sit=$('situacao').value;
+      const encontrados=usuarios.filter(u=>{
+        if(!u.usuario.toLocaleUpperCase('pt-BR').includes(termo))return false;
+        if(sit==='gestores')return u.u_gestor===1;
+        if(sit==='tem')return modulo ? u['u_'+modulo]===1 : CAMPOS.some(([c])=>u['u_'+c]===1);
+        if(sit==='nao')return modulo ? u['u_'+modulo]===0 : CAMPOS.every(([c])=>u['u_'+c]===0);
+        return true;
+      });
+      $('counter').textContent=encontrados.length+' de '+usuarios.length+' usuário(s)';
+      const tbody=$('linhas');tbody.replaceChildren();
+      $('empty').hidden=encontrados.length!==0;
+      for(const u of encontrados){
+        const tr=document.createElement('tr');tr.dataset.codigo=String(u.codigo);
+        const first=document.createElement('td');
+        const name=document.createElement('div');name.className='name';name.textContent=u.usuario;
+        first.appendChild(name);
+        const code=document.createElement('span');code.className='sub';code.textContent='Código '+u.codigo;first.appendChild(code);
+        const badge=document.createElement('span');badge.className='role'+(u.u_gestor?' manager':'');
+        const badgeUpdate=()=>{badge.className='role'+(u.u_gestor?' manager':'');badge.textContent=u.u_gestor?'GESTOR · ACESSO TOTAL':'ACESSO POR MÓDULO';};
+        badgeUpdate();first.appendChild(badge);tr.appendChild(first);
+        for(const [campo,label] of CAMPOS){
+          const td=document.createElement('td');
+          const box=document.createElement('input');box.type='checkbox';box.checked=u['u_'+campo]===1;
+          box.className=campo==='gestor'?'manager':'';
+          box.setAttribute('aria-label',label+' para '+u.usuario);
+          box.addEventListener('change',()=>{u['u_'+campo]=box.checked?1:0;badgeUpdate();estado();});
+          td.appendChild(box);tr.appendChild(td);
+        }
+        const actions=document.createElement('td');const save=document.createElement('button');
+        save.type='button';save.textContent='Salvar';save.className='row-save';save.disabled=!mudou(u);
+        save.addEventListener('click',()=>salvar(u));
+        actions.appendChild(save);tr.appendChild(actions);tbody.appendChild(tr);
+      }
+      estado();
+    }
+    async function carregar(){
+      if(carregando||salvando)return;
+      if(pendentes()&&!confirm('Descartar alterações não salvas e atualizar a lista?'))return;
+      carregando=true;$('atualizar').disabled=true;estado();erro('');
+      try {
+        const json=await req('/usuarios');
+        const rows=Array.isArray(json)?json:json.usuarios;
+        if(!Array.isArray(rows))throw Error('A API retornou uma lista inválida.');
+        usuarios=rows.map(r=>{
+          const u={codigo:Number(r.codigo),usuario:String(r.usuario||r.nome||'').trim()};
+          for(const [c] of CAMPOS)u['u_'+c]=flag(r['u_'+c])?1:0;
+          u.original=Object.fromEntries(CAMPOS.map(([c])=>['u_'+c,u['u_'+c]]));
+          return u;
+        }).filter(u=>Number.isInteger(u.codigo)&&u.codigo>0&&u.usuario)
+          .sort((a,b)=>a.usuario.localeCompare(b.usuario,'pt-BR'));
+        tabela();
+      }catch(e){erro(e.message,true);}
+      finally{carregando=false;$('atualizar').disabled=false;estado();}
+    }
+    async function salvar(u,lote=false){
+      if(!lote&&salvando)return false;
+      if(!mudou(u))return true;
+      if(u.u_gestor!==u.original.u_gestor
+          && !confirm('Confirmar alteração do perfil GESTOR para '+u.usuario+'?'))return false;
+      if(!lote)salvando=true;
+      estado();
+      try{
+        const alteracoes={};
+        for(const [c] of CAMPOS)if(u['u_'+c]!==u.original['u_'+c])alteracoes['u_'+c]=u['u_'+c];
+        await req('/usuarios/'+encodeURIComponent(u.codigo),{method:'PATCH',body:JSON.stringify(alteracoes)});
+        u.original={...u.original,...alteracoes};
+        if(!lote)erro('Permissões de '+u.usuario+' salvas com sucesso.');
+        return true;
+      }catch(e){erro('Erro ao salvar '+u.usuario+': '+e.message,true);return false;}
+      finally{if(!lote)salvando=false;tabela();}
+    }
+    async function salvarTodos(){
+      if(salvando||!pendentes())return;
+      salvando=true;estado();
+      const atual=(localStorage.getItem('columbia_analista_usuario')||'').trim().toUpperCase();
+      const lista=usuarios.filter(mudou).sort((a,b)=>Number(a.usuario.toUpperCase()===atual)-Number(b.usuario.toUpperCase()===atual));
+      let ok=0,falha=0;
+      for(const u of lista){if(await salvar(u,true))ok++;else falha++;}
+      salvando=false;tabela();erro(ok+' usuário(s) atualizado(s).'+(falha?' '+falha+' não concluído(s).':''),falha>0);
+    }
+    $('cabecalho').replaceChildren(...['Usuário',...CAMPOS.map(x=>x[1]),'Ação'].map(label=>{const th=document.createElement('th');th.textContent=label;return th;}));
+    const select=$('modulo');for(const [campo,label] of CAMPOS){const opt=document.createElement('option');opt.value=campo;opt.textContent=label;select.appendChild(opt);}
+    $('busca').addEventListener('input',tabela);$('modulo').addEventListener('change',tabela);$('situacao').addEventListener('change',tabela);
+    $('atualizar').addEventListener('click',carregar);$('salvarTodos').addEventListener('click',salvarTodos);
+    window.addEventListener('beforeunload',e=>{if(pendentes()){e.preventDefault();e.returnValue='';}});
+    icon();
+    if(!localStorage.getItem(TOKEN_KEY)){window.location.replace('./login.html');return;}
+    req('/me').then(p=>{
+      if(p.u_gestor!==1)throw Error('Acesso restrito aos gestores.');
+      return carregar();
+    }).catch(e=>{erro(e.message,true);$('atualizar').disabled=true;$('salvarTodos').disabled=true;});
+  })();
+  </script>
+</body>
+</html>
