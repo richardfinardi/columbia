@@ -55,3 +55,16 @@ body.dark .gcal-stage{--cal-light:#254765;--cal-dark:#4e8ccd;--cal-text:#edf6ff}
 body.dark .gcal-activity{--cal-light:#224936;--cal-dark:#37835a;--cal-text:#effff4}
 body.dark .gcal-meeting{--cal-light:#58492d;--cal-dark:#b38134;--cal-text:#fff3d5}
 @media(max-width:740px){.gcal-wrap{padding:12px}.gcal-toolbar{display:block}.gcal-nav{justify-content:space-between;margin-bottom:14px}.gcal-nav strong{min-width:120px}.gcal-filters{gap:9px}.gcal-filters select{order:3;max-width:none;flex:1 1 100%}.gcal-filters .btn{order:4;flex:1}.gcal-grid{min-width:770px}.gcal-detail-heading{align-items:flex-start}}
+
+/* Reprogramação por arrastar sem atrapalhar o scroll habitual. */
+.gcal-span.gcal-movable{cursor:grab;padding-right:23px}
+.gcal-span.gcal-movable:active{cursor:grabbing}
+.gcal-drag-handle{position:absolute;right:0;top:0;height:100%;min-width:20px;display:grid;place-items:center;font-size:14px;font-weight:900;color:var(--cal-text);background:color-mix(in srgb,var(--cal-dark) 13%,var(--cal-light));border-left:1px solid color-mix(in srgb,var(--cal-dark) 30%,var(--cal-light));touch-action:none;user-select:none;cursor:grab}
+.gcal-dragging{opacity:.65;z-index:8!important;outline:2px dashed var(--accent)!important;cursor:grabbing!important}
+.gcal-week.gcal-drop-target::before{content:"";pointer-events:none;position:absolute;z-index:5;top:0;bottom:0;left:calc(var(--gcal-drop-column) * 100% / 7);width:calc(100% / 7);background:color-mix(in srgb,var(--accent) 16%,transparent);border:2px dashed var(--accent)}
+.gcal-saving{opacity:.65;pointer-events:none}
+.gcal-detail-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.gcal-reschedule-form{margin-top:14px;padding:14px;background:var(--card);border:1px solid var(--line);border-radius:10px;display:grid;gap:12px}
+.gcal-reschedule-form label{display:grid;gap:7px;font-weight:700;font-size:12px;max-width:320px}
+.gcal-reschedule-form .field{font-size:16px;min-height:44px}
+@media(pointer:coarse){.gcal-drag-handle{min-width:24px}.gcal-span.gcal-movable{padding-right:27px}}
