@@ -599,6 +599,28 @@ function grvMoveSchedule(who,p){
     }
     if(kind==='activity')shiftActivity(target,days);
     else shiftStage(target,days);
+    const initiallyMoved=Array.from(current.values());
+    // Impedir que uma movimentação manual para trás seja silenciosamente
+    // desfeita pelas regras de dependência: informar o bloqueio ao usuário.
+    if(kind==='activity'){
+      grvPlanCheckDirectActivity(current.get(id),initiallyMoved);
+    }else{
+      const st=stages.get(id);
+      const own=stageRange(st,initiallyMoved);
+      for(const pid of String(st.DEPENDE_DE||'').split(/[,;|]/).map(x=>x.trim()).filter(Boolean)){
+        const parent=stages.get(pid);
+        if(!parent)throw Error('Etapa predecessora não encontrada: '+pid);
+        const end=stageRange(parent,initiallyMoved).DATA_FIM;
+        if(!grvValidPlanDate(end))
+          throw Error('Etapa predecessora "'+parent.TITULO+'" não possui data final.');
+        if(grvValidPlanDate(own.DATA_INICIO)&&own.DATA_INICIO<grvPlanWeekday(end,2,true))
+          throw Error('A etapa "'+st.TITULO+'" não pode começar antes da predecessora "'+parent.TITULO+'".');
+      }
+      initiallyMoved.filter(a=>a.ETAPA_ID===id&&forced.has(a.ID)).forEach(a=>{
+        const pred=a.DEPENDE_DE&&current.get(a.DEPENDE_DE);
+        if(pred&&pred.ETAPA_ID!==id)grvPlanCheckDirectActivity(a,initiallyMoved);
+      });
+    }
 
     // Ordenação topológica tanto das atividades quanto das etapas.
     function topo(entries,dependencies,label){
