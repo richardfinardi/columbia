@@ -2,28 +2,131 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <link rel="icon" type="image/png" href="../LOGO MINIMALISTA.png">
-  <title>Conferência | Columbia Machine</title>
-  <style>
-    :root { color-scheme: light; font-family: Inter, Arial, sans-serif; }
-    * { box-sizing: border-box; }
-    body { margin:0; min-height:100vh; display:grid; place-items:center; padding:24px; background:#f1f5f9; color:#0f172a; }
-    main { width:min(100%,520px); padding:40px 34px; background:#fff; border:1px solid #e2e8f0; border-radius:22px; box-shadow:0 14px 35px rgba(15,23,42,.06); text-align:center; }
-    .badge { display:inline-block; color:#003e7e; background:#e0effe; font-size:12px; font-weight:800; letter-spacing:.06em; border-radius:999px; padding:9px 14px; text-transform:uppercase; }
-    h1 { margin:24px 0 14px; font-size:clamp(24px,5vw,32px); line-height:1.15; }
-    p { margin:0 auto 26px; max-width:390px; font-size:15px; line-height:1.65; color:#475569; }
-    a { display:inline-block; text-decoration:none; color:#fff; background:#003e7e; font-size:14px; font-weight:700; padding:13px 21px; border-radius:12px; }
-    a:hover, a:focus-visible { background:#002e61; }
-  </style>
+  <title>Conferência de Revenda | Columbia Machine</title>
+  <link rel="stylesheet" href="./style.css?v=2">
+  <script defer src="./app.js?v=2"></script>
 </head>
 <body>
-  <main>
-    <span class="badge">Columbia Machine</span>
-    <h1>Módulo Conferência em reformulação</h1>
-    <p>A versão anterior foi preservada em backup. Esta área ficará indisponível enquanto a nova tela é construída.</p>
-    <a href="../">Voltar às aplicações</a>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-mark">C</div>
+        <div><strong>Columbia Machine</strong><small>Conferência de materiais de revenda</small></div>
+      </div>
+      <div class="top-actions"><span class="user" id="userName"></span><a class="navlink" href="../">Voltar ao menu</a></div>
+    </div>
+  </header>
+
+  <main class="page">
+    <div id="accessStatus" role="status" class="access-status">Verificando acesso ao módulo...</div>
+    <section id="app" hidden>
+      <div class="hero">
+        <div>
+          <div class="eyebrow">CADASTRO FISCAL · MATERIAIS DE REVENDA</div>
+          <h1>Conferência de revenda</h1>
+          <p>Revise os dados fiscais, confira NCM e CBS/IBS e acompanhe os materiais concluídos.</p>
+        </div>
+        <div class="hero-actions">
+          <button id="reload" class="btn btn-light" type="button">↻ Atualizar</button>
+          <button id="export" class="btn btn-outline" type="button">↓ Exportar CSV</button>
+        </div>
+      </div>
+
+      <section class="kpis" aria-label="Resumo da revisão">
+        <article class="kpi"><span>Materiais</span><strong id="kTotal">0</strong><small>Família 20 · Empresa 1</small></article>
+        <article class="kpi accent-pending"><span>Pendentes</span><strong id="kPending">0</strong><small>Aguardando conferência</small></article>
+        <article class="kpi accent-done"><span>Revisados</span><strong id="kDone">0</strong><small>Marcados como concluídos</small></article>
+        <article class="kpi"><span>Progresso</span><strong id="kRate">0%</strong><div class="progress"><div id="progressBar"></div></div></article>
+      </section>
+
+      <section class="work-area">
+        <div class="section-title">
+          <div><h2>Materiais para conferência</h2><p id="lastUpdate">Consultando dados...</p></div>
+          <span id="showingCount" class="count-pill">0 registros</span>
+        </div>
+        <div class="filters">
+          <label class="filter search"><span>Pesquisar material</span><input id="search" type="search" placeholder="Código, descrição, NCM, GTIN, CBS..." autocomplete="off"></label>
+          <label class="filter"><span>Situação</span><select id="statusFilter"><option value="all">Todos os materiais</option><option value="pending" selected>Somente pendentes</option><option value="done">Somente revisados</option></select></label>
+          <label class="filter"><span>Exibir</span><select id="pageSize"><option>25</option><option selected>50</option><option>100</option></select></label>
+          <button id="clearFilters" type="button" class="btn btn-text">Limpar filtros</button>
+        </div>
+        <div id="dataError" class="error-message" role="alert" hidden></div>
+        <div class="table-scroll" tabindex="0" aria-label="Tabela de materiais, role horizontalmente para ver mais colunas">
+          <table>
+            <thead><tr>
+              <th><button data-sort="codigo_interno">Código interno <span>↕</span></button></th>
+              <th><button data-sort="nome">Material <span>↕</span></button></th>
+              <th>Unidade</th>
+              <th><button data-sort="ncm">NCM <span>↕</span></button></th>
+              <th>IPI</th>
+              <th>GTIN</th>
+              <th>CBS / IBS</th>
+              <th><button data-sort="u_revisado">Situação <span>↕</span></button></th>
+              <th>Ação</th>
+            </tr></thead>
+            <tbody id="rows"><tr><td colspan="9" class="empty">Carregando materiais...</td></tr></tbody>
+          </table>
+        </div>
+        <div class="pager"><span id="pageInfo"></span><div><button class="btn btn-text" id="previous" type="button">← Anterior</button><button class="btn btn-text" id="next" type="button">Próxima →</button></div></div>
+      </section>
+    </section>
   </main>
+
+  <div id="overlay" class="overlay" hidden>
+    <section class="editor" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+      <div class="editor-header">
+        <div><span class="eyebrow">CONFERÊNCIA FISCAL</span><h2 id="editTitle">Material</h2><p id="editSubtitle"></p></div>
+        <button type="button" id="closeEditor" class="icon-btn" aria-label="Fechar">×</button>
+      </div>
+      <form id="editForm" novalidate>
+        <div class="editor-content">
+          <div id="saveError" class="error-message" role="alert" hidden></div>
+          <div class="section-label">NCM e classificação fiscal</div>
+          <div class="field-wide lookup-block">
+            <label for="ncmSearch">Selecionar NCM na tabela CPS <b>*</b></label>
+            <input id="ncmSearch" type="search" placeholder="Pesquisar código NCM ou descrição..." autocomplete="off" aria-autocomplete="list" aria-controls="ncmResults">
+            <div id="ncmResults" class="lookup-results" role="listbox" hidden></div>
+            <small>Selecione um registro da lista. Código interno, NCM, descrição e IPI são preenchidos automaticamente.</small>
+          </div>
+          <div class="field-grid">
+            <label class="field"><span>Código interno da classificação</span><input id="ncmId" readonly tabindex="-1"></label>
+            <label class="field"><span>NCM</span><input id="ncmNumber" readonly tabindex="-1"></label>
+            <label class="field full"><span>Descrição do NCM</span><input id="ncmDescription" readonly tabindex="-1"></label>
+            <label class="field"><span>IPI do NCM (%)</span><input id="ncmIpi" readonly tabindex="-1"></label>
+          </div>
+          <div class="section-label">Dados complementares</div>
+          <div class="field-grid">
+            <label class="field"><span>GTIN</span><input id="gtin" type="text" maxlength="30" placeholder="Código de barras" inputmode="numeric"></label>
+            <label class="field"><span>Código benefício fiscal na UF</span><input id="benefit" type="text" maxlength="50" placeholder="Quando aplicável"></label>
+          </div>
+          <div class="section-label">Classificação tributária CBS / IBS</div>
+          <div class="field-wide lookup-block">
+            <label for="cbsSearch">Selecionar classificação CBS / IBS</label>
+            <input id="cbsSearch" type="search" placeholder="Pesquisar código ou descrição..." autocomplete="off" aria-autocomplete="list" aria-controls="cbsResults">
+            <div id="cbsResults" class="lookup-results" role="listbox" hidden></div>
+            <small>A descrição é preenchida conforme a tabela CPS. Use “Limpar classificação” se não for aplicável.</small>
+            <button id="clearCbs" type="button" class="link-button">Limpar classificação</button>
+          </div>
+          <div class="field-grid">
+            <label class="field"><span>Código da classificação</span><input id="cbsCode" readonly tabindex="-1"></label>
+            <label class="field full"><span>Descrição da classificação</span><textarea id="cbsDescription" rows="2" readonly tabindex="-1"></textarea></label>
+          </div>
+          <div class="review-panel">
+            <div><strong id="reviewCurrent">Pendente de revisão</strong><p>“Salvar e concluir” grava as alterações e define U_REVISADO = 1.</p></div>
+            <span class="mini-badge" id="editBadge">Pendente</span>
+          </div>
+        </div>
+        <footer class="editor-footer">
+          <button id="cancelEdit" class="btn btn-text" type="button">Cancelar</button>
+          <button id="saveOnly" class="btn btn-outline-dark" type="button">Salvar sem concluir</button>
+          <button id="saveReviewed" class="btn btn-primary" type="button">Salvar e concluir revisão</button>
+        </footer>
+      </form>
+    </section>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 </body>
 </html>
