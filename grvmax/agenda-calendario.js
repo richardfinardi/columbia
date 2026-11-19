@@ -57,6 +57,14 @@
     }) : [];
     var stageById = {};
     stages.forEach(function(s) { stageById[s.ID] = s; });
+    // A numeração usa a lista completa antes de aplicar filtros de permissão.
+    var stageCounts={},activityCodes={};
+    activities.forEach(function(a){
+      var st=stageById[a.ETAPA_ID];
+      if(!st)return;
+      stageCounts[a.ETAPA_ID]=(stageCounts[a.ETAPA_ID]||0)+1;
+      activityCodes[a.ID]=String(st.ORDEM).padStart(2,'0')+'.'+String(stageCounts[a.ETAPA_ID]).padStart(2,'0');
+    });
     function stageTag(id) {
       var s=stageById[id];
       return s ? 'E'+String(s.ORDEM||'?').padStart(2,'0') : 'Sem etapa';
@@ -86,7 +94,7 @@
     allowedActivities.forEach(function(a) {
       var range=normalizedRange(a.DATA_ORIENTACAO,a.PRAZO);
       if (!range) return;
-      events.push({type:'activity',id:String(a.ID),title:a.TITULO||'Atividade',start:range.start,end:range.end,
+      events.push({type:'activity',id:String(a.ID),title:(activityCodes[a.ID]?activityCodes[a.ID]+' - ':'')+(a.TITULO||'Atividade'),start:range.start,end:range.end,
         status:a.STATUS||'Não iniciada',progress:statusProgress(a.STATUS,'activity'),responsible:a.RESPONSAVEL_ID,
         stageId:a.ETAPA_ID,stageName:stageById[a.ETAPA_ID]&&stageById[a.ETAPA_ID].TITULO||'',
         stageTag:stageTag(a.ETAPA_ID),stageNumber:stagePosition(a.ETAPA_ID),
