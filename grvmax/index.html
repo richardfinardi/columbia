@@ -21,7 +21,7 @@ body.dark{--nav:#071526;--nav2:#102a45;--accent:#66b2ff;--bg:#101a27;--card:#192
 <div id="app" class="skeleton">Carregando GRVMAX…</div>
 <div id="pop" class="hidden backdrop"><div class="modal"><div class="modalheader"><h2 id="popTitle">Editar</h2><button class="btn" onclick="closePop()">✕</button></div><div class="modalbody" id="popBody"></div><div class="modalfooter" id="popActions"></div></div></div>
 <div class="hidden toast" id="toast"></div>
-<script src="./agenda-calendario.js?v=20261117-2"></script>
+<script src="./agenda-calendario.js?v=20261119-1"></script>
 <script>
 (function(){
 'use strict';
@@ -160,6 +160,7 @@ function stage(id){var x=S.stages.find(function(p){return p.ID===id});return x?x
 // Sequência dentro da etapa, calculada usando todas as atividades, antes dos filtros.
 function activityCode(a){
  if(!a||!S)return '';
+ if(S.activityCodes&&S.activityCodes[a.ID])return S.activityCodes[a.ID];
  var st=S.stages.find(function(x){return x.ID===a.ETAPA_ID});
  if(!st)return '';
  var number=S.activities.filter(function(x){return x.ETAPA_ID===a.ETAPA_ID}).findIndex(function(x){return x.ID===a.ID});
@@ -841,5 +842,5 @@ window.nav=nav;
 start();
 })();
 </script>
-<script src="./plano-diretor.js?v=20261027-2"></script>
+<script src="./plano-diretor.js?v=20261119-1"></script>
 </body></html>
