@@ -641,7 +641,7 @@
     let payload;
     try{payload=bulkPayload()}catch(error){showBulkError(error.message);return}
     const count=payload.itens.length,fields=Object.keys(payload.alteracoes);
-    if(!window.confirm("Aplicar "+fields.length+" campo(s) em "+count+" material(is)?\nOs campos selecionados serão gravados diretamente no CPS."))return;
+    if(!window.confirm("Aplicar "+fields.length+" campo(s) em "+count+" material(is)?\nOs campos marcados substituirão os valores atuais no CPS, mesmo que o cadastro tenha sido alterado após a consulta. Campos não marcados serão preservados."))return;
     state.bulkInFlight=true;
     showBulkError("");
     ["applyBulk","cancelBulk","closeBulk"].forEach((id)=>$(id).disabled=true);
