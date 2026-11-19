@@ -59,7 +59,7 @@ $arquivosCandidatos = @(
 $extras = Get-ChildItem -LiteralPath $PastaApi -File -ErrorAction Stop | Where-Object {
     $_.Name -like "api.py.backup_*" -or $_.Name -like "auth_backup_*.py"
 } | Select-Object -ExpandProperty Name
-$arquivosCandidatos += @($extras)
+if ($extras) { $arquivosCandidatos += @($extras) }
 
 $referencias = @()
 $leituraAgendamentosOk = $false
@@ -85,13 +85,20 @@ try {
     Write-Warning "Nao foi possivel auditar processos. Pastas compiladas serao preservadas."
 }
 function Referenciado([string]$relativo) {
-    $nomeRegex = [regex]::Escape($relativo)
-    $nomeRegex = $nomeRegex.Replace("\", "[\\/]")
-    $pattern = "(?i)(?:^|[\\/\\s\"'])" + $nomeRegex + "(?:$|[\\/\\s\"'])"
     $full = Join-Path $PastaApi $relativo
+    $alvo = $relativo.Replace("/", "\")
     foreach ($linha in ($referencias + $processos)) {
         if ($linha.IndexOf($full,[StringComparison]::OrdinalIgnoreCase) -ge 0) { return $true }
-        if ($linha -match $pattern) { return $true }
+        $semAspas = $linha.Replace('"', ' ').Replace("'", ' ').Replace("`t", ' ')
+        $partes = $semAspas.Split([char[]]@(' ', ';', ',', '=', '(', ')', '&'), [StringSplitOptions]::RemoveEmptyEntries)
+        foreach ($p in $partes) {
+            $n = $p.Replace("/", "\")
+            if ($n.Equals($alvo,[StringComparison]::OrdinalIgnoreCase) -or
+                $n.EndsWith("\" + $alvo,[StringComparison]::OrdinalIgnoreCase) -or
+                $n.IndexOf("\" + $alvo + "\",[StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                return $true
+            }
+        }
     }
     return $false
 }
@@ -101,11 +108,11 @@ foreach ($pasta in $pastasCandidatas) {
     $caminho = Join-Path $PastaApi $pasta
     if (!(Test-Path -LiteralPath $caminho -PathType Container)) { continue }
     if ($pasta -in @("build", "dist") -and (!$leituraAgendamentosOk -or !$leituraProcessosOk)) {
-        Write-Warning "PRESERVADO $pasta: nao foi possivel confirmar ausencia de referencias."
+        Write-Warning "PRESERVADO ${pasta}: nao foi possivel confirmar ausencia de referencias."
         continue
     }
     if (Referenciado $pasta) {
-        Write-Warning "PRESERVADO $pasta: referenciado por processo/tarefa agendada."
+        Write-Warning "PRESERVADO ${pasta}: referenciado por processo/tarefa agendada."
         continue
     }
     $lista += [pscustomobject]@{ Relativo = $pasta; Caminho = $caminho; Tipo = "Pasta" }
@@ -114,11 +121,11 @@ foreach ($arquivo in ($arquivosCandidatos | Select-Object -Unique)) {
     $caminho = Join-Path $PastaApi $arquivo
     if (!(Test-Path -LiteralPath $caminho -PathType Leaf)) { continue }
     if ($arquivo -like "*.bat" -and !$leituraAgendamentosOk) {
-        Write-Warning "PRESERVADO $arquivo: tarefas agendadas nao auditadas."
+        Write-Warning "PRESERVADO ${arquivo}: tarefas agendadas nao auditadas."
         continue
     }
     if (Referenciado $arquivo) {
-        Write-Warning "PRESERVADO $arquivo: referenciado por processo/tarefa agendada."
+        Write-Warning "PRESERVADO ${arquivo}: referenciado por processo/tarefa agendada."
         continue
     }
     $lista += [pscustomobject]@{ Relativo = $arquivo; Caminho = $caminho; Tipo = "Arquivo" }
