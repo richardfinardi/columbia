@@ -181,11 +181,11 @@
   <div id="filterPopover" class="filter-popover" hidden>
     <div class="filter-pop-header"><strong id="filterPopoverTitle">Filtrar coluna</strong><button id="closeFilter" type="button" class="icon-btn" aria-label="Fechar filtro">×</button></div>
     <input type="search" id="filterOptionSearch" placeholder="Pesquisar opções..." autocomplete="off">
-    <div id="filterOptionInfo" class="filter-option-info"></div>
+    <div class="filter-pop-select"><button id="filterPickVisible" class="btn btn-text" type="button">Selecionar tudo</button><span id="filterOptionInfo" class="filter-option-info">0 opções</span></div>
     <div id="filterOptionList" class="filter-option-list"></div>
     <div class="filter-pop-actions">
-      <button id="filterPickVisible" class="btn btn-text" type="button">Selecionar encontradas</button>
-      <button id="filterReset" class="btn btn-text" type="button">Limpar coluna</button>
+      <button id="filterReset" class="btn btn-text" type="button">Limpar filtro</button>
+      <button id="filterApply" class="btn btn-primary" type="button">Aplicar</button>
     </div>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
