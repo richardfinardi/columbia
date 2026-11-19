@@ -63,7 +63,7 @@
       var st=stageById[a.ETAPA_ID];
       if(!st)return;
       stageCounts[a.ETAPA_ID]=(stageCounts[a.ETAPA_ID]||0)+1;
-      activityCodes[a.ID]=String(st.ORDEM).padStart(2,'0')+'.'+String(stageCounts[a.ETAPA_ID]).padStart(2,'0');
+      activityCodes[a.ID]=(S.activityCodes&&S.activityCodes[a.ID])||String(st.ORDEM).padStart(2,'0')+'.'+String(stageCounts[a.ETAPA_ID]).padStart(2,'0');
     });
     function stageTag(id) {
       var s=stageById[id];
