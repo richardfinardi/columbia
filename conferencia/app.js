@@ -616,13 +616,16 @@
   }
   function bind() {
     $("reload").addEventListener("click", loadAll);
-    $("export").addEventListener("click", downloadCsv);
-    $("search").addEventListener("input", (event) => { state.query = event.target.value; state.page = 1; render(); });
+    $("search").addEventListener("input", (event) => {
+      clearTimeout(state.searchTimer);
+      const query=event.target.value;
+      state.searchTimer=setTimeout(()=>{state.query=query;state.page=1;render();},140);
+    });
     $("statusFilter").addEventListener("change", (event) => { state.status = event.target.value; state.page = 1; render(); });
     $("pageSize").addEventListener("change", (event) => { state.pageSize = Number(event.target.value); state.page = 1; render(); });
     $("clearFilters").addEventListener("click", () => {
-      state.query = ""; state.status = "all"; state.page = 1;
-      $("search").value = ""; $("statusFilter").value = "all"; render();
+      state.query = ""; state.status = "all"; state.page = 1; state.columnFilters = {};
+      $("search").value = ""; $("statusFilter").value = "all"; closeColumnFilter(); render();
     });
     $("previous").addEventListener("click", () => { state.page--; render(); });
     $("next").addEventListener("click", () => { state.page++; render(); });
@@ -631,16 +634,109 @@
       state.direction = state.sort === key ? -state.direction : 1;
       state.sort = key; state.page = 1; render();
     }));
+    $("materialHead").addEventListener("click",(event)=>{
+      const button=event.target.closest("[data-filter-open]");
+      if(button){
+        const key=button.dataset.filterOpen;
+        if(state.openFilter===key)closeColumnFilter();
+        else openColumnFilter(key,button);
+      }
+    });
+    $("pageSelectToggle").addEventListener("change",(event)=>selectPage(event.target.checked));
+    $("selectPage").addEventListener("click",()=>selectPage(true));
+    $("selectFiltered").addEventListener("click",()=>{
+      const rows=filtered();
+      if(rows.length>BULK_MAX){
+        showToast("Há "+formatNumber(rows.length)+" filtrados. Refine para no máximo "+BULK_MAX+" por lote.",true);
+        return;
+      }
+      rows.forEach((row)=>state.selected.add(String(row.codigo)));
+      render();
+    });
+    $("clearSelection").addEventListener("click",()=>{state.selected.clear();render();});
+    $("rows").addEventListener("change",(event)=>{
+      const box=event.target.closest("[data-select-id]");
+      if(!box)return;
+      if(box.checked)state.selected.add(box.dataset.selectId);
+      else state.selected.delete(box.dataset.selectId);
+      render();
+    });
+    $("filterOptionSearch").addEventListener("input",renderColumnOptions);
+    $("filterOptionList").addEventListener("change",(event)=>{
+      const box=event.target.closest("input[data-filter-value]");
+      if(!box||!state.openFilter)return;
+      const values=new Set(state.columnFilters[state.openFilter]||[]);
+      if(box.checked)values.add(box.dataset.filterValue);
+      else values.delete(box.dataset.filterValue);
+      updateColumnFilter(state.openFilter,values);
+    });
+    $("filterPickVisible").addEventListener("click",()=>{
+      if(!state.openFilter)return;
+      const values=new Set(state.columnFilters[state.openFilter]||[]);
+      matchingColumnValues().forEach(([v])=>values.add(v));
+      updateColumnFilter(state.openFilter,values);
+    });
+    $("filterReset").addEventListener("click",()=>{
+      if(state.openFilter)updateColumnFilter(state.openFilter,new Set());
+    });
+    $("closeFilter").addEventListener("click",closeColumnFilter);
+    document.addEventListener("pointerdown",(event)=>{
+      if(!state.openFilter)return;
+      if($("filterPopover").contains(event.target)||event.target.closest("[data-filter-open]"))return;
+      closeColumnFilter();
+    });
     $("rows").addEventListener("click", (event) => {
       const button = event.target.closest("button[data-id]");
       if (!button) return;
       const material = state.materials.find((x) => String(x.codigo) === button.dataset.id);
       if (material) openEditor(material);
     });
+    $("openBulk").addEventListener("click",openBulk);
+    $("closeBulk").addEventListener("click",closeBulk);
+    $("cancelBulk").addEventListener("click",closeBulk);
+    $("bulkForm").addEventListener("submit",submitBulk);
+    $("bulkOverlay").addEventListener("mousedown",(event)=>{
+      if(event.target===$("bulkOverlay"))closeBulk();
+    });
+    document.querySelectorAll("[data-bulk-check]").forEach((checkbox)=>{
+      checkbox.addEventListener("change",()=>toggleBulkField(checkbox.dataset.bulkCheck,checkbox.checked));
+    });
+    $("bulkClearCbs").addEventListener("click",()=>setBulkCbs(null));
+    ["ncm","cbs"].forEach((type)=>{
+      const input=$(type==="ncm"?"bulkNcmSearch":"bulkCbsSearch");
+      const list=$(type==="ncm"?"bulkNcmResults":"bulkCbsResults");
+      input.addEventListener("input",()=>{
+        if(type==="ncm")state.bulkNcm=null;else state.bulkCbs=null;
+        renderBulkLookup(type);
+      });
+      input.addEventListener("focus",()=>renderBulkLookup(type));
+      input.addEventListener("keydown",(event)=>{
+        if(event.key==="Enter"&&!list.hidden){
+          event.preventDefault();
+          list.querySelector("button[data-code]")?.click();
+        }
+      });
+      list.addEventListener("mousedown",(event)=>event.preventDefault());
+      list.addEventListener("click",(event)=>{
+        const button=event.target.closest("button[data-code]");
+        if(!button)return;
+        if(type==="ncm")setBulkNcm(state.ncm.find((row)=>text(row.codigo)===button.dataset.code)||null);
+        else setBulkCbs(state.cbs.find((row)=>row.codigo===button.dataset.code)||null);
+        alertBox("bulkError","");
+      });
+      input.addEventListener("blur",()=>setTimeout(()=>{list.hidden=true;},140));
+    });
     $("closeEditor").addEventListener("click", closeEditor);
     $("cancelEdit").addEventListener("click", closeEditor);
     $("overlay").addEventListener("mousedown", (event) => { if (event.target === $("overlay")) closeEditor(); });
     document.addEventListener("keydown", (event) => {
+      if(event.key==="Escape"&&state.openFilter)closeColumnFilter();
+      if(event.key==="Escape"&&!$("bulkOverlay").hidden){
+        if(!$("bulkNcmResults").hidden||!$("bulkCbsResults").hidden){
+          $("bulkNcmResults").hidden=true;$("bulkCbsResults").hidden=true;
+        }else closeBulk();
+        return;
+      }
       if (event.key === "Escape" && !$("overlay").hidden) {
         if (!$("ncmResults").hidden || !$("cbsResults").hidden) {
           $("ncmResults").hidden = true; $("cbsResults").hidden = true;
@@ -679,6 +775,7 @@
     });
   }
   async function init() {
+    initHeaders();
     bind();
     if (!(await verifyAccess())) return;
     await loadAll();
