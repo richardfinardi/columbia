@@ -47,7 +47,7 @@ FOR UPDATE
 SELECT_NCM = """
 SELECT codigo, numero, descricao, ipi
 FROM tcla_fis
-WHERE codigo = %s
+WHERE BTRIM(codigo::text) = %s
 LIMIT 1
 """
 SELECT_CBS = """
@@ -78,7 +78,7 @@ RETURNING codigo, u_revisado
 
 class RevendaUpdate(BaseModel):
     codigo: int = Field(gt=0)
-    ncm_codigo: int = Field(gt=0)
+    ncm_codigo: str | int
     cbs_codigo: str | None = Field(default=None, max_length=40)
     cean_i03: str = Field(default="", max_length=30)
     cbenef_i05f: str = Field(default="", max_length=50)
@@ -166,7 +166,10 @@ def build_revenda_router(
                         detail="Este material foi modificado após a consulta. Atualize os dados antes de salvar.",
                     )
 
-                cursor.execute(SELECT_NCM, (payload.ncm_codigo,))
+                ncm_codigo = str(payload.ncm_codigo if payload.ncm_codigo is not None else '').strip()
+                if not ncm_codigo or len(ncm_codigo) > 64:
+                    raise HTTPException(status_code=422, detail='Código interno do NCM inválido.')
+                cursor.execute(SELECT_NCM, (ncm_codigo,))
                 fiscal = cursor.fetchone()
                 if fiscal is None:
                     raise HTTPException(status_code=422, detail="NCM não cadastrado na tabela fiscal do CPS.")
