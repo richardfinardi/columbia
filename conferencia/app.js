@@ -498,23 +498,121 @@
     state.material = null;
     document.body.style.overflow = "";
   }
-  function downloadCsv() {
-    const cols = [
-      ["Código interno", "codigo_interno"], ["ID", "codigo"], ["Nome", "nome"],
-      ["Unidade", "unidade"], ["Unidade compra", "unidade_compra"],
-      ["Cód. classificação fiscal", "cod_classificacao_fiscal"], ["NCM", "classificacao_fiscal"],
-      ["Descrição NCM", "descricao_classi_fiscal"], ["IPI (%)", "ipi"], ["GTIN", "cean_i03"],
-      ["Benefício fiscal UF", "cbenef_i05f"], ["CBS/IBS", "cclass_trib_ibscbs"],
-      ["Descrição CBS/IBS", "desc_cclass_trib_ibscbs"], ["Revisado", "u_revisado"]
-    ];
-    function csv(value) { return '"' + text(value).replace(/"/g, '""') + '"'; }
-    const lines = [cols.map((x) => csv(x[0])).join(";")];
-    filtered().forEach((row) => lines.push(cols.map((x) => csv(row[x[1]])).join(";")));
-    const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "conferencia_revenda_" + new Date().toISOString().slice(0, 10) + ".csv";
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 6000);
+  function selectedMaterials() {
+    return state.materials.filter((row)=>state.selected.has(String(row.codigo)));
+  }
+  function toggleBulkField(key,enabled) {
+    const id={
+      ncm_codigo:"bulkNcmSearch", cbs_codigo:"bulkCbsSearch",
+      cean_i03:"bulkGtin",cbenef_i05f:"bulkBenefit",revisado:"bulkReviewed"
+    }[key];
+    if(id)$(id).disabled=!enabled;
+    if(key==="cbs_codigo")$("bulkClearCbs").disabled=!enabled;
+  }
+  function closeBulk() {
+    if(state.bulkInFlight)return;
+    $("bulkOverlay").hidden=true;
+    $("bulkNcmResults").hidden=true;
+    $("bulkCbsResults").hidden=true;
+    document.body.style.overflow="";
+  }
+  function openBulk() {
+    const rows=selectedMaterials();
+    if(!rows.length)return showToast("Selecione materiais para editar.",true);
+    if(rows.length>BULK_MAX)return showToast("Limite de "+BULK_MAX+" itens. Refine o filtro.",true);
+    if(!state.referenceReady)return showToast("Catálogos fiscais indisponíveis.",true);
+    state.bulkNcm=null;state.bulkCbs=null;
+    document.querySelectorAll("[data-bulk-check]").forEach((ch)=>{
+      ch.checked=false;toggleBulkField(ch.dataset.bulkCheck,false);
+    });
+    ["bulkNcmSearch","bulkCbsSearch","bulkGtin","bulkBenefit"].forEach((id)=>$(id).value="");
+    $("bulkReviewed").value="1";
+    $("bulkNcmPicked").textContent="Selecione um código da tabela CPS.";
+    $("bulkCbsPicked").textContent="Selecione um código ou limpe a classificação.";
+    $("bulkSubtitle").textContent=formatNumber(rows.length)+" materiais selecionados. Campos não marcados não serão alterados.";
+    alertBox("bulkError","");
+    $("bulkOverlay").hidden=false;
+    document.body.style.overflow="hidden";
+    $("closeBulk").focus();
+  }
+  function setBulkNcm(value) {
+    state.bulkNcm=value;
+    $("bulkNcmSearch").value=value?ncmLabel(value):"";
+    $("bulkNcmPicked").textContent=value?"IPI do NCM: "+formatIpi(value.ipi):"Selecione um NCM da lista.";
+    $("bulkNcmResults").hidden=true;
+  }
+  function setBulkCbs(value) {
+    state.bulkCbs=value;
+    $("bulkCbsSearch").value=value?cbsLabel(value):"";
+    $("bulkCbsPicked").textContent=value?"Selecionado: "+value.codigo:"A classificação será limpa se este campo estiver marcado.";
+    $("bulkCbsResults").hidden=true;
+  }
+  function renderBulkLookup(type) {
+    const isNcm=type==="ncm";
+    const input=$(isNcm?"bulkNcmSearch":"bulkCbsSearch");
+    const list=$(isNcm?"bulkNcmResults":"bulkCbsResults");
+    const query=normalized(input.value);
+    const options=isNcm?state.ncm:state.cbs;
+    const filtered=query?options.filter((row)=>normalized((isNcm?row.numero:row.codigo)+" "+row.descricao).includes(query)).slice(0,50):[];
+    list.innerHTML=filtered.length?filtered.map((row)=>{
+      const id=isNcm?text(row.codigo):row.codigo;
+      return '<button type="button" role="option" class="lookup-item" data-code="'+escapeHtml(id)+'">'+
+        '<strong>'+escapeHtml(isNcm?row.numero:row.codigo)+'</strong>'+
+        '<span>'+escapeHtml(row.descricao)+(isNcm?' · IPI '+escapeHtml(formatIpi(row.ipi)):"")+'</span></button>';
+    }).join(""):'<div class="lookup-empty">'+(query?"Nenhum código encontrado.":"Digite para pesquisar.")+'</div>';
+    list.hidden=false;
+  }
+  function bulkPayload() {
+    const changes={};
+    const checked=new Set([...document.querySelectorAll("[data-bulk-check]:checked")].map((el)=>el.dataset.bulkCheck));
+    if(!checked.size)throw new Error("Marque pelo menos um campo para alterar.");
+    if(checked.has("ncm_codigo")) {
+      if(!state.bulkNcm)throw new Error("Selecione um NCM válido na lista CPS.");
+      changes.ncm_codigo=Number(state.bulkNcm.codigo);
+    }
+    if(checked.has("cbs_codigo")) {
+      if($("bulkCbsSearch").value.trim()&&!state.bulkCbs)throw new Error("Selecione a classificação CBS/IBS ou limpe o campo.");
+      changes.cbs_codigo=state.bulkCbs?state.bulkCbs.codigo:"";
+    }
+    if(checked.has("cean_i03"))changes.cean_i03=$("bulkGtin").value.trim();
+    if(checked.has("cbenef_i05f"))changes.cbenef_i05f=$("bulkBenefit").value.trim();
+    if(checked.has("revisado"))changes.revisado=$("bulkReviewed").value==="1";
+    const selected=selectedMaterials();
+    if(!selected.length)throw new Error("Nenhum material selecionado.");
+    if(selected.length>BULK_MAX)throw new Error("Máximo de "+BULK_MAX+" materiais por lote.");
+    return {itens:selected.map((row)=>({codigo:Number(row.codigo),esperado:captureExpected(row)})),alteracoes:changes};
+  }
+  async function submitBulk(event) {
+    event.preventDefault();
+    if(state.bulkInFlight)return;
+    let payload;
+    try{payload=bulkPayload()}catch(error){alertBox("bulkError",error.message);return}
+    const count=payload.itens.length,fields=Object.keys(payload.alteracoes);
+    if(!window.confirm("Aplicar "+fields.length+" campo(s) em "+count+" material(is)?\nOs campos selecionados serão gravados diretamente no CPS."))return;
+    state.bulkInFlight=true;
+    alertBox("bulkError","");
+    ["applyBulk","cancelBulk","closeBulk"].forEach((id)=>$(id).disabled=true);
+    const button=$("applyBulk"),old=button.textContent;
+    button.textContent="Gravando "+formatNumber(count)+" materiais...";
+    try {
+      const response=await apiFetch(API.salvarLote,{method:"POST",body:JSON.stringify(payload)});
+      if(!response||response.ok!==true||number(response.quantidade)!==count)
+        throw new Error("O servidor não confirmou a quantidade completa. Verifique os dados antes de repetir.");
+      state.bulkInFlight=false;closeBulk();
+      state.selected.clear();
+      await loadAll();
+      showToast(formatNumber(count)+" materiais atualizados no CPS.");
+    } catch(error) {
+      let msg=error.message;
+      if(error.status===404||error.status===405)msg="A API ainda não possui POST /revenda/atualizar-lote. Nenhum material foi alterado.";
+      if(error.status===409)msg+=" O lote inteiro foi cancelado para evitar sobrescrever alterações de outros usuários.";
+      alertBox("bulkError",msg);
+      showToast("Não foi possível concluir o lote.",true);
+    } finally {
+      state.bulkInFlight=false;
+      button.textContent=old;
+      ["applyBulk","cancelBulk","closeBulk"].forEach((id)=>$(id).disabled=false);
+    }
   }
   function bind() {
     $("reload").addEventListener("click", loadAll);
