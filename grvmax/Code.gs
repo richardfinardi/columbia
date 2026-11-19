@@ -530,8 +530,206 @@ function grvState(who){
     logs:grvCan(who,'history.view')?safe(logRows.filter(x=>full||x.ATOR_ID===who.ID).slice(-500).reverse()):[],
     permissions:permissions,permissionMatrix:admin?matrix:null,canEdit:admin||role==='Consultor',canAdmin:admin};
 }
+
+/**
+ * Reprogramação pelo calendário. Uma única transação sob lock do Apps Script:
+ * desloca a faixa inteira, preserva a duração das atividades, propaga
+ * dependências e atualiza automaticamente os períodos das etapas.
+ *
+ * Permissões granulares: stages.schedule ou activities.schedule.
+ * Usa a ação "save" no Worker já implantado, sem abrir endpoint novo.
+ */
+function grvMoveSchedule(who,p){
+  const kind=String(p.type||''),id=String(p.id||''),days=Number(p.delta);
+  if(!['stage','activity'].includes(kind)||!id||!Number.isInteger(days)||Math.abs(days)>3660)
+    throw Error('Reprogramação inválida: informe item e deslocamento em dias.');
+  const permission=kind==='stage'?'stages.schedule':'activities.schedule';
+  if(!grvCan(who,permission))throw Error('Seu perfil não pode reprogramar este tipo de item.');
+  if(!grvCan(who,kind==='stage'?'stages.view':'activities.view'))
+    throw Error('Sem permissão de visualização.');
+  if(!days)return {ok:true,changed:0,stagesUpdated:0};
+  const out=grvLock(()=>{
+    const oldActivities=grvRows('ATIVIDADES'),oldStages=grvRows('ETAPAS');
+    const before=new Map(oldActivities.map(a=>[a.ID,a]));
+    const current=new Map(oldActivities.map(a=>[a.ID,{...a}]));
+    const stages=new Map(oldStages.map(s=>[s.ID,{...s}]));
+    const forced=new Set(),changedEmptyStages=new Set();
+    const target=kind==='stage'?stages.get(id):current.get(id);
+    if(!target)throw Error('Item não encontrado no cronograma.');
+    if(['Homologada','Cancelada'].includes(target.STATUS))
+      throw Error('Não é possível reprogramar um item homologado ou cancelado.');
+    if(kind==='activity'&&!grvCan(who,'activities.view_all')){
+      const team=grvRows('VINCULOS');
+      if(target.RESPONSAVEL_ID!==who.ID&&!team.some(v=>
+        v.ATIVIDADE_ID===id&&v.PESSOA_ID===who.ID))
+        throw Error('Atividade não atribuída a você.');
+    }
+
+    function shiftActivity(a,offset){
+      if(['Homologada','Cancelada'].includes(a.STATUS))
+        throw Error('A atividade "'+a.TITULO+'" está homologada ou cancelada e não pode mudar de data.');
+      if(!grvValidPlanDate(a.DATA_ORIENTACAO)||!grvValidPlanDate(a.PRAZO))
+        throw Error('Defina orientação e validação para a atividade "'+a.TITULO+'" antes de reprogramar.');
+      const next={...a,
+        DATA_ORIENTACAO:grvPlanAddDays(a.DATA_ORIENTACAO,offset),
+        PRAZO:grvPlanAddDays(a.PRAZO,offset)};
+      if(!grvValidPlanDate(next.DATA_ORIENTACAO)||!grvValidPlanDate(next.PRAZO))
+        throw Error('O deslocamento extrapola as datas permitidas.');
+      current.set(a.ID,next);forced.add(a.ID);
+    }
+    function shiftStage(st,offset){
+      const kids=Array.from(current.values()).filter(a=>a.ETAPA_ID===st.ID&&a.STATUS!=='Cancelada');
+      if(kids.length)kids.forEach(a=>shiftActivity(a,offset));
+      else {
+        if(!grvValidPlanDate(st.DATA_INICIO)||!grvValidPlanDate(st.DATA_FIM))
+          throw Error('A etapa "'+st.TITULO+'" não possui atividades nem datas para deslocar.');
+        st.DATA_INICIO=grvPlanAddDays(st.DATA_INICIO,offset);
+        st.DATA_FIM=grvPlanAddDays(st.DATA_FIM,offset);
+        changedEmptyStages.add(st.ID);
+      }
+    }
+    if(kind==='activity')shiftActivity(target,days);
+    else shiftStage(target,days);
+
+    // Ordenação topológica tanto das atividades quanto das etapas.
+    function topo(entries,dependencies,label){
+      const order=[],visiting=new Set(),visited=new Set();
+      function visit(x){
+        if(visiting.has(x))throw Error('Dependência circular em '+label+'.');
+        if(visited.has(x))return;
+        const row=entries.get(x);if(!row)return;
+        visiting.add(x);
+        dependencies(row).forEach(parent=>{if(entries.has(parent))visit(parent)});
+        visiting.delete(x);visited.add(x);order.push(x);
+      }
+      Array.from(entries.keys()).forEach(visit);
+      return order;
+    }
+    const activityOrder=topo(current,a=>a.DEPENDE_DE?[String(a.DEPENDE_DE)]:[],'atividades');
+    const stageOrder=topo(stages,st=>String(st.DEPENDE_DE||'').split(/[,;|]/).map(x=>x.trim()).filter(Boolean),'etapas');
+
+    function propagateActivities(){
+      activityOrder.forEach(aid=>{
+        const a=current.get(aid),original=before.get(aid);
+        const pid=String(a.DEPENDE_DE||'');
+        if(!pid||!current.has(pid))return;
+        const parent=current.get(pid),oldParent=before.get(pid);
+        if(!grvValidPlanDate(parent.PRAZO))return;
+        const delta=grvPlanDiff(parent.PRAZO,oldParent.PRAZO);
+        const min=grvPlanWeekday(parent.PRAZO,2,true);
+        let start=a.DATA_ORIENTACAO;
+        if(!forced.has(aid)&&delta&&grvValidPlanDate(original.DATA_ORIENTACAO))
+          start=grvPlanWeekday(grvPlanAddDays(original.DATA_ORIENTACAO,delta),2,false);
+        if(!grvValidPlanDate(start)||start<min)start=min;
+        if(start!==a.DATA_ORIENTACAO){
+          if(['Homologada','Cancelada'].includes(a.STATUS))
+            throw Error('A atividade concluída "'+a.TITULO+'" impede o deslocamento de sua predecessora.');
+          current.set(aid,{...a,DATA_ORIENTACAO:start,PRAZO:grvPlanValidation(start)});
+        }
+      });
+    }
+    function stageRange(st,activityValues){
+      return grvStageActivityRange(st.ID,activityValues)||
+        {DATA_INICIO:st.DATA_INICIO||'',DATA_FIM:st.DATA_FIM||''};
+    }
+    function changedStageIds(){
+      const newActivities=Array.from(current.values());
+      const touched=new Set();
+      oldStages.forEach(st=>{
+        const o=stageRange(st,oldActivities),n=stageRange(stages.get(st.ID),newActivities);
+        if(o.DATA_INICIO!==n.DATA_INICIO||o.DATA_FIM!==n.DATA_FIM)touched.add(st.ID);
+      });
+      return touched;
+    }
+    // Se uma etapa predecessora avançou, a sucessora também acompanha.
+    // Repetir o cálculo contempla cruzamentos de dependência etapa/atividade.
+    let stabilized=false;
+    for(let turn=0;turn<=oldStages.length+1;turn++){
+      propagateActivities();
+      const touched=changedStageIds();
+      let advanced=false;
+      for(const sid of stageOrder){
+        const st=stages.get(sid),parents=String(st.DEPENDE_DE||'')
+          .split(/[,;|]/).map(x=>x.trim()).filter(Boolean);
+        if(!parents.length)continue;
+        const allValues=Array.from(current.values());
+        const own=stageRange(st,allValues);
+        let latest='';
+        for(const pid of parents){
+          const pred=stages.get(pid);
+          if(!pred)throw Error('Etapa predecessora não encontrada: '+pid);
+          const r=stageRange(pred,allValues);
+          if(!grvValidPlanDate(r.DATA_FIM))
+            throw Error('Etapa predecessora "'+pred.TITULO+'" sem data final.');
+          if(r.DATA_FIM>latest)latest=r.DATA_FIM;
+        }
+        // Não alterar etapas não impactadas por esta movimentação.
+        if(!touched.has(sid)&&!parents.some(pid=>touched.has(pid)))continue;
+        if(!grvValidPlanDate(own.DATA_INICIO))continue;
+        const earliest=grvPlanWeekday(latest,2,true);
+        if(own.DATA_INICIO<earliest){
+          if(kind==='stage'&&sid===id)
+            throw Error('A etapa não pode começar antes do término das etapas predecessoras.');
+          const offset=grvPlanDiff(earliest,own.DATA_INICIO);
+          shiftStage(st,offset);
+          advanced=true;
+          propagateActivities();
+        }
+      }
+      if(!advanced){stabilized=true;break}
+    }
+    if(!stabilized)throw Error('Dependências não estabilizaram. Verifique o cronograma.');
+
+    const finalActivities=Array.from(current.values()),changes=[];
+    for(const row of finalActivities){
+      const prev=before.get(row.ID);
+      if(row.DATA_ORIENTACAO!==prev.DATA_ORIENTACAO||row.PRAZO!==prev.PRAZO){
+        grvPlanCheckDirectActivity(row,finalActivities);
+        row.ATUALIZADO_EM=grvNow();
+        changes.push({before:prev,after:row});
+      }
+    }
+    // A validação de todas as relações ocorre antes da primeira gravação.
+    const snapshots=changes.map(x=>({
+      ...x,action:forced.has(x.after.ID)?'REPROGRAMOU_AGENDA':'REPROGRAMOU_DEPENDENCIA'
+    }));
+    for(const x of snapshots){
+      grvWrite('ATIVIDADES',x.after);
+      const clean=o=>{const {_row,...v}=o;return v;};
+      grvLog(who,'ATIVIDADES',x.after.ID,x.action,clean(x.before),clean(x.after),
+        'Calendário: orientação '+x.before.DATA_ORIENTACAO+' → '+x.after.DATA_ORIENTACAO+
+        '; validação '+x.before.PRAZO+' → '+x.after.PRAZO+'.');
+    }
+    for(const sid of changedEmptyStages){
+      const st=stages.get(sid),old=oldStages.find(x=>x.ID===sid);
+      if(st.DATA_INICIO===old.DATA_INICIO&&st.DATA_FIM===old.DATA_FIM)continue;
+      st.ATUALIZADO_EM=grvNow();
+      grvWrite('ETAPAS',st);
+      const clean=o=>{const {_row,...v}=o;return v;};
+      grvLog(who,'ETAPAS',sid,'REPROGRAMOU_AGENDA',clean(old),clean(st),
+        'Etapa sem atividades: calendário deslocado em '+days+' dias.');
+    }
+    const updates=grvSyncStageDates(who,finalActivities);
+    return {ok:true,changed:changes.length,stagesUpdated:updates.length+changedEmptyStages.size,
+      notices:changes.map(x=>({
+        id:x.after.ID,title:x.after.TITULO,owner:x.after.RESPONSAVEL_ID,
+        previousOwner:x.before.RESPONSAVEL_ID,status:x.after.STATUS,
+        previousStatus:x.before.STATUS,due:x.after.PRAZO,previousDue:x.before.PRAZO,
+        previousTeam:[],currentTeam:[]
+      }))};
+  });
+  // Notificações ficam fora do lock, como nas demais alterações de atividades.
+  (out.notices||[]).forEach(n=>{
+    try{grvNotifyActivity(who,n)}
+    catch(err){grvLog(who,'ATIVIDADES',n.id,'NOTIFICACAO_FALHOU',null,null,String(err))}
+  });
+  delete out.notices;
+  return out;
+}
+
 function grvSave(who,p){
   if(String(p.table||'')==='PERMISSOES')return grvSavePermissions(who,p);
+  if(String(p.table||'')==='CRONOGRAMA_MOVIMENTO')return grvMoveSchedule(who,p);
   const table=String(p.table||'');if(GRV_EDITABLE.indexOf(table)<0)throw Error('Cadastro não permitido.');
   const body=p.item||{},module=GRV_TABLE_MODULE[table],admin=who.PERFIL==='Administrador',
     isNew=!body.ID,full=grvCan(who,module+'.'+(isNew?'create':'edit')),
