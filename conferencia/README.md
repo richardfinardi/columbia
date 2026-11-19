@@ -14,7 +14,11 @@ A página valida o usuário por \`GET /producao/portal/me\`. O botão do menu ta
 Os três devem responder em JSON com lista de registros. A página aceita lista direta ou objeto com propriedade \`data\`, \`dados\`, \`items\`, \`resultados\` etc.
 
 **Comportamento:**
-- Listagem com filtros, ordenação, paginação, exportação CSV, cards total/pendente/revisado/progresso.
+- Listagem com filtros **no cabeçalho de cada coluna** (mesmo modelo da Sintercan / Material de Cliente), busca incremental, seleção múltipla de valores, Selecionar tudo, Limpar e Aplicar, ordenação, paginação e cards total/pendente/revisado/progresso.
+- **Não exibir exportação/download CSV ou Excel**: a conferência e as alterações devem ocorrer no próprio portal.
+- Filtros incluem `grupo`, `subgrupo1` e `subgrupo2`, trazidos do endpoint `/revenda`.
+- Seleção por linha, página ou todos os filtrados, com **alteração em massa** de NCM, CBS/IBS, GTIN, benefício fiscal e revisão. Apenas campos marcados são alterados.
+- Regra de interface para as próximas tabelas da Columbia: usar esse mesmo filtro compacto por coluna.
 - NCM: seleção pesquisável por código ou descrição. Puxa da tabela fiscal \`tcla_fis\` os valores \`codigo\`, \`numero\`, \`descricao\` e \`ipi\`.
 - CBS/IBS: seleção pesquisável na tabela \`tclasstrib_cbsibs\`, código \`codigo_cclastrib\` e respectiva descrição.
 - GTIN (\`cean_i03\`) e código benefício fiscal (\`cbenef_i05f\`) são digitáveis.
@@ -26,7 +30,7 @@ Os três devem responder em JSON com lista de registros. A página aceita lista 
 ## Escrita: instalar a rota no FastAPI do servidor Columbia
 
 A interface GitHub Pages é estática. **Os 3 GETs informados não atualizam tproduto**.
-O código da rota segura foi criado em [revenda_routes.py](./revenda_routes.py). A implantação desse arquivo no servidor que hospeda \`columbia.consultoriarf.net\` ainda é necessária.
+O módulo [revenda_routes.py](./revenda_routes.py) é uma implementação modular de referência; a integração principal foi adaptada ao `api.py` real do servidor, preservando todas as rotas existentes. A implantação da API atualizada no servidor que hospeda \`columbia.consultoriarf.net\` ainda é necessária.
 
 Rota:
 \`POST https://columbia.consultoriarf.net/revenda/atualizar\`
