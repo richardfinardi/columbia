@@ -114,6 +114,13 @@
     });
     return events;
   }
+  function canMove(e,ops) {
+    return e.type==='stage' ? ops.can('stages.schedule') :
+      e.type==='activity' ? ops.can('activities.schedule') : false;
+  }
+  function dayDiff(a,b) {
+    return Math.round((fromKey(a)-fromKey(b))/MS_DAY);
+  }
   function kindLabel(t) {return t==='stage'?'Etapa':t==='activity'?'Atividade':'Compromisso';}
   function kindTable(t) {return t==='stage'?'ETAPAS':t==='activity'?'ATIVIDADES':'AGENDA';}
   function eventKey(e) {return e.type+':'+e.id;}
@@ -121,7 +128,7 @@
     var title=new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric',timeZone:'UTC'}).format(utc(m.getUTCFullYear(),m.getUTCMonth(),1));
     return title.charAt(0).toUpperCase()+title.slice(1);
   }
-  function buildCalendar(month,all) {
+  function buildCalendar(month,all,ops) {
     var year=month.getUTCFullYear(), mo=month.getUTCMonth(), first=utc(year,mo,1);
     var monday=shift(first,-((first.getUTCDay()+6)%7));
     var last=utc(year,mo+1,0), end=shift(last,6-((last.getUTCDay()+6)%7));
@@ -142,7 +149,7 @@
       // Um registro por linha: a faixa azul da etapa fica sempre acima das suas atividades verdes.
       // Evita misturar atividades de etapas diferentes quando os períodos não se sobrepõem.
       segments.forEach(function(s,index) { s.lane=index; });
-      result+='<div class="gcal-week" style="height:'+Math.max(66,36+segments.length*28+5)+'px">';
+      result+='<div class="gcal-week" data-week-start="'+weekStart+'" style="height:'+Math.max(66,36+segments.length*28+5)+'px">';
       for(var d=0;d<7;d++) {
         var date=shift(week,d), k=dayKey(date);
         result+='<button type="button" class="gcal-day'+(date.getUTCMonth()!==mo?' gcal-outside':'')+(k===today?' gcal-today':'')+(d>4?' gcal-weekend':'')+'" data-day="'+k+'" style="left:'+(d*100/7)+'%;width:'+(100/7)+'%" aria-label="Ver compromissos de '+nice(k)+'"><span>'+date.getUTCDate()+'</span></button>';
@@ -152,11 +159,13 @@
         var label=(s.left?'‹ ':'')+e.title+(s.right?' ›':'');
         var stageInfo=e.type==='stage'?'':(' | '+e.stageTag+(e.stageName&&e.stageTag!=='Sem etapa'?' · '+e.stageName:''));
         var tag=e.type==='activity'||e.type==='meeting' ? '<span class="gcal-stage-tag">'+safe(e.stageTag)+'</span> ' : '';
-        result+='<button type="button" class="gcal-span gcal-'+e.type+cls+'" data-item="'+safe(eventKey(e))+'" '+
+        var movable=canMove(e,ops) && e.status!=='Homologada' && e.status!=='Cancelada';
+        var dragHandle=movable?'<span class="gcal-drag-handle" title="Arraste para reprogramar" aria-hidden="true">⋮⋮</span>':'';
+        result+='<button type="button" class="gcal-span gcal-'+e.type+cls+(movable?' gcal-movable':'')+'" data-item="'+safe(eventKey(e))+'" '+(movable?'data-movable="1" ':'')+
           'title="'+safe(kindLabel(e.type)+': '+e.title+stageInfo+' | '+nice(e.start)+' até '+nice(e.end)+' | '+e.status+' | '+e.progress+'%')+'" '+
           'aria-label="'+safe(kindLabel(e.type)+' '+e.title+stageInfo+', '+nice(e.start)+' até '+nice(e.end)+', '+e.status+', '+e.progress+'%')+'" '+
           'style="left:calc('+(s.first*100/7)+'% + 3px);width:calc('+(span*100/7)+'% - 6px);top:'+(34+s.lane*28)+'px;--gcal-shade:'+shade+'%;--gcal-progress:'+e.progress+'%">'+
-          '<span class="gcal-span-label">'+tag+safe(label)+'</span></button>';
+          '<span class="gcal-span-label">'+tag+safe(label)+'</span>'+dragHandle+'</button>';
       });
       result+='</div>';
     }
@@ -165,9 +174,13 @@
   function detailHtml(e,ops) {
     var person = (ops.person&&ops.person(e.responsible)) || '—';
     var canOpen=ops.can((e.type==='stage'?'stages':e.type==='activity'?'activities':'agenda')+'.view');
+    var move=canMove(e,ops)&&e.status!=='Homologada'&&e.status!=='Cancelada';
     return '<div class="gcal-detail-heading"><div><span class="gcal-kind gcal-'+e.type+'">'+kindLabel(e.type)+'</span><h3>'+safe(e.title)+'</h3>'+
       '<div class="small muted">'+safe(nice(e.start))+' até '+safe(nice(e.end))+' · '+safe(e.status||'Não iniciada')+'</div></div>'+
-      (canOpen?'<button class="btn" type="button" data-open="'+safe(eventKey(e))+'">Abrir cadastro</button>':'')+'</div>'+
+      '<div class="gcal-detail-actions">'+
+      (canOpen?'<button class="btn" type="button" data-open="'+safe(eventKey(e))+'">Abrir cadastro</button>':'')+
+      (move?'<button class="btn" type="button" data-reschedule="'+safe(eventKey(e))+'">Reprogramar data</button>':'')+
+      '</div></div>'+
       '<div class="gcal-detail-meta"><span><b>Progresso</b> '+e.progress+'%</span><span><b>Responsável</b> '+safe(person)+'</span>'+
       (e.type!=='stage'?'<span><b>Etapa</b> '+safe(e.stageTag)+' · '+safe(e.stageName||'Não vinculada')+'</span>':'')+
       (e.type==='meeting'?'<span><b>Tipo</b> '+safe(e.subtype)+'</span>':'')+'</div>'+
@@ -194,7 +207,7 @@
       '<div class="gcal-scroll" tabindex="0" aria-label="Calendário. No celular, deslize horizontalmente para visualizar todos os dias.">'+
       '<div class="gcal-grid"><div class="gcal-weekdays"><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span><span>Dom</span></div>'+
       '<div id="gcal-body"></div></div></div>'+
-      '<p class="gcal-hint small muted">Clique em uma faixa para consultar o progresso e abrir o cadastro. As faixas continuam nas semanas e nos meses seguintes.</p>'+
+      '<p class="gcal-hint small muted">Clique na faixa para abrir o cadastro. Quem tem permissão de cronograma pode arrastar para outra data; no celular, segure a alça ⋮⋮ e arraste. Para alterar por data, toque no dia e escolha Reprogramar.</p>'+
       '<div id="gcal-detail" class="gcal-detail" hidden aria-live="polite"></div>'+
       '</div><details class="gcal-records"><summary>Compromissos cadastrados ('+(S.agenda||[]).length+')</summary><div id="gcal-legacy-list"></div></details>';
     function redraw() {
@@ -207,7 +220,7 @@
       root.querySelector('#gcal-count').textContent=filtered.length+' itens no mês · '+filtered.filter(function(e){return e.type==='stage';}).length+
         ' etapas · '+filtered.filter(function(e){return e.type==='activity';}).length+' atividades · '+
         filtered.filter(function(e){return e.type==='meeting';}).length+' compromissos';
-      root.querySelector('#gcal-body').innerHTML=buildCalendar(activeMonth,filtered);
+      root.querySelector('#gcal-body').innerHTML=buildCalendar(activeMonth,filtered,ops);
       if(selected && !filtered.some(function(e){return eventKey(e)===selected})) {
         selected=null;
         var box=root.querySelector('#gcal-detail');box.hidden=true;box.innerHTML='';
@@ -217,7 +230,8 @@
         if(btn)btn.classList.add('gcal-selected');
       }
     }
-    root.addEventListener('change',function(ev){
+    // Os listeners usam propriedades para não se multiplicarem após atualizar a página.
+    root.onchange=function(ev){
       var target=ev.target;
       if(target.matches('[data-kind]'))visibleTypes[target.dataset.kind]=target.checked;
       else if(target.id==='gcal-stage-filter')stageFilter=target.value;
@@ -225,9 +239,104 @@
       selected=null;
       root.querySelector('#gcal-detail').hidden=true;
       redraw();
-    });
-    root.addEventListener('click',function(ev) {
-      var t=ev.target.closest('[data-action],[data-item],[data-day],[data-open]');
+    };
+
+    // DnD por Pointer Events: funciona com mouse e com a alça de toque,
+    // sem impedir o scroll normal nas demais áreas do calendário.
+    var dragging=null,ignoreClickUntil=0,highlight=null;
+    function hitDate(x,y) {
+      var weeks=root.querySelectorAll('.gcal-week');
+      for(var i=0;i<weeks.length;i++){
+        var rect=weeks[i].getBoundingClientRect();
+        if(y<rect.top||y>rect.bottom)continue;
+        var n=Math.max(0,Math.min(6,Math.floor((x-rect.left)*7/rect.width)));
+        return {day:dayKey(shift(fromKey(weeks[i].dataset.weekStart),n)),week:weeks[i],index:n};
+      }
+      return null;
+    }
+    function unmark(){
+      if(highlight){highlight.classList.remove('gcal-drop-target');highlight.style.removeProperty('--gcal-drop-column');highlight=null}
+    }
+    function mark(dest){
+      if(!dest){unmark();return}
+      if(highlight!==dest.week){unmark();highlight=dest.week;highlight.classList.add('gcal-drop-target')}
+      highlight.style.setProperty('--gcal-drop-column',String(dest.index));
+    }
+    async function performMove(e,delta){
+      if(!delta)return;
+      var start=dayKey(shift(fromKey(e.start),delta)),end=dayKey(shift(fromKey(e.end),delta));
+      if(!confirm('Reprogramar '+kindLabel(e.type).toLowerCase()+' "'+e.title+'" de '+nice(e.start)+' para '+nice(start)+'?'+
+        '\nNovo período: '+nice(start)+' a '+nice(end)+'.'+
+        '\nAtividades dependentes e datas das etapas serão recalculadas.'))return;
+      try{
+        root.classList.add('gcal-saving');
+        selected=null;
+        await ops.move(e.type,e.id,delta);
+      }catch(err){alert('Não foi possível reprogramar: '+(err&&err.message||err))}
+      finally{if(root.isConnected)root.classList.remove('gcal-saving')}
+    }
+    function openDateEditor(e){
+      if(!canMove(e,ops))return;
+      selected=eventKey(e);
+      var panel=root.querySelector('#gcal-detail');
+      var form='<form class="gcal-reschedule-form" data-date-form="'+safe(eventKey(e))+'">'+
+        '<label>Nova data de início <input class="field" type="date" name="newStart" required value="'+safe(e.start)+'"></label>'+
+        '<div class="small muted">A duração atual será preservada; dependências serão respeitadas.</div>'+
+        '<div class="gcal-detail-actions"><button type="submit" class="btn primary">Confirmar reprogramação</button>'+
+        '<button type="button" class="btn" data-cancel-date="1">Cancelar</button></div></form>';
+      panel.innerHTML=detailHtml(e,ops)+form;
+      panel.hidden=false;
+      panel.querySelector('[name=newStart]').focus();
+      panel.scrollIntoView({block:'nearest',behavior:'smooth'});
+    }
+    root.onpointerdown=function(ev){
+      if(ev.button!==0||root.classList.contains('gcal-saving'))return;
+      var bar=ev.target.closest('.gcal-span[data-movable]');
+      if(!bar||!root.contains(bar))return;
+      // No celular, só a alça captura arraste. O resto continua rolável.
+      if(ev.pointerType==='touch'&&!ev.target.closest('.gcal-drag-handle'))return;
+      var origin=hitDate(ev.clientX,ev.clientY);
+      if(!origin)return;
+      dragging={pointer:ev.pointerId,bar:bar,item:bar.dataset.item,x:ev.clientX,y:ev.clientY,origin:origin.day,active:false};
+      try{bar.setPointerCapture(ev.pointerId)}catch(ignored){}
+    };
+    root.onpointermove=function(ev){
+      if(!dragging||dragging.pointer!==ev.pointerId)return;
+      var distance=Math.hypot(ev.clientX-dragging.x,ev.clientY-dragging.y);
+      if(!dragging.active&&distance<8)return;
+      dragging.active=true;
+      dragging.bar.classList.add('gcal-dragging');
+      ignoreClickUntil=Date.now()+900;
+      mark(hitDate(ev.clientX,ev.clientY));
+      if(ev.cancelable)ev.preventDefault();
+    };
+    root.onpointercancel=function(){
+      if(dragging)dragging.bar.classList.remove('gcal-dragging');
+      dragging=null;unmark();
+    };
+    root.onpointerup=function(ev){
+      if(!dragging||dragging.pointer!==ev.pointerId)return;
+      var state=dragging;dragging=null;
+      state.bar.classList.remove('gcal-dragging');
+      var dest=state.active?hitDate(ev.clientX,ev.clientY):null;
+      unmark();
+      if(!state.active||!dest)return;
+      ignoreClickUntil=Date.now()+900;
+      var e=all.find(function(x){return eventKey(x)===state.item});
+      if(e)performMove(e,dayDiff(dest.day,state.origin));
+    };
+    root.onsubmit=function(ev){
+      var form=ev.target.closest('[data-date-form]');
+      if(!form)return;
+      ev.preventDefault();
+      var e=all.find(function(x){return eventKey(x)===form.dataset.dateForm});
+      var wanted=key(form.elements.newStart.value);
+      if(!e||!wanted){alert('Informe uma data válida.');return}
+      performMove(e,dayDiff(wanted,e.start));
+    };
+    root.onclick=function(ev) {
+      if(Date.now()<ignoreClickUntil){ev.preventDefault();return}
+      var t=ev.target.closest('[data-action],[data-item],[data-day],[data-open],[data-reschedule],[data-cancel-date]');
       if(!t || !root.contains(t)) return;
       if(t.dataset.action) {
         if(t.dataset.action==='new') {ops.open('AGENDA');return;}
@@ -235,6 +344,16 @@
         else activeMonth=utc(activeMonth.getUTCFullYear(),activeMonth.getUTCMonth()+(t.dataset.action==='prev'?-1:1),1);
         selected=null;var detail=root.querySelector('#gcal-detail');detail.hidden=true;detail.innerHTML='';
         redraw();return;
+      }
+      if(t.hasAttribute('data-cancel-date')){
+        var selectedItem=all.find(function(x){return eventKey(x)===selected});
+        var panel=root.querySelector('#gcal-detail');
+        panel.innerHTML=selectedItem?detailHtml(selectedItem,ops):'';return;
+      }
+      if(t.dataset.reschedule){
+        var target=all.find(function(x){return eventKey(x)===t.dataset.reschedule});
+        if(target)openDateEditor(target);
+        return;
       }
       if(t.dataset.open){
         var record=all.find(function(x){return eventKey(x)===t.dataset.open;});
@@ -244,6 +363,10 @@
       if(t.dataset.item) {
         var e=all.find(function(x){return eventKey(x)===t.dataset.item;});
         if(!e)return;
+        var module=e.type==='stage'?'stages':e.type==='activity'?'activities':'agenda';
+        if(t.classList.contains('gcal-span')&&ops.can(module+'.edit')){
+          ops.open(kindTable(e.type),e.id);return;
+        }
         selected=eventKey(e);
         root.querySelectorAll('.gcal-selected').forEach(function(b){b.classList.remove('gcal-selected');});
         t.classList.add('gcal-selected');
@@ -262,7 +385,7 @@
             '<p class="small muted">Nenhuma atividade ou compromisso neste dia.</p>');
         panel.hidden=false;
       }
-    });
+    };
     redraw();
   }
   window.GRVMAX_Agenda={render:render};
