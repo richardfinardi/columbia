@@ -11,9 +11,15 @@ function date(v){var t=String(v||'');return /^\d{4}-\d\d-\d\d/.test(t)?t.slice(8
 function timestamp(v){var t=String(v||'');return date(t)+(t.length>=16?' '+t.slice(11,16):'')}
 function number(x){return String(x||'').padStart(2,'0')}
 function sortedStages(s){return (s.stages||[]).slice().sort(function(a,b){return Number(a.ORDEM||99)-Number(b.ORDEM||99)})}
-function sortedActivities(s,id){return (s.activities||[]).filter(function(a){return a.ETAPA_ID===id}).sort(function(a,b){return String(a.DATA_ORIENTACAO||a.PRAZO||'').localeCompare(String(b.DATA_ORIENTACAO||b.PRAZO||''))||String(a.TITULO||'').localeCompare(String(b.TITULO||''),'pt-BR')})}
+function sortedActivities(s,id){return (s.activities||[]).filter(function(a){return a.ETAPA_ID===id})}
+function activityCode(s,a){
+ var st=(s.stages||[]).find(function(x){return x.ID===a.ETAPA_ID});
+ if(!st)return '';
+ var i=sortedActivities(s,a.ETAPA_ID).findIndex(function(x){return x.ID===a.ID});
+ return i<0?'':number(st.ORDEM)+'.'+number(i+1);
+}
 function who(s,id){var u=(s.people||[]).find(function(p){return p.ID===id});return u?u.NOME:'A definir'}
-function linked(s,ids){return String(ids||'').split(/[,;|]/).map(function(x){return x.trim()}).filter(Boolean).map(function(id){var st=(s.stages||[]).find(function(x){return x.ID===id});var a=(s.activities||[]).find(function(x){return x.ID===id});return st?number(st.ORDEM)+' — '+st.TITULO:a?a.TITULO:'(referência não encontrada)'}).join('; ')||'Nenhuma'}
+function linked(s,ids){return String(ids||'').split(/[,;|]/).map(function(x){return x.trim()}).filter(Boolean).map(function(id){var st=(s.stages||[]).find(function(x){return x.ID===id});var a=(s.activities||[]).find(function(x){return x.ID===id});return st?number(st.ORDEM)+' — '+st.TITULO:a?activityCode(s,a)+' - '+a.TITULO:'(referência não encontrada)'}).join('; ')||'Nenhuma'}
 function prose(lines){return (lines||[]).map(function(t){if(/^3\.[123]\s/.test(t))return '<h3>'+e(t)+'</h3>';return '<p>'+e(t)+'</p>'}).join('')}
 function stageProgress(s,st){var list=sortedActivities(s,st.ID).filter(function(a){return a.STATUS!=='Cancelada'});return list.length?Math.round(list.filter(function(a){return a.STATUS==='Homologada'}).length*100/list.length):0}
 function finishStatus(s){var a=(s.activities||[]).filter(function(x){return x.STATUS!=='Cancelada'}),n=a.filter(function(x){return x.STATUS==='Homologada'}).length;return {total:a.length,done:n,pct:a.length?Math.round(n*100/a.length):0,waiting:a.filter(function(x){return x.STATUS==='Aguardando validação'}).length}}
@@ -81,7 +87,7 @@ function report(s){
   if(st.DESCRICAO&&!narrative.some(function(t){return t===st.DESCRICAO}))html+='<p><b>Descrição no GRVMAX:</b> '+e(st.DESCRICAO)+'</p>';
   html+='<div class="facts"><div><b>Período previsto:</b> '+date(st.DATA_INICIO)+' a '+date(st.DATA_FIM)+' · <b>Situação:</b> '+status(st.STATUS)+' · <b>Execução:</b> '+stageProgress(s,st)+'%</div><div><b>Responsável:</b> '+e(who(s,st.RESPONSAVEL_ID))+'</div><div><b>Predecessoras:</b> '+e(linked(s,st.DEPENDE_DE))+'</div><div><b>Entregável vigente:</b> '+e(st.ENTREGAVEL||'Não informado')+'</div></div>';
   if(tasks.length){html+='<table><thead><tr><th style="width:38%">Atividade / evidência / aceite</th><th style="width:19%">Responsável</th><th style="width:13%">Orientação</th><th style="width:13%">Validação</th><th style="width:17%">Situação</th></tr></thead><tbody>';
-   tasks.forEach(function(a){var last=latest(s,a),desc='<b>'+e(a.TITULO)+'</b>';
+   tasks.forEach(function(a){var last=latest(s,a),desc='<b>'+e(activityCode(s,a)+' - '+a.TITULO)+'</b>';
     if(a.DESCRICAO)desc+='<div class="note"><b>Instruções:</b> '+e(a.DESCRICAO)+'</div>';
     if(a.CRITERIO_ACEITE)desc+='<div class="note"><b>Aceite:</b> '+e(a.CRITERIO_ACEITE)+'</div>';
     if(a.DEPENDE_DE)desc+='<div class="note"><b>Depende de:</b> '+e(linked(s,a.DEPENDE_DE))+'</div>';
