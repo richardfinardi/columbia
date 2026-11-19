@@ -575,6 +575,15 @@ function grvMoveSchedule(who,p){
         PRAZO:grvPlanAddDays(a.PRAZO,offset)};
       if(!grvValidPlanDate(next.DATA_ORIENTACAO)||!grvValidPlanDate(next.PRAZO))
         throw Error('O deslocamento extrapola as datas permitidas.');
+      // Não marcar orientação nem validação no recesso anual da implantação.
+      if(grvPlanRecess(next.DATA_ORIENTACAO)){
+        next.DATA_ORIENTACAO=grvPlanWeekday(next.DATA_ORIENTACAO,2,false);
+        next.PRAZO=grvPlanValidation(next.DATA_ORIENTACAO);
+      }else if(grvPlanRecess(next.PRAZO)){
+        next.PRAZO=grvPlanWeekday(next.PRAZO,4,false);
+      }
+      if(next.PRAZO<next.DATA_ORIENTACAO)
+        next.PRAZO=grvPlanValidation(next.DATA_ORIENTACAO);
       current.set(a.ID,next);forced.add(a.ID);
     }
     function shiftStage(st,offset){
