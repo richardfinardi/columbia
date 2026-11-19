@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="../LOGO MINIMALISTA.png">
   <title>Conferência de Revenda | Columbia Machine</title>
   <link rel="stylesheet" href="./style.css?v=20261119-4">
-  <script defer src="./app.js?v=20261119-5"></script>
+  <script defer src="./app.js?v=20261119-6"></script>
 </head>
 <body>
   <header class="topbar">
@@ -136,7 +136,7 @@
       <form id="bulkForm" novalidate>
         <div class="editor-content">
           <div id="bulkError" class="error-message" role="alert" hidden></div>
-          <p class="bulk-warning">Campos não marcados permanecem como estão no CPS. Todas as alterações deste lote são gravadas juntas, sem modificar campos não selecionados.</p>
+          <p class="bulk-warning">O lote substitui no CPS somente os campos marcados, mesmo que o cadastro tenha mudado após a consulta. Campos não marcados permanecem inalterados. Confira os códigos selecionados antes de aplicar.</p>
           <div class="bulk-field">
             <label class="bulk-check"><input type="checkbox" data-bulk-check="ncm_codigo"><span>Alterar NCM, descrição e IPI</span></label>
             <div class="lookup-block field-wide">
