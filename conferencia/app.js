@@ -6,7 +6,8 @@
     materiais: ROOT + "/revenda",
     ncm: ROOT + "/ncm",
     cbs: ROOT + "/cbsibs",
-    salvar: ROOT + "/revenda/atualizar"
+    salvar: ROOT + "/revenda/atualizar",
+    salvarLote: ROOT + "/revenda/atualizar-lote"
   };
   const TOKEN_KEY = "columbia_analista_token";
   const USER_KEY = "columbia_analista_usuario";
@@ -15,8 +16,27 @@
     materials: [], ncm: [], cbs: [], loading: false, referenceReady: false,
     page: 1, pageSize: 50, query: "", status: "pending",
     sort: "nome", direction: 1, material: null,
-    selectedNcm: null, selectedCbs: null, inFlight: false, toastTimer: null
+    selectedNcm: null, selectedCbs: null, inFlight: false, toastTimer: null,
+    selected: new Set(), columnFilters: {}, openFilter: null, searchTimer: null,
+    bulkNcm: null, bulkCbs: null, bulkInFlight: false
   };
+
+
+  const COLS = [
+    ["codigo_interno","Código interno"],
+    ["nome","Material"],
+    ["grupo","Grupo"],
+    ["subgrupo1","Subgrupo 1"],
+    ["subgrupo2","Subgrupo 2"],
+    ["unidade","Unidade"],
+    ["classificacao_fiscal","NCM"],
+    ["ipi","IPI (%)"],
+    ["cean_i03","GTIN"],
+    ["cbenef_i05f","Benefício fiscal"],
+    ["cclass_trib_ibscbs","CBS / IBS"],
+    ["u_revisado","Situação"]
+  ];
+  const BULK_MAX = 5000;
 
   function escapeHtml(value) {
     return String(value == null ? "" : value)
@@ -66,7 +86,10 @@
       cbenef_i05f: text(value(row, "Cód. de Beneficio Fiscal na UF", "cbenef_i05f")),
       cclass_trib_ibscbs: text(value(row, "Cód. Da Classificação Tributária CBS/IBS", "cclass_trib_ibscbs")),
       desc_cclass_trib_ibscbs: text(value(row, "Descrição Da Classificação Tributária CBS/IBS", "desc_cclass_trib_ibscbs")),
-      u_revisado: value(row, "u_revisado") ?? 0
+      u_revisado: value(row, "u_revisado") ?? 0,
+      grupo: text(value(row, "grupo")),
+      subgrupo1: text(value(row, "subgrupo1")),
+      subgrupo2: text(value(row, "subgrupo2"))
     };
   }
   function normalizeNcm(row) {
@@ -165,6 +188,7 @@
       if (materialsResult.status === "fulfilled") {
         state.materials = rowList(materialsResult.value, "Revenda").map(normalizeMaterial)
           .filter((r) => r.codigo !== undefined && r.codigo !== null);
+        state.selected.clear();
       } else {
         alertBox("dataError", "Falha na consulta de materiais: " + materialsResult.reason.message);
       }
@@ -192,61 +216,147 @@
       $("reload").disabled = false;
     }
   }
+  function columnValue(row, key) {
+    if (key === "u_revisado") return isDone(row) ? "Revisado" : "Pendente";
+    return text(row[key]) || "(Vazio)";
+  }
+  function matchesGlobal(row) {
+    if (state.status === "pending" && isDone(row)) return false;
+    if (state.status === "done" && !isDone(row)) return false;
+    const q = normalized(state.query);
+    if (!q) return true;
+    return normalized([
+      row.codigo, row.codigo_interno, row.nome, row.grupo, row.subgrupo1,
+      row.subgrupo2, row.classificacao_fiscal, row.descricao_classi_fiscal,
+      row.cean_i03, row.cbenef_i05f, row.cclass_trib_ibscbs,
+      row.desc_cclass_trib_ibscbs
+    ].join(" ")).includes(q);
+  }
+  function matchesColumns(row, except) {
+    return Object.entries(state.columnFilters).every(([key, items]) =>
+      key === except || !(items && items.size) || items.has(columnValue(row, key)));
+  }
   function filtered() {
-    let rows = state.materials;
-    if (state.status === "pending") rows = rows.filter((x) => !isDone(x));
-    if (state.status === "done") rows = rows.filter(isDone);
-    const search = normalized(state.query);
-    if (search) {
-      rows = rows.filter((r) => normalized([
-        r.codigo, r.codigo_interno, r.nome, r.classificacao_fiscal,
-        r.descricao_classi_fiscal, r.cean_i03,
-        r.cclass_trib_ibscbs, r.desc_cclass_trib_ibscbs,
-        r.cbenef_i05f
-      ].join(" ")).includes(search));
-    }
-    return rows.slice().sort((a, b) => {
+    const rows = state.materials.filter((r) => matchesGlobal(r) && matchesColumns(r));
+    return rows.sort((a,b) => {
       const av = a[state.sort], bv = b[state.sort];
-      if (state.sort === "u_revisado" || state.sort === "codigo") return (number(av) - number(bv)) * state.direction;
-      return String(av ?? "").localeCompare(String(bv ?? ""), "pt-BR", { numeric: true, sensitivity: "base" }) * state.direction;
+      if (state.sort === "u_revisado" || state.sort === "codigo" || state.sort === "ipi") {
+        return (number(av)-number(bv))*state.direction;
+      }
+      return String(av ?? "").localeCompare(String(bv ?? ""), "pt-BR", {numeric:true,sensitivity:"base"})*state.direction;
     });
   }
+  function pageRows(rows) {
+    const start=(state.page-1)*state.pageSize;
+    return rows.slice(start,start+state.pageSize);
+  }
   function cell(v) { return escapeHtml(text(v) || "—"); }
+  function tableCell(row,key) {
+    if (key==="codigo_interno") return '<div class="item-code">'+cell(row.codigo_interno||row.codigo)+'</div><div class="item-sub">ID '+cell(row.codigo)+'</div>';
+    if (key==="nome") return '<div class="item-name">'+cell(row.nome)+'</div>';
+    if (key==="ipi") return escapeHtml(formatIpi(row.ipi));
+    if (key==="u_revisado") return '<span class="status '+(isDone(row)?"done":"pending")+'">'+(isDone(row)?"Revisado":"Pendente")+'</span>';
+    let title="";
+    if (key==="classificacao_fiscal") title=row.descricao_classi_fiscal;
+    if (key==="cclass_trib_ibscbs") title=row.desc_cclass_trib_ibscbs;
+    return '<div class="single-line" title="'+escapeHtml(title||row[key]||"")+'">'+cell(row[key])+'</div>';
+  }
+  function initHeaders() {
+    const head=$("materialHead");
+    head.innerHTML='<tr><th class="check-col"><input id="pageSelectToggle" class="head-check" type="checkbox" title="Selecionar/desmarcar materiais desta página" aria-label="Selecionar materiais desta página"></th>'+
+      COLS.map(([key,label])=>'<th><button type="button" data-sort="'+key+'">'+escapeHtml(label)+' <span>↕</span></button></th>').join("")+
+      '<th>Ação</th></tr><tr class="column-filters"><th></th>'+
+      COLS.map(([key])=>'<th><button type="button" class="col-filter-trigger" data-filter-open="'+key+'"><span>Todos</span> ▾</button></th>').join("")+
+      '<th></th></tr>';
+  }
   function render() {
-    const all = state.materials.length;
-    const reviewed = state.materials.filter(isDone).length;
-    const pending = all - reviewed;
-    const percent = all ? Math.round(100 * reviewed / all) : 0;
-    $("kTotal").textContent = formatNumber(all);
-    $("kPending").textContent = formatNumber(pending);
-    $("kDone").textContent = formatNumber(reviewed);
-    $("kRate").textContent = percent + "%";
-    $("progressBar").style.width = percent + "%";
-    const rows = filtered();
-    $("showingCount").textContent = formatNumber(rows.length) + " registros";
-    const pageCount = Math.max(1, Math.ceil(rows.length / state.pageSize));
-    state.page = Math.max(1, Math.min(state.page, pageCount));
-    const start = (state.page - 1) * state.pageSize;
-    const items = rows.slice(start, start + state.pageSize);
-    const tbody = $("rows");
-    if (!items.length) {
-      tbody.innerHTML = '<tr><td colspan="9" class="empty">Nenhum material encontrado para estes filtros.</td></tr>';
-    } else {
-      tbody.innerHTML = items.map((r) => '<tr>' +
-        '<td><div class="item-code">' + cell(r.codigo_interno || r.codigo) + '</div><div class="item-sub">ID ' + cell(r.codigo) + '</div></td>' +
-        '<td><div class="item-name">' + cell(r.nome) + '</div></td>' +
-        '<td>' + cell(r.unidade) + '</td>' +
-        '<td title="' + escapeHtml(r.descricao_classi_fiscal) + '">' + cell(r.classificacao_fiscal) + '</td>' +
-        '<td>' + escapeHtml(formatIpi(r.ipi)) + '</td>' +
-        '<td>' + cell(r.cean_i03) + '</td>' +
-        '<td><div class="single-line" title="' + escapeHtml(r.desc_cclass_trib_ibscbs) + '">' + cell(r.cclass_trib_ibscbs) + '</div></td>' +
-        '<td><span class="status ' + (isDone(r) ? "done" : "pending") + '">' + (isDone(r) ? "Revisado" : "Pendente") + '</span></td>' +
-        '<td><button type="button" class="table-action" data-id="' + escapeHtml(r.codigo) + '">' + (isDone(r) ? "Reabrir" : "Conferir") + '</button></td>' +
-        '</tr>').join("");
-    }
-    $("pageInfo").textContent = rows.length ? formatNumber(start + 1) + " a " + formatNumber(start + items.length) + " de " + formatNumber(rows.length) : "Nenhum registro";
-    $("previous").disabled = state.page <= 1;
-    $("next").disabled = state.page >= pageCount;
+    const all=state.materials.length;
+    const reviewed=state.materials.filter(isDone).length;
+    const percent=all?Math.round(100*reviewed/all):0;
+    $("kTotal").textContent=formatNumber(all);
+    $("kPending").textContent=formatNumber(all-reviewed);
+    $("kDone").textContent=formatNumber(reviewed);
+    $("kRate").textContent=percent+"%";
+    $("progressBar").style.width=percent+"%";
+    const rows=filtered();
+    $("showingCount").textContent=formatNumber(rows.length)+" registros";
+    const pageCount=Math.max(1,Math.ceil(rows.length/state.pageSize));
+    state.page=Math.max(1,Math.min(state.page,pageCount));
+    const start=(state.page-1)*state.pageSize, items=pageRows(rows);
+    $("rows").innerHTML=items.length?items.map((row)=>
+      '<tr><td class="check-col"><input type="checkbox" class="row-check" data-select-id="'+escapeHtml(row.codigo)+'" aria-label="Selecionar '+escapeHtml(row.codigo_interno||row.codigo)+'" '+(state.selected.has(String(row.codigo))?"checked":"")+'></td>'+
+      COLS.map(([key])=>'<td>'+tableCell(row,key)+'</td>').join("")+
+      '<td><button type="button" class="table-action" data-id="'+escapeHtml(row.codigo)+'">'+(isDone(row)?"Reabrir":"Conferir")+'</button></td></tr>'
+    ).join(""):'<tr><td colspan="'+(COLS.length+2)+'" class="empty">Nenhum material encontrado para estes filtros.</td></tr>';
+    $("pageInfo").textContent=rows.length?formatNumber(start+1)+" a "+formatNumber(start+items.length)+" de "+formatNumber(rows.length):"Nenhum registro";
+    $("previous").disabled=state.page<=1;
+    $("next").disabled=state.page>=pageCount;
+    const pageCheck=$("pageSelectToggle"), numSelected=items.filter((x)=>state.selected.has(String(x.codigo))).length;
+    pageCheck.checked=items.length>0&&numSelected===items.length;
+    pageCheck.indeterminate=numSelected>0&&numSelected<items.length;
+    $("selectedCount").textContent=formatNumber(state.selected.size)+" materiais selecionados";
+    $("openBulk").disabled=!state.selected.size||!state.referenceReady||state.selected.size>BULK_MAX;
+    $("openBulk").title=state.selected.size>BULK_MAX?"Máximo de "+BULK_MAX+" materiais por lote":"";
+    document.querySelectorAll("[data-filter-open]").forEach((button)=>{
+      const selected=state.columnFilters[button.dataset.filterOpen];
+      const count=selected?selected.size:0;
+      button.classList.toggle("active",!!count);
+      button.querySelector("span").textContent=count?count+" selecionado"+(count===1?"":"s"):"Todos";
+    });
+  }
+  function availableColumnValues(key) {
+    const counts=new Map();
+    state.materials.forEach((row)=>{
+      if (!matchesGlobal(row)||!matchesColumns(row,key)) return;
+      const v=columnValue(row,key);
+      counts.set(v,(counts.get(v)||0)+1);
+    });
+    const selected=state.columnFilters[key]||new Set();
+    selected.forEach((val)=>{if(!counts.has(val))counts.set(val,0)});
+    return [...counts].sort((a,b)=>a[0].localeCompare(b[0],"pt-BR",{numeric:true,sensitivity:"base"}));
+  }
+  function positionFilter(anchor) {
+    const pop=$("filterPopover"), rect=anchor.getBoundingClientRect();
+    const w= Math.min(360,window.innerWidth-24), h=Math.min(490,window.innerHeight*.8);
+    pop.style.left=Math.max(12,Math.min(rect.left,window.innerWidth-w-12))+"px";
+    pop.style.top=(rect.bottom+8+h>window.innerHeight?Math.max(10,rect.top-h-8):rect.bottom+8)+"px";
+  }
+  function openColumnFilter(key,anchor) {
+    state.openFilter=key;
+    $("filterPopoverTitle").textContent="Filtrar: "+(COLS.find((x)=>x[0]===key)||[])[1];
+    $("filterOptionSearch").value="";
+    $("filterPopover").hidden=false;
+    positionFilter(anchor);
+    renderColumnOptions();
+    $("filterOptionSearch").focus();
+  }
+  function closeColumnFilter() {
+    state.openFilter=null;$("filterPopover").hidden=true;
+  }
+  function matchingColumnValues() {
+    if (!state.openFilter) return [];
+    const q=normalized($("filterOptionSearch").value);
+    return availableColumnValues(state.openFilter).filter(([v])=>normalized(v).includes(q));
+  }
+  function renderColumnOptions() {
+    const key=state.openFilter;if(!key)return;
+    const values=matchingColumnValues(),shown=values.slice(0,90);
+    const selected=state.columnFilters[key]||new Set();
+    $("filterOptionInfo").textContent=formatNumber(values.length)+" opções encontradas"+(values.length>90?" · exibindo 90":"");
+    $("filterOptionList").innerHTML=shown.length?shown.map(([v,count])=>
+      '<label class="filter-option"><input type="checkbox" data-filter-value="'+escapeHtml(v)+'" '+(selected.has(v)?"checked":"")+'><span class="option-text">'+escapeHtml(v)+'</span><span class="option-qty">'+count+'</span></label>'
+    ).join(""):'<div class="lookup-empty">Nenhuma opção encontrada</div>';
+  }
+  function updateColumnFilter(key,values) {
+    if(values.size) state.columnFilters[key]=values;
+    else delete state.columnFilters[key];
+    state.page=1;render();renderColumnOptions();
+  }
+  function selectPage(checked) {
+    pageRows(filtered()).forEach((row)=>{
+      if(checked)state.selected.add(String(row.codigo));
+      else state.selected.delete(String(row.codigo));
+    });render();
   }
   function ncmLabel(ncm) { return ncm.numero + " · " + ncm.descricao; }
   function cbsLabel(cbs) { return cbs.codigo + " · " + cbs.descricao; }
