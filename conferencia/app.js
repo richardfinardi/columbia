@@ -346,10 +346,6 @@
       $("cbsSearch").focus(); return;
     }
     const gtin = $("gtin").value.trim();
-    if (gtin && !/^[0-9]{8,14}$/.test(gtin)) {
-      alertBox("saveError", "O GTIN deve ter apenas números, entre 8 e 14 dígitos.");
-      $("gtin").focus(); return;
-    }
     const payload = {
       codigo: Number(state.material.codigo),
       ncm_codigo: Number(state.selectedNcm.codigo),
