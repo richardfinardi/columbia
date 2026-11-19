@@ -31,7 +31,7 @@
         </div>
         <div class="hero-actions">
           <button id="reload" class="btn btn-light" type="button">↻ Atualizar</button>
-          <button id="export" class="btn btn-outline" type="button">↓ Exportar CSV</button>
+          
         </div>
       </div>
 
@@ -48,26 +48,23 @@
           <span id="showingCount" class="count-pill">0 registros</span>
         </div>
         <div class="filters">
-          <label class="filter search"><span>Pesquisar material</span><input id="search" type="search" placeholder="Código, descrição, NCM, GTIN, CBS..." autocomplete="off"></label>
+          <label class="filter search"><span>Pesquisa incremental</span><input id="search" type="search" placeholder="Código, nome, grupo, subgrupo, NCM, GTIN, CBS..." autocomplete="off"></label>
           <label class="filter"><span>Situação</span><select id="statusFilter"><option value="all">Todos os materiais</option><option value="pending" selected>Somente pendentes</option><option value="done">Somente revisados</option></select></label>
           <label class="filter"><span>Exibir</span><select id="pageSize"><option>25</option><option selected>50</option><option>100</option></select></label>
-          <button id="clearFilters" type="button" class="btn btn-text">Limpar filtros</button>
+          <button id="clearFilters" type="button" class="btn btn-text">Limpar todos os filtros</button>
+        </div>
+        <div class="selection-bar">
+          <span id="selectedCount" class="selection-count">0 materiais selecionados</span>
+          <button id="selectPage" class="btn btn-text" type="button">Selecionar página</button>
+          <button id="selectFiltered" class="btn btn-text" type="button">Selecionar todos filtrados</button>
+          <button id="clearSelection" class="btn btn-text" type="button">Desmarcar</button>
+          <button id="openBulk" class="btn btn-primary" type="button" disabled>Alteração em massa</button>
         </div>
         <div id="dataError" class="error-message" role="alert" hidden></div>
         <div class="table-scroll" tabindex="0" aria-label="Tabela de materiais, role horizontalmente para ver mais colunas">
           <table>
-            <thead><tr>
-              <th><button data-sort="codigo_interno">Código interno <span>↕</span></button></th>
-              <th><button data-sort="nome">Material <span>↕</span></button></th>
-              <th>Unidade</th>
-              <th><button data-sort="ncm">NCM <span>↕</span></button></th>
-              <th>IPI</th>
-              <th>GTIN</th>
-              <th>CBS / IBS</th>
-              <th><button data-sort="u_revisado">Situação <span>↕</span></button></th>
-              <th>Ação</th>
-            </tr></thead>
-            <tbody id="rows"><tr><td colspan="9" class="empty">Carregando materiais...</td></tr></tbody>
+            <thead id="materialHead"></thead>
+            <tbody id="rows"><tr><td colspan="14" class="empty">Carregando materiais...</td></tr></tbody>
           </table>
         </div>
         <div class="pager"><span id="pageInfo"></span><div><button class="btn btn-text" id="previous" type="button">← Anterior</button><button class="btn btn-text" id="next" type="button">Próxima →</button></div></div>
@@ -126,6 +123,70 @@
         </footer>
       </form>
     </section>
+  </div>
+
+  <div id="bulkOverlay" class="overlay" hidden>
+    <section class="editor" role="dialog" aria-modal="true" aria-labelledby="bulkTitle">
+      <div class="editor-header">
+        <div><span class="eyebrow">ALTERAÇÃO EM MASSA · CONFERÊNCIA FISCAL</span>
+          <h2 id="bulkTitle">Atualizar materiais selecionados</h2>
+          <p id="bulkSubtitle">Selecione somente os campos que devem ser alterados.</p></div>
+        <button type="button" id="closeBulk" class="icon-btn" aria-label="Fechar">×</button>
+      </div>
+      <form id="bulkForm" novalidate>
+        <div class="editor-content">
+          <div id="bulkError" class="error-message" role="alert" hidden></div>
+          <p class="bulk-warning">Campos não marcados permanecem como estão no CPS. Todas as alterações deste lote são gravadas juntas, sem modificar campos não selecionados.</p>
+          <div class="bulk-field">
+            <label class="bulk-check"><input type="checkbox" data-bulk-check="ncm_codigo"><span>Alterar NCM, descrição e IPI</span></label>
+            <div class="lookup-block field-wide">
+              <label for="bulkNcmSearch">Pesquisar NCM no CPS</label>
+              <input id="bulkNcmSearch" type="search" placeholder="Digite NCM ou descrição" autocomplete="off" disabled>
+              <div id="bulkNcmResults" class="lookup-results" role="listbox" hidden></div>
+              <small id="bulkNcmPicked">Selecione um código da tabela CPS.</small>
+            </div>
+          </div>
+          <div class="bulk-field">
+            <label class="bulk-check"><input type="checkbox" data-bulk-check="cbs_codigo"><span>Alterar classificação CBS/IBS</span></label>
+            <div class="lookup-block field-wide">
+              <label for="bulkCbsSearch">Pesquisar código CBS/IBS no CPS</label>
+              <input id="bulkCbsSearch" type="search" placeholder="Digite código ou descrição" autocomplete="off" disabled>
+              <div id="bulkCbsResults" class="lookup-results" role="listbox" hidden></div>
+              <small id="bulkCbsPicked">Selecione um código ou limpe a classificação.</small>
+              <button id="bulkClearCbs" type="button" class="link-button" disabled>Limpar classificação CBS/IBS dos selecionados</button>
+            </div>
+          </div>
+          <div class="bulk-field">
+            <label class="bulk-check"><input type="checkbox" data-bulk-check="cean_i03"><span>Alterar GTIN</span></label>
+            <label class="field"><span>Novo GTIN (vazio para limpar)</span><input id="bulkGtin" maxlength="30" placeholder="GTIN ou SEM GTIN" disabled></label>
+          </div>
+          <div class="bulk-field">
+            <label class="bulk-check"><input type="checkbox" data-bulk-check="cbenef_i05f"><span>Alterar benefício fiscal na UF</span></label>
+            <label class="field"><span>Novo código (vazio para limpar)</span><input id="bulkBenefit" maxlength="50" placeholder="Código de benefício" disabled></label>
+          </div>
+          <div class="bulk-field">
+            <label class="bulk-check"><input type="checkbox" data-bulk-check="revisado"><span>Alterar situação da revisão</span></label>
+            <label class="field"><span>Situação desejada</span>
+              <select id="bulkReviewed" disabled><option value="1">Marcar como revisado</option><option value="0">Marcar como pendente</option></select>
+            </label>
+          </div>
+        </div>
+        <footer class="editor-footer">
+          <button id="cancelBulk" class="btn btn-text" type="button">Cancelar</button>
+          <button id="applyBulk" class="btn btn-primary" type="submit">Aplicar alterações no CPS</button>
+        </footer>
+      </form>
+    </section>
+  </div>
+  <div id="filterPopover" class="filter-popover" hidden>
+    <div class="filter-pop-header"><strong id="filterPopoverTitle">Filtrar coluna</strong><button id="closeFilter" type="button" class="icon-btn" aria-label="Fechar filtro">×</button></div>
+    <input type="search" id="filterOptionSearch" placeholder="Pesquisar opções..." autocomplete="off">
+    <div id="filterOptionInfo" class="filter-option-info"></div>
+    <div id="filterOptionList" class="filter-option-list"></div>
+    <div class="filter-pop-actions">
+      <button id="filterPickVisible" class="btn btn-text" type="button">Selecionar encontradas</button>
+      <button id="filterReset" class="btn btn-text" type="button">Limpar coluna</button>
+    </div>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 </body>
