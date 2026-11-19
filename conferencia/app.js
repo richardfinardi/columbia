@@ -566,6 +566,7 @@
     $("bulkCbsPicked").textContent="Selecione um código ou limpe a classificação.";
     $("bulkSubtitle").textContent=formatNumber(rows.length)+" materiais selecionados. Campos não marcados não serão alterados.";
     alertBox("bulkError","");
+    alertBox("bulkFooterError","");
     $("bulkOverlay").hidden=false;
     document.body.style.overflow="hidden";
     $("closeBulk").focus();
@@ -603,7 +604,11 @@
     if(!checked.size)throw new Error("Marque pelo menos um campo para alterar.");
     if(checked.has("ncm_codigo")) {
       if(!state.bulkNcm)throw new Error("Selecione um NCM válido na lista CPS.");
-      changes.ncm_codigo=Number(state.bulkNcm.codigo);
+      const ncmIdText=text(state.bulkNcm.codigo);
+      const ncmId=Number(ncmIdText);
+      if(!ncmIdText||!Number.isSafeInteger(ncmId)||ncmId<0)
+        throw new Error("O NCM escolhido não possui código interno válido no CPS.");
+      changes.ncm_codigo=ncmId;
     }
     if(checked.has("cbs_codigo")) {
       if($("bulkCbsSearch").value.trim()&&!state.bulkCbs)throw new Error("Selecione a classificação CBS/IBS ou limpe o campo.");
@@ -615,17 +620,28 @@
     const selected=selectedMaterials();
     if(!selected.length)throw new Error("Nenhum material selecionado.");
     if(selected.length>BULK_MAX)throw new Error("Máximo de "+BULK_MAX+" materiais por lote.");
-    return {itens:selected.map((row)=>({codigo:Number(row.codigo),esperado:captureExpected(row)})),alteracoes:changes};
+    const itens=selected.map((row)=>{
+      const codigo=Number(row.codigo);
+      if(!Number.isSafeInteger(codigo)||codigo<=0)
+        throw new Error("Material com código inválido: "+(row.codigo_interno||row.nome));
+      return {codigo,esperado:captureExpected(row)};
+    });
+    return {itens,alteracoes:changes};
+  }
+
+  function showBulkError(message) {
+    alertBox("bulkError",message);
+    alertBox("bulkFooterError",message);
   }
   async function submitBulk(event) {
     event.preventDefault();
     if(state.bulkInFlight)return;
     let payload;
-    try{payload=bulkPayload()}catch(error){alertBox("bulkError",error.message);return}
+    try{payload=bulkPayload()}catch(error){showBulkError(error.message);return}
     const count=payload.itens.length,fields=Object.keys(payload.alteracoes);
     if(!window.confirm("Aplicar "+fields.length+" campo(s) em "+count+" material(is)?\nOs campos selecionados serão gravados diretamente no CPS."))return;
     state.bulkInFlight=true;
-    alertBox("bulkError","");
+    showBulkError("");
     ["applyBulk","cancelBulk","closeBulk"].forEach((id)=>$(id).disabled=true);
     const button=$("applyBulk"),old=button.textContent;
     button.textContent="Gravando "+formatNumber(count)+" materiais...";
@@ -641,8 +657,8 @@
       let msg=error.message;
       if(error.status===404||error.status===405)msg="A API ainda não possui POST /revenda/atualizar-lote. Nenhum material foi alterado.";
       if(error.status===409)msg+=" O lote inteiro foi cancelado para evitar sobrescrever alterações de outros usuários.";
-      alertBox("bulkError",msg);
-      showToast("Não foi possível concluir o lote.",true);
+      showBulkError("Gravação não concluída (HTTP "+(error.status||"falha")+"): "+msg);
+      showToast("Falha na atualização. Veja o motivo abaixo.",true);
     } finally {
       state.bulkInFlight=false;
       button.textContent=old;
@@ -770,7 +786,7 @@
         if(!button)return;
         if(type==="ncm")setBulkNcm(state.ncm.find((row)=>text(row.codigo)===button.dataset.code)||null);
         else setBulkCbs(state.cbs.find((row)=>row.codigo===button.dataset.code)||null);
-        alertBox("bulkError","");
+        showBulkError("");
       });
       input.addEventListener("blur",()=>setTimeout(()=>{list.hidden=true;},140));
     });
