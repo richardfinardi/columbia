@@ -41,3 +41,28 @@ td .item-sub{color:#91a3b6}
 td .single-line{max-width:230px}
 @media(max-width:860px){.selection-bar{padding:0 17px 13px}.selection-bar #openBulk{margin-left:0;flex:1}.selection-count{width:100%;max-width:max-content}}
 @media(max-width:520px){.selection-bar{gap:7px}.selection-bar .btn{font-size:11px}.selection-bar #openBulk{flex-basis:100%}.filter-popover{max-height:74vh}.filter-option-list{max-height:210px}}
+
+
+/* Filtros no cabeçalho, como o modelo Material Cliente da Sintercan */
+table{table-layout:auto;min-width:1500px;border-collapse:collapse}
+thead th{background:#e7edf4;color:#3c556f;border-right:1px solid #d2deeb;vertical-align:middle;padding:8px 9px;white-space:normal}
+thead th:first-child{padding-left:16px}
+thead th:last-child{padding-right:15px}
+.th-layout{display:flex;align-items:center;justify-content:space-between;gap:5px;min-width:75px}
+.th-sort{min-width:0;flex:1;text-align:left;line-height:1.3;font-weight:800;color:#334960;white-space:normal;padding:2px 0;border:0;background:transparent}
+.th-sort:hover{color:#005f9d}
+.th-sort .sort-glyph{font-size:10px;color:#9aacba;white-space:nowrap}
+.th-filter{height:25px;width:25px;flex:0 0 25px;display:grid;place-items:center;color:#71839b;background:transparent;border:0;border-radius:6px;padding:4px}
+.th-filter:hover{background:#fff;color:#005c9b}
+.th-filter.active{background:#f4c14e;color:#283345}
+.th-filter.active:hover{background:#eebf4c;color:#1b2b40}
+.filter-popover{width:min(305px,calc(100vw - 16px));max-height:min(460px,80vh);border-radius:12px;padding:12px;gap:9px}
+.filter-pop-select{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.filter-pop-select .btn{min-height:31px;padding:6px 9px;border:1px solid #d4e2f0;background:#f6f9fd;color:#48647f;font-size:11px}
+.filter-option-info{font-size:10px;text-align:right}
+.filter-option-list{max-height:240px}
+.filter-pop-actions{margin-top:3px}
+.filter-pop-actions .btn{min-height:37px;font-size:12px}
+.filter-pop-actions .btn-primary{background:#004d87;color:white}
+.selection-bar{border-top:1px solid #f1f5f8}
+@media(max-width:550px){table{min-width:1300px}.th-layout{min-width:72px}}
