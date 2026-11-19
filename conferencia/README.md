@@ -18,6 +18,8 @@ Os três devem responder em JSON com lista de registros. A página aceita lista 
 - **Não exibir exportação/download CSV ou Excel**: a conferência e as alterações devem ocorrer no próprio portal.
 - Filtros incluem `grupo`, `subgrupo1` e `subgrupo2`, trazidos do endpoint `/revenda`.
 - Seleção por linha, página ou todos os filtrados, com **alteração em massa** de NCM, CBS/IBS, GTIN, benefício fiscal e revisão. Apenas campos marcados são alterados.
+- **Lote em massa:** aplica os valores escolhidos aos campos marcados, mesmo que o cadastro tenha mudado depois da consulta. Não confere snapshots antigos por material, mas usa transação, bloqueio de linhas, validação de NCM/CBS e escopo fixo da revenda. Campos não selecionados não são gravados. Confirmação explícita no portal.
+- **Edição individual:** mantém verificação de concorrência (HTTP 409) e agora informa os campos divergentes. Comparação numérica aceita BOOLEAN em U_REVISADO.
 - Regra de interface para as próximas tabelas da Columbia: usar esse mesmo filtro compacto por coluna.
 - NCM: seleção pesquisável por código ou descrição. Puxa da tabela fiscal \`tcla_fis\` os valores \`codigo\`, \`numero\`, \`descricao\` e \`ipi\`.
 - CBS/IBS: seleção pesquisável na tabela \`tclasstrib_cbsibs\`, código \`codigo_cclastrib\` e respectiva descrição.
