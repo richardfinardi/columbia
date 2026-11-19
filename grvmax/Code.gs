@@ -456,10 +456,23 @@ function grvState(who){
   const seeActivities=['dashboard.view','plano.view','stages.view','activities.view','approvals.view']
     .some(k=>grvCan(who,k));
   const all=grvRows('ATIVIDADES');
+  const stages=grvRows('ETAPAS');
+  // Código de atividade calculado antes do filtro de permissão.
+  // Assim, a mesma atividade tem o mesmo número para todos os perfis.
+  const stageNumbers={};
+  stages.forEach(st=>{stageNumbers[st.ID]=String(st.ORDEM).padStart(2,'0')});
+  const seqByStage={},allActivityCodes={};
+  all.forEach(a=>{
+    if(!stageNumbers[a.ETAPA_ID])return;
+    seqByStage[a.ETAPA_ID]=(seqByStage[a.ETAPA_ID]||0)+1;
+    allActivityCodes[a.ID]=stageNumbers[a.ETAPA_ID]+'.'+String(seqByStage[a.ETAPA_ID]).padStart(2,'0');
+  });
   const vinculos=grvRows('VINCULOS').filter(v=>v.TIPO==='PARTICIPANTE'||v.TIPO==='HOMOLOGADOR');
   const activities=!seeActivities?[]:full?all:all.filter(a=>
     a.RESPONSAVEL_ID===who.ID||vinculos.some(v=>v.ATIVIDADE_ID===a.ID&&v.PESSOA_ID===who.ID));
   const ids=new Set(activities.map(a=>a.ID));
+  const activityCodes={};
+  activities.forEach(a=>{if(allActivityCodes[a.ID])activityCodes[a.ID]=allActivityCodes[a.ID]});
   // Mapa da autoria baseado no log append-only: sem migrar ou regravar atividades.
   const logRows=grvRows('LOGS'),createdBy={},activityNotes={};
   // Observações são imutáveis: cada mensagem ocupa um evento no LOGS.
@@ -502,8 +515,8 @@ function grvState(who){
   const seeStages=['stages.view','activities.view','plano.view','dashboard.view']
     .some(k=>grvCan(who,k));
   return {ok:true,me:grvPublicPerson(who),project:safe(grvRows('PROJETOS')),
-    stages:seeStages?safe(grvRows('ETAPAS').filter(x=>full||stageids.has(x.ID))):[],
-    activities:safe(activities),createdBy:createdBy,activityNotes:activityNotes,notesAppendOnly:true,
+    stages:seeStages?safe(stages.filter(x=>full||stageids.has(x.ID))):[],
+    activities:safe(activities),activityCodes:activityCodes,createdBy:createdBy,activityNotes:activityNotes,notesAppendOnly:true,
     people:people,vinculos:safe(vinculos.filter(v=>ids.has(v.ATIVIDADE_ID))),
     pending:['pending.view','dashboard.view','plano.view','golive.view'].some(k=>grvCan(who,k))?
       safe(grvRows('PENDENCIAS').filter(x=>full||ids.has(x.ATIVIDADE_ID)||x.RESPONSAVEL_ID===who.ID)):[],
