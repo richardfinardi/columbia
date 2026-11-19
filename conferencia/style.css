@@ -66,3 +66,18 @@ thead th:last-child{padding-right:15px}
 .filter-pop-actions .btn-primary{background:#004d87;color:white}
 .selection-bar{border-top:1px solid #f1f5f8}
 @media(max-width:550px){table{min-width:1300px}.th-layout{min-width:72px}}
+
+
+/* Erros de gravacao sempre visiveis, mesmo com o painel rolado ate o fim. */
+.bulk-footer{display:flex;flex-wrap:wrap;gap:9px;justify-content:flex-end}
+.bulk-footer-error{
+  flex:1 0 100%;font-size:12px;line-height:1.5;font-weight:650;
+  border:1px solid #e9aaaa;background:#fff0f0;color:#9a2323;
+  border-radius:9px;padding:10px 12px;overflow-wrap:anywhere;
+}
+.bulk-footer .btn{flex:0 0 auto}
+@media(max-width:520px){
+  .bulk-footer{display:flex;justify-content:stretch}
+  .bulk-footer-error{flex:1 0 100%;font-size:11px}
+  .bulk-footer .btn{flex:1}
+}
