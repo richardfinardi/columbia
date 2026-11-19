@@ -151,7 +151,7 @@
         first.appendChild(name);
         const code=document.createElement('span');code.className='sub';code.textContent='Código '+u.codigo;first.appendChild(code);
         const badge=document.createElement('span');badge.className='role'+(u.u_gestor?' manager':'');
-        const badgeUpdate=()=>{badge.className='role'+(u.u_gestor?' manager':'');badge.textContent=u.u_gestor?'GESTOR · ACESSO TOTAL':'ACESSO POR MÓDULO';};
+        const badgeUpdate=()=>{badge.className='role'+(u.u_gestor?' manager':'');badge.textContent=u.u_gestor?'GESTOR · ADMINISTRADOR':'ACESSO POR MÓDULO';};
         badgeUpdate();first.appendChild(badge);tr.appendChild(first);
         for(const [campo,label] of CAMPOS){
           const td=document.createElement('td');
