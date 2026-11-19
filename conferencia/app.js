@@ -493,7 +493,7 @@
     const gtin = $("gtin").value.trim();
     const payload = {
       codigo: Number(state.material.codigo),
-      ncm_codigo: Number(state.selectedNcm.codigo),
+      ncm_codigo: text(state.selectedNcm.codigo),
       cbs_codigo: state.selectedCbs ? state.selectedCbs.codigo : null,
       cean_i03: gtin,
       cbenef_i05f: $("benefit").value.trim(),
@@ -501,6 +501,7 @@
       esperado: captureExpected(state.material)
     };
     if (!Number.isSafeInteger(payload.codigo) || payload.codigo <= 0) { alertBox("saveError", "Código de material inválido."); return; }
+    if (!payload.ncm_codigo || payload.ncm_codigo.length > 64) { alertBox("saveError", "Código interno de NCM inválido."); return; }
     state.inFlight = true;
     buttonsDisabled(true);
     alertBox("saveError", "");
@@ -605,10 +606,11 @@
     if(checked.has("ncm_codigo")) {
       if(!state.bulkNcm)throw new Error("Selecione um NCM válido na lista CPS.");
       const ncmIdText=text(state.bulkNcm.codigo);
-      const ncmId=Number(ncmIdText);
-      if(!ncmIdText||!Number.isSafeInteger(ncmId)||ncmId<0)
+      if(!ncmIdText || ncmIdText.length>64)
         throw new Error("O NCM escolhido não possui código interno válido no CPS.");
-      changes.ncm_codigo=ncmId;
+      // Preservar o codigo CPS exatamente como recebido. Number() remove zeros
+      // a esquerda e pode invalidar identificadores armazenados como texto.
+      changes.ncm_codigo=ncmIdText;
     }
     if(checked.has("cbs_codigo")) {
       if($("bulkCbsSearch").value.trim()&&!state.bulkCbs)throw new Error("Selecione a classificação CBS/IBS ou limpe o campo.");
