@@ -17,7 +17,7 @@
     page: 1, pageSize: 50, query: "", status: "pending",
     sort: "nome", direction: 1, material: null,
     selectedNcm: null, selectedCbs: null, inFlight: false, toastTimer: null,
-    selected: new Set(), columnFilters: {}, openFilter: null, searchTimer: null,
+    selected: new Set(), columnFilters: {}, openFilter: null, filterDraft: null, searchTimer: null,
     bulkNcm: null, bulkCbs: null, bulkInFlight: false
   };
 
@@ -261,13 +261,17 @@
     if (key==="cclass_trib_ibscbs") title=row.desc_cclass_trib_ibscbs;
     return '<div class="single-line" title="'+escapeHtml(title||row[key]||"")+'">'+cell(row[key])+'</div>';
   }
+  function filterIcon() {
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M7 12h10m-7 5h4"/></svg>';
+  }
   function initHeaders() {
     const head=$("materialHead");
     head.innerHTML='<tr><th class="check-col"><input id="pageSelectToggle" class="head-check" type="checkbox" title="Selecionar/desmarcar materiais desta página" aria-label="Selecionar materiais desta página"></th>'+
-      COLS.map(([key,label])=>'<th><button type="button" data-sort="'+key+'">'+escapeHtml(label)+' <span>↕</span></button></th>').join("")+
-      '<th>Ação</th></tr><tr class="column-filters"><th></th>'+
-      COLS.map(([key])=>'<th><button type="button" class="col-filter-trigger" data-filter-open="'+key+'"><span>Todos</span> ▾</button></th>').join("")+
-      '<th></th></tr>';
+      COLS.map(([key,label])=>'<th class="fiscal-column"><div class="th-layout">'+
+        '<button type="button" class="th-sort" data-sort="'+key+'" title="Ordenar '+escapeHtml(label)+'">'+escapeHtml(label)+' <span class="sort-glyph">↕</span></button>'+
+        '<button type="button" class="th-filter" data-filter-open="'+key+'" title="Filtrar '+escapeHtml(label)+'" aria-label="Filtrar '+escapeHtml(label)+'">'+filterIcon()+'</button>'+
+        '</div></th>').join("")+
+      '<th>Ação</th></tr>';
   }
   function render() {
     const all=state.materials.length;
@@ -299,9 +303,9 @@
     $("openBulk").title=state.selected.size>BULK_MAX?"Máximo de "+BULK_MAX+" materiais por lote":"";
     document.querySelectorAll("[data-filter-open]").forEach((button)=>{
       const selected=state.columnFilters[button.dataset.filterOpen];
-      const count=selected?selected.size:0;
-      button.classList.toggle("active",!!count);
-      button.querySelector("span").textContent=count?count+" selecionado"+(count===1?"":"s"):"Todos";
+      const active=selected instanceof Set;
+      button.classList.toggle("active",active);
+      button.title=active?"Filtro ativo: "+selected.size+" opções. Clique para alterar.":"Filtrar esta coluna";
     });
   }
   function availableColumnValues(key) {
@@ -317,13 +321,14 @@
   }
   function positionFilter(anchor) {
     const pop=$("filterPopover"), rect=anchor.getBoundingClientRect();
-    const w= Math.min(360,window.innerWidth-24), h=Math.min(490,window.innerHeight*.8);
-    pop.style.left=Math.max(12,Math.min(rect.left,window.innerWidth-w-12))+"px";
-    pop.style.top=(rect.bottom+8+h>window.innerHeight?Math.max(10,rect.top-h-8):rect.bottom+8)+"px";
+    const w=Math.min(306,window.innerWidth-16), h=Math.min(420,window.innerHeight*.78);
+    pop.style.left=Math.max(8,Math.min(rect.left,window.innerWidth-w-8))+"px";
+    pop.style.top=(rect.bottom+8+h>window.innerHeight?Math.max(8,rect.top-h-8):rect.bottom+8)+"px";
   }
   function openColumnFilter(key,anchor) {
     state.openFilter=key;
-    $("filterPopoverTitle").textContent="Filtrar: "+(COLS.find((x)=>x[0]===key)||[])[1];
+    state.filterDraft=state.columnFilters[key] instanceof Set ? new Set(state.columnFilters[key]) : null;
+    $("filterPopoverTitle").textContent=(COLS.find((x)=>x[0]===key)||[])[1]||"Coluna";
     $("filterOptionSearch").value="";
     $("filterPopover").hidden=false;
     positionFilter(anchor);
@@ -331,26 +336,40 @@
     $("filterOptionSearch").focus();
   }
   function closeColumnFilter() {
-    state.openFilter=null;$("filterPopover").hidden=true;
+    state.openFilter=null;
+    state.filterDraft=null;
+    $("filterPopover").hidden=true;
   }
   function matchingColumnValues() {
-    if (!state.openFilter) return [];
+    if (!state.openFilter)return [];
     const q=normalized($("filterOptionSearch").value);
-    return availableColumnValues(state.openFilter).filter(([v])=>normalized(v).includes(q));
+    return availableColumnValues(state.openFilter).filter(([v])=>!q||normalized(v).includes(q));
   }
   function renderColumnOptions() {
     const key=state.openFilter;if(!key)return;
-    const values=matchingColumnValues(),shown=values.slice(0,90);
-    const selected=state.columnFilters[key]||new Set();
-    $("filterOptionInfo").textContent=formatNumber(values.length)+" opções encontradas"+(values.length>90?" · exibindo 90":"");
+    const entries=matchingColumnValues(), shown=entries.slice(0,350);
+    const draft=state.filterDraft;
     $("filterOptionList").innerHTML=shown.length?shown.map(([v,count])=>
-      '<label class="filter-option"><input type="checkbox" data-filter-value="'+escapeHtml(v)+'" '+(selected.has(v)?"checked":"")+'><span class="option-text">'+escapeHtml(v)+'</span><span class="option-qty">'+count+'</span></label>'
+      '<label class="filter-option"><input type="checkbox" data-filter-value="'+escapeHtml(v)+'" '+(draft===null||draft.has(v)?"checked":"")+'><span class="option-text">'+escapeHtml(v)+'</span><span class="option-qty">'+count+'</span></label>'
     ).join(""):'<div class="lookup-empty">Nenhuma opção encontrada</div>';
+    if(entries.length>350)$("filterOptionList").insertAdjacentHTML("beforeend",
+      '<div class="lookup-empty">Exibindo 350 de '+formatNumber(entries.length)+'. Digite para refinar.</div>');
+    const chosen=entries.filter(([value])=>draft===null||draft.has(value)).length;
+    $("filterOptionInfo").textContent=chosen+" de "+formatNumber(entries.length)+" selecionados";
+    $("filterPickVisible").textContent=entries.length&&chosen===entries.length?"Desmarcar tudo":"Selecionar tudo";
   }
-  function updateColumnFilter(key,values) {
-    if(values.size) state.columnFilters[key]=values;
-    else delete state.columnFilters[key];
-    state.page=1;render();renderColumnOptions();
+  function applyColumnFilter() {
+    const key=state.openFilter;if(!key)return;
+    const draft=state.filterDraft;
+    if(draft!==null&&draft.size===0){
+      showToast("Selecione pelo menos uma opção ou use Limpar filtro.",true);return;
+    }
+    const universe=availableColumnValues(key);
+    if(draft===null||draft.size===universe.length)delete state.columnFilters[key];
+    else state.columnFilters[key]=new Set(draft);
+    state.page=1;
+    closeColumnFilter();
+    render();
   }
   function selectPage(checked) {
     pageRows(filtered()).forEach((row)=>{
@@ -661,24 +680,37 @@
       else state.selected.delete(box.dataset.selectId);
       render();
     });
-    $("filterOptionSearch").addEventListener("input",renderColumnOptions);
+    $("filterOptionSearch").addEventListener("input",()=>{
+      // Mesmo comportamento da tabela Material Cliente: a pesquisa incremental
+      // inicia uma seleção de opções, sem carregar previamente todas elas.
+      state.filterDraft=new Set();
+      renderColumnOptions();
+    });
     $("filterOptionList").addEventListener("change",(event)=>{
       const box=event.target.closest("input[data-filter-value]");
       if(!box||!state.openFilter)return;
-      const values=new Set(state.columnFilters[state.openFilter]||[]);
-      if(box.checked)values.add(box.dataset.filterValue);
-      else values.delete(box.dataset.filterValue);
-      updateColumnFilter(state.openFilter,values);
+      if(state.filterDraft===null)
+        state.filterDraft=new Set(availableColumnValues(state.openFilter).map(([v])=>v));
+      if(box.checked)state.filterDraft.add(box.dataset.filterValue);
+      else state.filterDraft.delete(box.dataset.filterValue);
+      renderColumnOptions();
     });
     $("filterPickVisible").addEventListener("click",()=>{
       if(!state.openFilter)return;
-      const values=new Set(state.columnFilters[state.openFilter]||[]);
-      matchingColumnValues().forEach(([v])=>values.add(v));
-      updateColumnFilter(state.openFilter,values);
+      const values=matchingColumnValues().map(([v])=>v);
+      if(!values.length)return;
+      const draft=state.filterDraft;
+      const all=values.every((v)=>draft===null||draft.has(v));
+      if(draft===null)state.filterDraft=new Set(availableColumnValues(state.openFilter).map(([v])=>v));
+      values.forEach((v)=>all?state.filterDraft.delete(v):state.filterDraft.add(v));
+      renderColumnOptions();
     });
     $("filterReset").addEventListener("click",()=>{
-      if(state.openFilter)updateColumnFilter(state.openFilter,new Set());
+      if(!state.openFilter)return;
+      delete state.columnFilters[state.openFilter];
+      state.page=1;closeColumnFilter();render();
     });
+    $("filterApply").addEventListener("click",applyColumnFilter);
     $("closeFilter").addEventListener("click",closeColumnFilter);
     document.addEventListener("pointerdown",(event)=>{
       if(!state.openFilter)return;
