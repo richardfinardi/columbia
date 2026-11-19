@@ -13,6 +13,7 @@ function number(x){return String(x||'').padStart(2,'0')}
 function sortedStages(s){return (s.stages||[]).slice().sort(function(a,b){return Number(a.ORDEM||99)-Number(b.ORDEM||99)})}
 function sortedActivities(s,id){return (s.activities||[]).filter(function(a){return a.ETAPA_ID===id})}
 function activityCode(s,a){
+ if(s.activityCodes&&s.activityCodes[a.ID])return s.activityCodes[a.ID];
  var st=(s.stages||[]).find(function(x){return x.ID===a.ETAPA_ID});
  if(!st)return '';
  var i=sortedActivities(s,a.ETAPA_ID).findIndex(function(x){return x.ID===a.ID});
