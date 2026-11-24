@@ -399,12 +399,17 @@ function chart(id,config){
 }
 function charts(rows,available,groups){
  const groupMonth=new Map();
- for(const m of selectedMonths())groupMonth.set(m,{month:m,prod:0,stop:0,available:0});
- for(const a of available){let g=groupMonth.get(a.period);if(g)g.available+=a.available}
+ for(const m of selectedMonths())groupMonth.set(m,{month:m,prod:0,stop:0,available:0,people:new Set()});
+ for(const a of available){
+  const g=groupMonth.get(a.period);
+  if(!g)continue;
+  g.available+=a.available;
+  if(a.available>0&&idOf(a))g.people.add(idOf(a));
+ }
  for(const r of rows){let g=groupMonth.get(ymonth(r));if(g){g.prod+=r.prod;g.stop+=r.stop}}
  const data=[...groupMonth.values()];
  const colors={prod:"#059669",stop:"#f59e0b",waste:"#ef4444"};
- chart("monthlyChart",{type:"bar",data:{labels:data.map(d=>d.month.split("-").reverse().join("/")),datasets:[{label:"Produtivas",data:data.map(d=>d.available?d.prod/d.available*100:0),backgroundColor:colors.prod},{label:"Paradas",data:data.map(d=>d.available?d.stop/d.available*100:0),backgroundColor:colors.stop},{label:"Desperdício",data:data.map(d=>d.available?Math.max(0,d.available-d.prod-d.stop)/d.available*100:0),backgroundColor:colors.waste}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
+ chart("monthlyChart",{type:"bar",data:{labels:data.map(d=>[d.month.split("-").reverse().join("/"),state.availabilityLive?d.people.size+" func.":"— func."]),datasets:[{label:"Produtivas",data:data.map(d=>d.available?d.prod/d.available*100:0),backgroundColor:colors.prod},{label:"Paradas",data:data.map(d=>d.available?d.stop/d.available*100:0),backgroundColor:colors.stop},{label:"Desperdício",data:data.map(d=>d.available?Math.max(0,d.available-d.prod-d.stop)/d.available*100:0),backgroundColor:colors.waste}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
   onClick(event,_active,plot){
    const area=plot.chartArea;
    if(!area||event.x<area.left||event.x>area.right||event.y<area.top||event.y>area.bottom)return;
@@ -424,8 +429,26 @@ function charts(rows,available,groups){
    const area=plot.chartArea;
    plot.canvas.style.cursor=area&&event.x>=area.left&&event.x<=area.right&&event.y>=area.top&&event.y<=area.bottom?"pointer":"default";
   },
-  plugins:{legend:{position:"bottom"},columbiaVisibleValues:{mode:"percent"}},layout:{padding:{top:9}},scales:{x:{stacked:true},y:{stacked:true,title:{display:true,text:"% da capacidade"},suggestedMax:100}}}});
- const result=calculate(rows,available);chart("mixChart",{type:"doughnut",data:{labels:["Produtivas","Paradas","Desperdício"],datasets:[{data:[result.prod,result.stop,Math.max(0,result.waste)],backgroundColor:[colors.prod,colors.stop,colors.waste],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:"59%",layout:{padding:18},plugins:{legend:{position:"bottom"},columbiaVisibleValues:{mode:"donut"}}}});
+  plugins:{
+   legend:{position:"bottom"},
+   columbiaVisibleValues:{mode:"percent"},
+   tooltip:{callbacks:{
+    title(items){return data[items[0]?.dataIndex]?.month.split("-").reverse().join("/")||"";},
+    label(context){
+     const m=data[context.dataIndex];
+     if(!m)return "";
+     const hours=[m.prod,m.stop,m.available-m.prod-m.stop];
+     return context.dataset.label+": "+fmt(hours[context.datasetIndex]??0)+" h";
+    },
+    footer(items){
+     const m=data[items[0]?.dataIndex];
+     return m?"Funcionários considerados: "+(state.availabilityLive?m.people.size:"—"):"";
+    }
+   }}
+  },layout:{padding:{top:9}},scales:{x:{stacked:true},y:{stacked:true,title:{display:true,text:"% da capacidade"},suggestedMax:100}}}});
+ const result=calculate(rows,available);chart("mixChart",{type:"doughnut",data:{labels:["Produtivas","Paradas","Desperdício"],datasets:[{data:[result.prod,result.stop,Math.max(0,result.waste)],backgroundColor:[colors.prod,colors.stop,colors.waste],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:"59%",layout:{padding:18},plugins:{legend:{position:"bottom"},columbiaVisibleValues:{mode:"donut"},tooltip:{callbacks:{
+   label(context){return context.label+": "+fmt(context.parsed)+" h";}
+  }}}}});
  const tops=groups.slice().sort((a,b)=>b.stop-a.stop).slice(0,12);
  chart("machineChart",{type:"bar",data:{labels:tops.map(t=>t.name.length>32?t.name.slice(0,32)+"…":t.name),datasets:[{label:"Horas de parada",data:tops.map(x=>x.stop),backgroundColor:colors.stop}]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},columbiaVisibleValues:{mode:"hours"}},layout:{padding:{right:75}}}});
 }
@@ -524,6 +547,11 @@ function renderAll(){
  $("kpiProd").textContent=fmt(r.prod);
  $("kpiStop").textContent=fmt(r.stop);
  $("kpiWaste").textContent=state.availabilityLive?fmt(r.waste):"—";
+ // Funcionários distintos cujo período tem horas disponíveis conciliadas com apontamentos GRV.
+ // Uma pessoa em vários meses é contada uma única vez no card anual.
+ const includedEmployees=new Set(available.filter(a=>a.available>0&&idOf(a)).map(idOf));
+ $("kpiEmployees").textContent=state.availabilityLive?includedEmployees.size.toLocaleString("pt-BR"):"—";
+ $("hintEmployees").textContent=state.availabilityLive?"Pessoas distintas com GRV + Aponta Fácil":"Aguardando conciliação com Aponta Fácil";
  $("hintProd").textContent=state.availabilityLive?percent(r.pProd)+" das horas disponíveis":"Apontamentos GRV";
  $("hintStop").textContent=state.availabilityLive?percent(r.pStop)+" das horas disponíveis":"Apontamentos GRV";
  $("hintWaste").textContent=state.availabilityLive?percent(r.pWaste)+" das horas disponíveis":"Aguardando Aponta Fácil";
