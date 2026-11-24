@@ -599,26 +599,34 @@ function renderAudit(){
  return rows;
 }
 function renderAll(){
- const rows=rowsFiltered(),available=availabilityFor(rows),r=calculate(rows,available);
+ const rawRows=rowsFiltered();
+ const availableFull=availabilityFor(rawRows);
+ const view=applyAvailabilityMode(rawRows,availableFull);
+ const rows=view.rows,available=view.available,r=calculate(rows,available);
+ const hasSplit=availableFull.every(a=>a.hasSplit===true&&a.normal!==null&&a.extra!==null);
  $("kpiAvailable").textContent=state.availabilityLive?fmt(r.available):"—";
+ $("kpiNormal").textContent=state.availabilityLive&&hasSplit?fmt(sum(availableFull,"normal")):"—";
+ $("kpiExtra").textContent=state.availabilityLive&&hasSplit?fmt(sum(availableFull,"extra")):"—";
  $("kpiProd").textContent=fmt(r.prod);
  $("kpiStop").textContent=fmt(r.stop);
  $("kpiWaste").textContent=state.availabilityLive?fmt(r.waste):"—";
- // Funcionários distintos cujo período tem horas disponíveis conciliadas com apontamentos GRV.
- // Uma pessoa em vários meses é contada uma única vez no card anual.
+ // O mesmo funcionário aparece apenas uma vez no card anual.
  const includedEmployees=new Set(available.filter(a=>a.available>0&&idOf(a)).map(idOf));
  $("kpiEmployees").textContent=state.availabilityLive?includedEmployees.size.toLocaleString("pt-BR"):"—";
  $("hintEmployees").textContent=state.availabilityLive?"Pessoas distintas com GRV + Aponta Fácil":"Aguardando conciliação com Aponta Fácil";
  $("hintProd").textContent=state.availabilityLive?percent(r.pProd)+" das horas disponíveis":"Apontamentos GRV";
  $("hintStop").textContent=state.availabilityLive?percent(r.pStop)+" das horas disponíveis":"Apontamentos GRV";
  $("hintWaste").textContent=state.availabilityLive?percent(r.pWaste)+" das horas disponíveis":"Aguardando Aponta Fácil";
- $("hintAvailable").textContent=state.availabilityLive?"Aponta Fácil · proporcional aos filtros":"Integração Aponta Fácil pendente";
+ $("hintAvailable").textContent=view.missing
+  ?"Sem decomposição normal/extra na API para parte dos funcionários."
+  :view.estimated?"Realizado estimado por proporção normal/extra de cada funcionário no mês."
+  :state.availabilityLive?"Aponta Fácil · proporcional aos filtros":"Integração Aponta Fácil pendente";
  const years=[...filterValues.yearFilter],months=[...filterValues.monthFilter];
-  $("periodLabel").textContent=months.length===1&&years.length===1
-   ?MONTHS[Number(months[0])-1]+"/"+years[0]
-   :years.length===1?(months.length?months.length+" meses / "+years[0]:"Ano "+years[0])
-   :"Período selecionado";
- $("rowCounter").textContent=rows.length.toLocaleString("pt-BR")+" apontamentos";
+ $("periodLabel").textContent=months.length===1&&years.length===1
+  ?MONTHS[Number(months[0])-1]+"/"+years[0]
+  :years.length===1?(months.length?months.length+" meses / "+years[0]:"Ano "+years[0])
+  :"Período selecionado";
+ $("rowCounter").textContent=rawRows.length.toLocaleString("pt-BR")+" apontamentos";
  const groups=rateGroups(rows,"segment",available),sectors=rateGroups(rows,"sector",available),machines=rateGroups(rows,"machine",available),employees=rateEmployee(rows,available);
  const cols=columnDefs();
  renderTable("segmentos",groups,cols);
@@ -626,11 +634,12 @@ function renderAll(){
  renderTable("maquinas",machines,cols);
  renderTable("funcionarios",employees,cols);
  showMetas({...r,pProd:state.availabilityLive?r.pProd:NaN,pStop:state.availabilityLive?r.pStop:NaN,pWaste:state.availabilityLive?r.pWaste:NaN});
- const details=renderDetails(rows);
+ // Detalhamento preserva as horas efetivamente apontadas no GRV.
+ const details=renderDetails(rawRows);
  const audit=renderAudit();
  state.exports={segmentos:groups,setores:sectors,maquinas:machines,funcionarios:employees,auditoria:audit,metas:state.targets,detalhamento:details};
  charts(rows,available,machines,sectors);
- const missing=rows.filter(x=>!x.recognized);
+ const missing=rawRows.filter(x=>!x.recognized);
  const monthsForAudit=new Set(selectedMonths());
  const grvForAudit=state.rows.filter(x=>monthsForAudit.has(ymonth(x)));
  const keysForAudit=new Set(grvForAudit.map(idOf));
@@ -640,9 +649,10 @@ function renderAll(){
  const note=state.availabilityLive
   ?"Conciliação Aponta Fácil × GRV por nome completo: "+unmatchedForAudit.length+" registros de funcionários sem apontamento GRV neste período, totalizando "+fmt(unmatchedHours)+" h não rateadas. Esses registros precisam ser conferidos com o Power BI."
   :"Aguardando dados para conciliação dos funcionários entre Aponta Fácil e GRV.";
- $("qualityNote").textContent=(missing.length?"Atenção: "+missing.length+" apontamentos sem campo de horas reconhecido. ":"")+note;
+ const modeNote=view.estimated?" Modos sem extra/apenas extra: horas produtivas e paradas são estimativas proporcionais por funcionário/mês, pois o GRV não separa os apontamentos por jornada.":"";
+ $("qualityNote").textContent=(missing.length?"Atenção: "+missing.length+" apontamentos sem campo de horas reconhecido. ":"")+note+modeNote;
  $("sourceStatus").className="status "+(state.availabilityLive?"ok":"warn");
- $("sourceStatus").textContent="GRV "+(rows.length?"conectado":"sem registros")+" · Aponta Fácil "+(state.availabilityLive?"conectado":"pendente")+" · Metas "+(state.metaLive?"online":"referência 2026");
+ $("sourceStatus").textContent="GRV "+(rawRows.length?"conectado":"sem registros")+" · Aponta Fácil "+(state.availabilityLive?"conectado":"pendente")+" · Metas "+(state.metaLive?"online":"referência 2026");
 }
 function warning(text,kind="warn"){
  const div=document.createElement("div");div.className="alert "+(kind==="error"?"error":"");
@@ -760,8 +770,25 @@ function initCollapsibleFilters(){
  setFiltersCollapsed(collapsed);
  $("toggleFilters").addEventListener("click",()=>setFiltersCollapsed(!$("filtersBody").hidden?true:false));
 }
+function setHoursMode(mode){
+ if(!["all","normal","extra"].includes(mode))mode="all";
+ state.availabilityMode=mode;
+ document.querySelectorAll("[data-hours-mode]").forEach(button=>{
+  button.setAttribute("aria-pressed",String(button.dataset.hoursMode===mode));
+ });
+ try{localStorage.setItem(HOURS_MODE_KEY,mode)}catch(_){}
+ if(state.loaded)renderAll();
+}
+function initHoursMode(){
+ let saved="all";
+ try{saved=localStorage.getItem(HOURS_MODE_KEY)||"all"}catch(_){}
+ setHoursMode(saved);
+ document.querySelectorAll("[data-hours-mode]").forEach(button=>
+  button.addEventListener("click",()=>setHoursMode(button.dataset.hoursMode)));
+}
 function init(){
  initMultiFilters();
+ initHoursMode();
  initCollapsibleFilters();
  $("refreshBtn").addEventListener("click",load);
  $("clearFilters").addEventListener("click",()=>{
