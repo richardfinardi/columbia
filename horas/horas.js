@@ -444,10 +444,18 @@ const alwaysVisibleValues={
    if(!chart.isDatasetVisible(i))continue;
    const ds=chart.data.datasets[i],meta=chart.getDatasetMeta(i);
    for(let j=0;j<meta.data.length;j++){
-    const v=Number(ds.data[j]);
-    if(!Number.isFinite(v)||(v<=0&&mode!=="hours"))continue;
+    const v=ds.data[j]===null?NaN:Number(ds.data[j]);
+    const isExtraLine=ds.type==="line"&&ds.yAxisID==="yExtra";
+    if(!Number.isFinite(v)||(v<=0&&mode!=="hours"&&!isExtraLine))continue;
     const el=meta.data[j];let x,y,label,color="#fff";
-    if(mode==="donut"){
+    if(isExtraLine){
+     // Mostra a quantidade de horas extras sobre o ponto, sem substituir
+     // os percentuais já desenhados nas barras empilhadas.
+     ctx.font="800 "+(chart.width<450?9:10)+"px Segoe UI, sans-serif";
+     label=v.toLocaleString("pt-BR",{maximumFractionDigits:1})+" h";
+     x=el.x;y=el.y-14;color="#6d28d9";
+     if(y<area.top+9)y=el.y+14;
+    }else if(mode==="donut"){
      const total=chart.data.datasets[0].data.reduce((a,b)=>a+(Number(b)>0?Number(b):0),0);
      if(!total)continue;
      label=formatter(v/total*100);
@@ -464,8 +472,16 @@ const alwaysVisibleValues={
      if(Math.abs(el.y-el.base)<15){y=el.y-8;color="#223b58"}
     }
     if(!Number.isFinite(x)||!Number.isFinite(y))continue;
-    x=Math.max(area.left+4,Math.min(chart.width-10,x));
-    y=Math.max(10,Math.min(chart.height-10,y));
+    if(isExtraLine){
+     const half=ctx.measureText(label).width/2;
+     x=Math.max(area.left+half+3,Math.min(area.right-half-3,x));
+     y=Math.max(area.top+7,Math.min(area.bottom-6,y));
+     ctx.fillStyle="rgba(255,255,255,0.94)";
+     ctx.fillRect(x-half-3,y-8,half*2+6,16);
+    }else{
+     x=Math.max(area.left+4,Math.min(chart.width-10,x));
+     y=Math.max(10,Math.min(chart.height-10,y));
+    }
     ctx.shadowColor="rgba(0,0,0,0.22)";ctx.shadowBlur=color==="#fff"?2:0;
     ctx.fillStyle=color;ctx.fillText(label,x,y);
     ctx.shadowBlur=0;ctx.textAlign="center";
@@ -536,7 +552,7 @@ function charts(rows,available,groups,sectors){
      return context.dataset.label+": "+fmt(hours[context.datasetIndex]??0)+" h";
     }
    }}
-  },layout:{padding:{top:9}},scales:{
+  },layout:{padding:{top:18}},scales:{
     x:{stacked:true},
     y:{stacked:true,title:{display:true,text:"% da capacidade"},suggestedMax:100},
     ...(hasExtraSeries?{yExtra:{type:"linear",position:"right",beginAtZero:true,
