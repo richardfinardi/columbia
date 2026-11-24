@@ -308,18 +308,21 @@ function rateEmployee(rows,available){
  return [...groups.values()].map(g=>({...g,...calculate([g],[g])}));
 }
 function availabilityFor(rows){
- const f=selected(),months=new Set(selectedMonths());
- // Cada funcionário só pode receber capacidade em competências nas quais
-  // teve apontamento GRV. Cruzar apenas pelo nome infla os meses do gráfico anual.
-  const employeeMonths=new Set(rows.map(r=>ymonth(r)+"|"+idOf(r)));
- // With subgroup filters (segment/machine/service), rate available by worked time in that group.
- const restricting=!!(f.segmentFilter||f.machineFilter||f.serviceFilter);
- if(!restricting) return state.available.filter(r=>months.has(r.period)&&(!f.employeeFilter||idOf(r)===f.employeeFilter)&&employeeMonths.has(r.period+"|"+idOf(r)));
- const full=state.rows.filter(r=>months.has(ymonth(r))&&(!f.employeeFilter||idOf(r)===f.employeeFilter));
+ const months=new Set(selectedMonths());
+ const employeeMonths=new Set(rows.map(r=>ymonth(r)+"|"+idOf(r)));
+ const restricting=["segmentFilter","setorFilter","machineFilter","serviceFilter"]
+  .some(id=>filterValues[id].size>0);
+ if(!restricting)return state.available.filter(r=>months.has(r.period)
+  &&employeeMonths.has(r.period+"|"+idOf(r)));
+ const full=state.rows.filter(r=>months.has(ymonth(r))
+  &&(!filterValues.employeeFilter.size||filterValues.employeeFilter.has(idOf(r))));
  const totals=new Map(),subset=new Map();
  for(const r of full){const k=ymonth(r)+"|"+idOf(r);totals.set(k,(totals.get(k)||0)+r.hoursTotal)}
  for(const r of rows){const k=ymonth(r)+"|"+idOf(r);subset.set(k,(subset.get(k)||0)+r.hoursTotal)}
- return state.available.filter(a=>months.has(a.period)).map(a=>({...a,available:a.available*(subset.get(a.period+"|"+idOf(a))||0)/(totals.get(a.period+"|"+idOf(a))||Infinity)})).filter(a=>a.available>0);
+ return state.available.filter(a=>months.has(a.period)).map(a=>({
+   ...a,available:a.available*(subset.get(a.period+"|"+idOf(a))||0)/
+     (totals.get(a.period+"|"+idOf(a))||Infinity)
+ })).filter(a=>a.available>0);
 }
 function columnDefs(){
  return [{k:"name",t:"Nome / Descrição"},{k:"available",t:"Disponíveis",num:true},{k:"pDisp",t:"% disponível",pct:true},{k:"prod",t:"Produtivas",num:true},{k:"pProd",t:"% produtiva",pct:true},{k:"stop",t:"Paradas",num:true},{k:"pStop",t:"% parada",pct:true},{k:"waste",t:"Desperdício",num:true},{k:"pWaste",t:"% desperdício",pct:true}]
