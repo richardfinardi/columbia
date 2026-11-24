@@ -169,30 +169,17 @@ function parseAvailableResponse(data){
 function yearsInData(){
  return [...new Set([...state.rows.map(r=>r.date.slice(0,4)),...state.available.map(r=>r.period.slice(0,4))].filter(x=>/^\d{4}$/.test(x)))].sort((a,b)=>b.localeCompare(a))
 }
-function selected(){return Object.fromEntries(FILTERS.map(id=>[id,$(id).value]))}
-function selectedMonths(){const f=selected();const months=new Set(state.rows.map(ymonth).concat(state.available.map(r=>r.period)).filter(Boolean));return [...months].filter(v=>(!f.yearFilter||v.slice(0,4)===f.yearFilter)&&(!f.monthFilter||v.slice(5,7)===f.monthFilter)).sort()}
-function rowsFiltered(){
- const f=selected();return state.rows.filter(r=>(!f.yearFilter||r.date.slice(0,4)===f.yearFilter)&&(!f.monthFilter||r.date.slice(5,7)===f.monthFilter)&&(!f.segmentFilter||r.segment===f.segmentFilter)&&(!f.machineFilter||r.machine===f.machineFilter)&&(!f.employeeFilter||idOf(r)===f.employeeFilter)&&(!f.serviceFilter||r.service===f.serviceFilter))
+function selected(){return Object.fromEntries(FILTERS.map(id=>[id,[...filterValues[id]]]));}
+function selectedMonths(){
+ const months=new Set(state.rows.map(ymonth).concat(state.available.map(r=>r.period)).filter(Boolean));
+ return [...months].filter(m=>(!filterValues.yearFilter.size||filterValues.yearFilter.has(m.slice(0,4)))
+  &&(!filterValues.monthFilter.size||filterValues.monthFilter.has(m.slice(5,7)))).sort();
 }
-function opt(id,items,label,display){
- let select=$(id);let value=select.value;
- select.replaceChildren();let first=new Option(label,"");select.add(first);
- for(const item of items){const v=typeof item==="string"?item:item.value;const text=typeof item==="string"?item:item.label;select.add(new Option(text,v))}
- if([...select.options].some(o=>o.value===value))select.value=value;
-}
+function rowsFiltered(){return state.rows.filter(r=>matches(r))}
 function buildFilters(){
- const year=$("yearFilter").value,month=$("monthFilter").value;
- opt("yearFilter",yearsInData(),"Todos");
- if(!year && yearsInData().includes(String(now.getFullYear())))$("yearFilter").value=String(now.getFullYear());
- opt("monthFilter",MONTHS.map((m,i)=>({value:String(i+1).padStart(2,"0"),label:m})),"Todos");
- // Ao abrir, mantém mês "Todos" para mostrar o ano inteiro.
- const f=selected();
- const visible=state.rows.filter(r=>(!f.yearFilter||r.date.slice(0,4)===f.yearFilter)&&(!f.monthFilter||r.date.slice(5,7)===f.monthFilter));
- opt("segmentFilter",[...new Set(visible.map(r=>r.segment))].sort(),"Todos");
- opt("machineFilter",[...new Set(visible.map(r=>r.machine))].sort(),"Todas");
- let people=new Map();for(const r of visible)people.set(idOf(r),r.employee||"Cód. "+r.employeeCode);
- opt("employeeFilter",[...people].map(([value,label])=>({value,label})).sort((a,b)=>a.label.localeCompare(b.label,"pt-BR")),"Todos");
- opt("serviceFilter",[...new Set(visible.map(r=>r.service))].sort(),"Todos");
+ if(!filterValues.yearFilter.size&&yearsInData().includes(String(now.getFullYear())))
+  filterValues.yearFilter.add(String(now.getFullYear()));
+ renderAllFilters();
 }
 const sum=(rows,field)=>rows.reduce((s,r)=>s+(Number(r[field])||0),0);
 function calculate(rows,availability){
