@@ -34,6 +34,7 @@ const $=id=>document.getElementById(id);
 const FILTERS=["yearFilter","monthFilter","segmentFilter","setorFilter","machineFilter","employeeFilter","serviceFilter"];
 const filterValues=Object.fromEntries(FILTERS.map(id=>[id,new Set()]));
 const FILTER_STORAGE_KEY="columbia_horas_filters_v2";
+const FILTERS_COLLAPSED_KEY="columbia_horas_filters_collapsed_v1";
 function matches(r,skip=""){
  const accepts=(id,value)=>id===skip||filterValues[id].size===0||filterValues[id].has(value);
  return accepts("yearFilter",r.date.slice(0,4))
@@ -437,7 +438,7 @@ function charts(rows,available,groups){
     label(context){
      const m=data[context.dataIndex];
      if(!m)return "";
-     const hours=[m.prod,m.stop,m.available-m.prod-m.stop];
+     const hours=[m.prod,m.stop,Math.max(0,m.available-m.prod-m.stop)];
      return context.dataset.label+": "+fmt(hours[context.datasetIndex]??0)+" h";
     },
     footer(items){
@@ -687,8 +688,24 @@ async function boot(){
   loadAvailableCache();restore();init();await load();
  }catch(e){$("accessGate").innerHTML='<strong>Não foi possível validar o acesso</strong><p>'+escapeHtml(e.message)+'</p><a href="../login.html">Entrar novamente</a>'}
 }
+function setFiltersCollapsed(collapsed){
+ const button=$("toggleFilters");
+ $("filtersBody").hidden=collapsed;
+ button.setAttribute("aria-expanded",String(!collapsed));
+ $("toggleFiltersText").textContent=collapsed?"Mostrar filtros":"Recolher filtros";
+ $("toggleFiltersIcon").textContent=collapsed?"▾":"▴";
+ if(collapsed)closeMultiFilters();
+ try{localStorage.setItem(FILTERS_COLLAPSED_KEY,collapsed?"1":"0")}catch(_){}
+}
+function initCollapsibleFilters(){
+ let collapsed=false;
+ try{collapsed=localStorage.getItem(FILTERS_COLLAPSED_KEY)==="1"}catch(_){}
+ setFiltersCollapsed(collapsed);
+ $("toggleFilters").addEventListener("click",()=>setFiltersCollapsed(!$("filtersBody").hidden?true:false));
+}
 function init(){
  initMultiFilters();
+ initCollapsibleFilters();
  $("refreshBtn").addEventListener("click",load);
  $("clearFilters").addEventListener("click",()=>{
   FILTERS.forEach(id=>filterValues[id].clear());
