@@ -559,13 +559,20 @@ function warning(text,kind="warn"){
  const div=document.createElement("div");div.className="alert "+(kind==="error"?"error":"");
  div.textContent=text;$("alertArea").appendChild(div);
 }
-function persist(){try{localStorage.setItem("columbia_horas_filters",JSON.stringify(selected()))}catch(_){}}
+function persist(){
+ try{localStorage.setItem(FILTER_STORAGE_KEY,JSON.stringify(selected()))}catch(_){}
+}
 function restore(){
- try{const v=JSON.parse(localStorage.getItem("columbia_horas_filters")||"{}");for(const id of FILTERS)if(id!=="yearFilter"&&id!=="monthFilter"&&v[id])$(id).dataset.restore=v[id]}catch(_){}
+ try{
+  const saved=JSON.parse(localStorage.getItem(FILTER_STORAGE_KEY)||"{}");
+  // Ano inteiro na abertura: ano atual + todos os meses; preserva as outras seleções.
+  for(const id of FILTERS){
+   if(id==="yearFilter"||id==="monthFilter")continue;
+   if(Array.isArray(saved[id]))filterValues[id]=new Set(saved[id].filter(x=>typeof x==="string"));
+  }
+ }catch(_){}
 }
-function restorePending(){
- for(const id of FILTERS){const e=$(id);if(e.dataset.restore&&[...e.options].some(o=>o.value===e.dataset.restore))e.value=e.dataset.restore;delete e.dataset.restore}
-}
+function restorePending(){renderAllFilters()}
 async function syncAvailability({refreshCurrent=false}={}){
  if(!state.loaded)return;
  const sequence=++state.availabilityFetchSeq;
@@ -646,18 +653,23 @@ async function boot(){
   }
   $("userName").textContent=me.usuario||localStorage.getItem("columbia_analista_usuario")||"Usuário";
   $("accessGate").hidden=true;$("app").hidden=false;
-  loadAvailableCache();init();await load();
+  loadAvailableCache();restore();init();await load();
  }catch(e){$("accessGate").innerHTML='<strong>Não foi possível validar o acesso</strong><p>'+escapeHtml(e.message)+'</p><a href="../login.html">Entrar novamente</a>'}
 }
 function init(){
- FILTERS.forEach(id=>$(id).addEventListener("change",()=>{buildFiltersDependents(id);persist();renderAll();if(id==="yearFilter"||id==="monthFilter")void syncAvailability({refreshCurrent:true})}));
+ initMultiFilters();
  $("refreshBtn").addEventListener("click",load);
- $("clearFilters").addEventListener("click",()=>{FILTERS.forEach(id=>$(id).value="");$("yearFilter").value=String(new Date().getFullYear());$("monthFilter").value="";localStorage.removeItem("columbia_horas_filters");buildFiltersDependents("yearFilter");renderAll();void syncAvailability({refreshCurrent:true})});
+ $("clearFilters").addEventListener("click",()=>{
+  FILTERS.forEach(id=>filterValues[id].clear());
+  filterValues.yearFilter.add(String(new Date().getFullYear()));
+  try{localStorage.removeItem(FILTER_STORAGE_KEY);localStorage.removeItem("columbia_horas_filters")}catch(_){}
+  closeMultiFilters();renderAllFilters();renderAll();
+  void syncAvailability({refreshCurrent:false});
+ });
  $("detailSearch").addEventListener("input",renderAll);
  document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>{
   state.selected=btn.dataset.view;document.querySelectorAll(".tab").forEach(t=>{t.classList.toggle("active",t===btn);t.setAttribute("aria-selected",t===btn?"true":"false")});
   document.querySelectorAll(".view").forEach(v=>v.hidden=v.id!=="view-"+state.selected);
-  // Canvas requer container visível para calcular dimensão.
   renderAll();
  }));
  document.querySelectorAll("[data-export]").forEach(btn=>btn.addEventListener("click",()=>{
@@ -666,14 +678,5 @@ function init(){
   XLSX.writeFile(book,"Columbia_Horas_"+btn.dataset.export+"_"+new Date().toISOString().slice(0,10)+".xlsx");
  }));
 }
-function buildFiltersDependents(id){
- const f=selected();const visible=state.rows.filter(r=>(!f.yearFilter||r.date.slice(0,4)===f.yearFilter)&&(!f.monthFilter||r.date.slice(5,7)===f.monthFilter));
- if(id==="yearFilter"||id==="monthFilter"){
-  opt("segmentFilter",[...new Set(visible.map(r=>r.segment))].sort(),"Todos");
-  opt("machineFilter",[...new Set(visible.map(r=>r.machine))].sort(),"Todas");
-  const people=new Map();for(const r of visible)people.set(idOf(r),r.employee||"Cód. "+r.employeeCode);
-  opt("employeeFilter",[...people].map(([value,label])=>({value,label})).sort((a,b)=>a.label.localeCompare(b.label,"pt-BR")),"Todos");
-  opt("serviceFilter",[...new Set(visible.map(r=>r.service))].sort(),"Todos");
- }
-}
+
 document.addEventListener("DOMContentLoaded",boot);
