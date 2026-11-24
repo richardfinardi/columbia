@@ -407,7 +407,7 @@ const alwaysVisibleValues={
    const ds=chart.data.datasets[i],meta=chart.getDatasetMeta(i);
    for(let j=0;j<meta.data.length;j++){
     const v=Number(ds.data[j]);
-    if(!Number.isFinite(v)||v<=0)continue;
+    if(!Number.isFinite(v)||(v<=0&&mode!=="hours"))continue;
     const el=meta.data[j];let x,y,label,color="#fff";
     if(mode==="donut"){
      const total=chart.data.datasets[0].data.reduce((a,b)=>a+(Number(b)>0?Number(b):0),0);
@@ -491,6 +491,8 @@ function charts(rows,available,groups,sectors){
    label(context){return context.label+": "+fmt(context.parsed)+" h";}
   }}}}});
  const mainSectors=sectors.slice().sort((a,b)=>(b.prod+b.stop)-(a.prod+a.stop)).slice(0,12);
+ const sectorWrap=$("sectorChart").parentElement;
+ sectorWrap.style.height=Math.max(270,mainSectors.length*60+75)+"px";
  chart("sectorChart",{type:"bar",data:{
   labels:mainSectors.map(s=>s.name.length>35?s.name.slice(0,35)+"…":s.name),
   datasets:[
@@ -498,14 +500,20 @@ function charts(rows,available,groups,sectors){
    {label:"Paradas",data:mainSectors.map(s=>s.stop),backgroundColor:colors.stop},
    {label:"Desperdício",data:mainSectors.map(s=>Math.max(0,s.waste)),backgroundColor:colors.waste}
   ]
- },options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,
+ },options:{
+  indexAxis:"y",responsive:true,maintainAspectRatio:false,
   interaction:{mode:"index",intersect:false},
-  plugins:{legend:{position:"bottom"},tooltip:{callbacks:{
-   label(context){return context.dataset.label+": "+fmt(context.parsed.x)+" h";}
-  }}},
-  scales:{x:{stacked:true,title:{display:true,text:"Horas"}},y:{stacked:true}},
-  layout:{padding:{right:18}}
+  plugins:{
+   legend:{position:"bottom"},
+   columbiaVisibleValues:{mode:"hours"},
+   tooltip:{callbacks:{
+    label(context){return context.dataset.label+": "+fmt(context.parsed.x)+" h";}
+   }}
+  },
+  scales:{x:{title:{display:true,text:"Horas"},grace:"18%"},y:{ticks:{autoSkip:false}}},
+  layout:{padding:{right:80}}
  }});
+
  const tops=groups.slice().sort((a,b)=>b.stop-a.stop).slice(0,12);
  chart("machineChart",{type:"bar",data:{labels:tops.map(t=>t.name.length>32?t.name.slice(0,32)+"…":t.name),datasets:[{label:"Horas de parada",data:tops.map(x=>x.stop),backgroundColor:colors.stop}]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},columbiaVisibleValues:{mode:"hours"}},layout:{padding:{right:75}}}});
 }
