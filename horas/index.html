@@ -12,8 +12,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
   <script src="https://unpkg.com/lucide@latest" defer></script>
-  <link rel="stylesheet" href="./horas.css?v=20261124-setor-multi1">
-  <script src="./horas.js?v=20261124-setor-multi1" defer></script>
+  <link rel="stylesheet" href="./horas.css?v=20261124-funcionarios3">
+  <script src="./horas.js?v=20261124-funcionarios3" defer></script>
 </head>
 <body>
   <div id="accessGate" class="access-gate"><div class="loader"></div><strong>Validando acesso ao fechamento de horas...</strong></div>
@@ -29,7 +29,8 @@
     <main>
       <section class="intro"><div><h2>Eficiência operacional</h2><p>Horas disponíveis, produtivas, paradas e desperdício com rateio por funcionário e período.</p></div><div class="stamp"><span id="periodLabel">Período</span><small id="updatedAt">Aguardando dados</small></div></section>
       <section class="filters card">
-        <div class="section-head"><div><h3>Filtros</h3><p>Todos os indicadores e gráficos acompanham os filtros.</p></div><button id="clearFilters" class="btn ghost">Limpar filtros</button></div>
+        <div class="section-head"><div><h3>Filtros</h3><p>Todos os indicadores e gráficos acompanham os filtros.</p></div><div class="filter-head-actions"><button id="toggleFilters" type="button" class="btn ghost" aria-expanded="true" aria-controls="filtersBody"><span id="toggleFiltersText">Recolher filtros</span><span id="toggleFiltersIcon" aria-hidden="true">▴</span></button><button id="clearFilters" type="button" class="btn ghost">Limpar filtros</button></div></div>
+        <div id="filtersBody">
         <div class="filter-grid">
           <div class="filter-field"><span class="filter-label">Ano</span>
             <div class="multi-filter" id="yearFilter">
@@ -109,6 +110,7 @@
             </div>
           </div>
         </div>
+        </div>
         <div class="filter-footer"><span id="sourceStatus" class="status">Conectando às fontes de dados...</span><span id="rowCounter" class="counter"></span></div>
       </section>
       <section id="alertArea" aria-live="polite"></section>
@@ -117,6 +119,7 @@
         <article class="kpi kpi-green"><span>Horas produtivas</span><div><strong id="kpiProd">—</strong><small>h</small></div><p id="hintProd">—</p></article>
         <article class="kpi kpi-amber"><span>Horas de parada</span><div><strong id="kpiStop">—</strong><small>h</small></div><p id="hintStop">—</p></article>
         <article class="kpi kpi-red"><span>Desperdício</span><div><strong id="kpiWaste">—</strong><small>h</small></div><p id="hintWaste">Disponíveis − produtivas − paradas</p></article>
+        <article class="kpi kpi-purple"><span>Funcionários considerados</span><div><strong id="kpiEmployees">—</strong></div><p id="hintEmployees">Com horas disponíveis e apontamento no GRV</p></article>
       </section>
       <section class="view-tabs" role="tablist" aria-label="Visões do fechamento">
         <button class="tab active" data-view="segmentos" role="tab" aria-selected="true">Segmentos</button>
@@ -127,7 +130,7 @@
         <button class="tab" data-view="detalhamento" role="tab" aria-selected="false">Detalhamento</button>
       </section>
       <section class="view" id="view-segmentos">
-        <div class="chart-grid"><div class="card chart-card"><h3>Composição mensal das horas</h3><p>Percentual das horas disponíveis por mês</p><small class="chart-click-hint">Clique ou toque em um mês para filtrar todo o painel. Toque novamente para ver o ano.</small><div class="canvas-wrap"><canvas id="monthlyChart"></canvas></div></div>
+        <div class="chart-grid"><div class="card chart-card"><h3>Composição mensal das horas</h3><p>Percentual das horas disponíveis por mês · quantidade de funcionários abaixo de cada mês</p><small class="chart-click-hint">Clique ou toque em um mês para filtrar todo o painel. Toque novamente para ver o ano.</small><div class="canvas-wrap"><canvas id="monthlyChart"></canvas></div></div>
           <div class="card chart-card"><h3>Distribuição no período</h3><p>Produtivas, paradas e desperdício</p><div class="canvas-wrap"><canvas id="mixChart"></canvas></div></div></div>
         <div class="card table-card"><div class="table-head"><div><h3>Resultado por segmento</h3><p>Desempenho por grupo de máquinas</p></div><button data-export="segmentos" class="btn export">Exportar Excel</button></div><div class="table-scroll"><table id="table-segmentos"></table></div></div>
       </section>
