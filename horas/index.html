@@ -12,8 +12,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
   <script src="https://unpkg.com/lucide@latest" defer></script>
-  <link rel="stylesheet" href="./horas.css?v=20261124-funcionarios3">
-  <script src="./horas.js?v=20261124-setores1" defer></script>
+  <link rel="stylesheet" href="./horas.css?v=20261124-extras1">
+  <script src="./horas.js?v=20261124-extras1" defer></script>
 </head>
 <body>
   <div id="accessGate" class="access-gate"><div class="loader"></div><strong>Validando acesso ao fechamento de horas...</strong></div>
@@ -115,7 +115,20 @@
       </section>
       <section id="alertArea" aria-live="polite"></section>
       <section class="kpis">
-        <article class="kpi kpi-blue"><span>Horas disponíveis rateadas</span><div><strong id="kpiAvailable">—</strong><small>h</small></div><p id="hintAvailable">Conforme folha e apontamentos</p></article>
+        <article class="kpi kpi-blue kpi-availability">
+          <span>Horas disponíveis rateadas</span>
+          <div><strong id="kpiAvailable">—</strong><small>h</small></div>
+          <div class="availability-split" aria-label="Composição das horas disponíveis">
+            <span>Normais <strong id="kpiNormal">—</strong><small>h</small></span>
+            <span>Extras <strong id="kpiExtra">—</strong><small>h</small></span>
+          </div>
+          <div class="availability-mode" role="group" aria-label="Exibir horas disponíveis">
+            <button type="button" data-hours-mode="all" aria-pressed="true">Com extra</button>
+            <button type="button" data-hours-mode="normal" aria-pressed="false">Sem extra</button>
+            <button type="button" data-hours-mode="extra" aria-pressed="false">Apenas extra</button>
+          </div>
+          <p id="hintAvailable">Conforme folha e apontamentos</p>
+        </article>
         <article class="kpi kpi-green"><span>Horas produtivas</span><div><strong id="kpiProd">—</strong><small>h</small></div><p id="hintProd">—</p></article>
         <article class="kpi kpi-amber"><span>Horas de parada</span><div><strong id="kpiStop">—</strong><small>h</small></div><p id="hintStop">—</p></article>
         <article class="kpi kpi-red"><span>Desperdício</span><div><strong id="kpiWaste">—</strong><small>h</small></div><p id="hintWaste">Disponíveis − produtivas − paradas</p></article>
