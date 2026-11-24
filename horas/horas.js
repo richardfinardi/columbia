@@ -410,12 +410,12 @@ function charts(rows,available,groups){
    const chosen=data[hits[0].index]?.month;
    if(!chosen)return;
    const [year,month]=chosen.split("-");
-   const wasSelected=$("yearFilter").value===year&&$("monthFilter").value===month;
-   $("yearFilter").value=year;
-   $("monthFilter").value=wasSelected?"":month;
-   buildFiltersDependents("monthFilter");
-   persist();
-   void syncAvailability({refreshCurrent:false});
+   const wasSelected=filterValues.yearFilter.size===1&&filterValues.yearFilter.has(year)
+      &&filterValues.monthFilter.size===1&&filterValues.monthFilter.has(month);
+   filterValues.yearFilter=new Set([year]);
+   filterValues.monthFilter=wasSelected?new Set():new Set([month]);
+   closeMultiFilters();
+   onFilterChanged("monthFilter");
   },
   onHover(event,_active,plot){
    const area=plot.chartArea;
@@ -472,7 +472,7 @@ function drawGauge(elementId,value,kind,target){
    '<text class="gauge-scale" x="286" y="211" text-anchor="middle">100%</text></svg>';
 }
 function showMetas(result){
- const ano=$("yearFilter").value||String(now.getFullYear());
+ const ano=filterValues.yearFilter.size===1?[...filterValues.yearFilter][0]:String(now.getFullYear());
  const target=state.targets.find(m=>m.periodo===ano)||state.targets.at(-1);
  if(!target)return;
  for(const [name,value,kind] of [["Prod",result.pProd,"prod"],["Stop",result.pStop,"stop"],["Waste",result.pWaste,"waste"]]){
@@ -492,9 +492,9 @@ function showMetas(result){
 }
 function renderDetails(rows){
  const input=norm($("detailSearch").value);
- const filtered=input?rows.filter(r=>[r.employee,r.employeeCode,r.machine,r.segment,r.service,r.os,r.sourceType,r.date].some(v=>norm(v).includes(input))):rows;
- const ds=filtered.map(r=>({date:r.date?r.date.slice(5,7)+"/"+r.date.slice(0,4):"—",name:r.employee||r.employeeCode,segment:r.segment,machine:r.machine,service:r.service,os:r.os,sourceType:r.sourceType,prod:r.prod,stop:r.stop}));
- renderTable("detalhamento",ds,[{k:"date",t:"Competência"},{k:"name",t:"Funcionário"},{k:"segment",t:"Segmento"},{k:"machine",t:"Máquina"},{k:"service",t:"Serviço"},{k:"os",t:"OS"},{k:"sourceType",t:"Tipo"},{k:"prod",t:"Produtivas",num:true},{k:"stop",t:"Paradas",num:true}],{total:false,limit:1500});
+ const filtered=input?rows.filter(r=>[r.employee,r.employeeCode,r.machine,r.segment,r.sector,r.service,r.os,r.sourceType,r.date].some(v=>norm(v).includes(input))):rows;
+ const ds=filtered.map(r=>({date:r.date?r.date.slice(5,7)+"/"+r.date.slice(0,4):"—",name:r.employee||r.employeeCode,segment:r.segment,sector:r.sector,machine:r.machine,service:r.service,os:r.os,sourceType:r.sourceType,prod:r.prod,stop:r.stop}));
+ renderTable("detalhamento",ds,[{k:"date",t:"Competência"},{k:"name",t:"Funcionário"},{k:"segment",t:"Segmento"},{k:"sector",t:"Setor"},{k:"machine",t:"Máquina"},{k:"service",t:"Serviço"},{k:"os",t:"OS"},{k:"sourceType",t:"Tipo"},{k:"prod",t:"Produtivas",num:true},{k:"stop",t:"Paradas",num:true}],{total:false,limit:1500});
  $("detailCount").textContent=filtered.length>1500? "Exibindo 1.500 de "+filtered.length+" registros. A exportação inclui todos.":filtered.length+" registros no detalhamento.";
  return ds;
 }
@@ -525,7 +525,11 @@ function renderAll(){
  $("hintStop").textContent=state.availabilityLive?percent(r.pStop)+" das horas disponíveis":"Apontamentos GRV";
  $("hintWaste").textContent=state.availabilityLive?percent(r.pWaste)+" das horas disponíveis":"Aguardando Aponta Fácil";
  $("hintAvailable").textContent=state.availabilityLive?"Aponta Fácil · proporcional aos filtros":"Integração Aponta Fácil pendente";
- $("periodLabel").textContent=$("monthFilter").value?MONTHS[Number($("monthFilter").value)-1]+"/"+($("yearFilter").value||"todos"):"Período selecionado";
+ const years=[...filterValues.yearFilter],months=[...filterValues.monthFilter];
+  $("periodLabel").textContent=months.length===1&&years.length===1
+   ?MONTHS[Number(months[0])-1]+"/"+years[0]
+   :years.length===1?(months.length?months.length+" meses / "+years[0]:"Ano "+years[0])
+   :"Período selecionado";
  $("rowCounter").textContent=rows.length.toLocaleString("pt-BR")+" apontamentos";
  const groups=rateGroups(rows,"segment",available),machines=rateGroups(rows,"machine",available),employees=rateEmployee(rows,available);
  const cols=columnDefs();
