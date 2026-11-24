@@ -700,9 +700,9 @@ function renderAll(){
  $("hintStop").textContent=state.availabilityLive?percent(r.pStop)+" das horas disponíveis":"Apontamentos GRV";
  $("hintWaste").textContent=state.availabilityLive?percent(r.pWaste)+" das horas disponíveis":"Aguardando Aponta Fácil";
  $("hintAvailable").textContent=view.missing
-  ?"Sem decomposição normal/extra na API para parte dos funcionários."
-  :view.estimated?"Realizado estimado por proporção normal/extra de cada funcionário no mês."
-  :state.availabilityLive?"Aponta Fácil · proporcional aos filtros":"Integração Aponta Fácil pendente";
+  ?"Divisão normal/extra indisponível para parte dos dados."
+  :view.estimated?"Realizado estimado proporcionalmente."
+  :state.availabilityLive?"Aponta Fácil · rateado por funcionário":"Aguardando Aponta Fácil";
  const years=[...filterValues.yearFilter],months=[...filterValues.monthFilter];
  $("periodLabel").textContent=months.length===1&&years.length===1
   ?MONTHS[Number(months[0])-1]+"/"+years[0]
