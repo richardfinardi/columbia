@@ -176,9 +176,12 @@ function selectedMonths(){
   &&(!filterValues.monthFilter.size||filterValues.monthFilter.has(m.slice(5,7)))).sort();
 }
 function rowsFiltered(){return state.rows.filter(r=>matches(r))}
+let initialYearSet=false;
 function buildFilters(){
- if(!filterValues.yearFilter.size&&yearsInData().includes(String(now.getFullYear())))
-  filterValues.yearFilter.add(String(now.getFullYear()));
+ if(!initialYearSet){
+  initialYearSet=true;
+  if(yearsInData().includes(String(now.getFullYear())))filterValues.yearFilter.add(String(now.getFullYear()));
+ }
  renderAllFilters();
 }
 function valuesForFilter(id){
