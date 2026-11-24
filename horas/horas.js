@@ -46,6 +46,11 @@ function matches(r,skip=""){
    &&accepts("serviceFilter",r.service);
 }
 const MONTHS=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+function chartMonthLabel(period){
+ const [year,month]=String(period).split("-");
+ const monthName=MONTHS[Number(month)-1];
+ return monthName?year+"/"+monthName.slice(0,3).toUpperCase():period;
+}
 const DEFAULT_METAS=[{periodo:"2026",prod_ruim:.6,prod_regular:.75,prod_bom:.8,prod_otimo:1,desp_ruim:1,desp_regular:.3,desp_bom:.05,desp_otimo:.02,para_ruim:1,para_regular:.4,para_bom:.2,para_otimo:.1}];
 const num=(v)=>{if(v==null||v==="")return 0;if(typeof v==="number")return Number.isFinite(v)?v:0;let x=String(v).trim().replace(/\s/g,"").replace(/%$/,"");if(x.includes(",")&&x.includes("."))x=x.replace(/\./g,"").replace(",",".");else if(x.includes(","))x=x.replace(",",".");let n=Number(x);return Number.isFinite(n)?n:0};
 const fmt=v=>Number.isFinite(v)?v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}):"—";
@@ -398,7 +403,7 @@ function chart(id,config){
  config.plugins=[...(config.plugins||[]),alwaysVisibleValues];
   state.charts[id]=new Chart($(id).getContext("2d"),config);
 }
-function charts(rows,available,groups){
+function charts(rows,available,groups,sectors){
  const groupMonth=new Map();
  for(const m of selectedMonths())groupMonth.set(m,{month:m,prod:0,stop:0,available:0,people:new Set()});
  for(const a of available){
@@ -410,7 +415,7 @@ function charts(rows,available,groups){
  for(const r of rows){let g=groupMonth.get(ymonth(r));if(g){g.prod+=r.prod;g.stop+=r.stop}}
  const data=[...groupMonth.values()];
  const colors={prod:"#059669",stop:"#f59e0b",waste:"#ef4444"};
- chart("monthlyChart",{type:"bar",data:{labels:data.map(d=>[d.month.split("-").reverse().join("/"),state.availabilityLive?d.people.size+" func.":"— func."]),datasets:[{label:"Produtivas",data:data.map(d=>d.available?d.prod/d.available*100:0),backgroundColor:colors.prod},{label:"Paradas",data:data.map(d=>d.available?d.stop/d.available*100:0),backgroundColor:colors.stop},{label:"Desperdício",data:data.map(d=>d.available?Math.max(0,d.available-d.prod-d.stop)/d.available*100:0),backgroundColor:colors.waste}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
+ chart("monthlyChart",{type:"bar",data:{labels:data.map(d=>[chartMonthLabel(d.month),state.availabilityLive?d.people.size+" func.":"— func."]),datasets:[{label:"Produtivas",data:data.map(d=>d.available?d.prod/d.available*100:0),backgroundColor:colors.prod},{label:"Paradas",data:data.map(d=>d.available?d.stop/d.available*100:0),backgroundColor:colors.stop},{label:"Desperdício",data:data.map(d=>d.available?Math.max(0,d.available-d.prod-d.stop)/d.available*100:0),backgroundColor:colors.waste}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
   onClick(event,_active,plot){
    const area=plot.chartArea;
    if(!area||event.x<area.left||event.x>area.right||event.y<area.top||event.y>area.bottom)return;
@@ -434,7 +439,7 @@ function charts(rows,available,groups){
    legend:{position:"bottom"},
    columbiaVisibleValues:{mode:"percent"},
    tooltip:{callbacks:{
-    title(items){return data[items[0]?.dataIndex]?.month.split("-").reverse().join("/")||"";},
+    title(items){return chartMonthLabel(data[items[0]?.dataIndex]?.month||"");},
     label(context){
      const m=data[context.dataIndex];
      if(!m)return "";
@@ -446,6 +451,22 @@ function charts(rows,available,groups){
  const result=calculate(rows,available);chart("mixChart",{type:"doughnut",data:{labels:["Produtivas","Paradas","Desperdício"],datasets:[{data:[result.prod,result.stop,Math.max(0,result.waste)],backgroundColor:[colors.prod,colors.stop,colors.waste],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:"59%",layout:{padding:18},plugins:{legend:{position:"bottom"},columbiaVisibleValues:{mode:"donut"},tooltip:{callbacks:{
    label(context){return context.label+": "+fmt(context.parsed)+" h";}
   }}}}});
+ const mainSectors=sectors.slice().sort((a,b)=>(b.prod+b.stop)-(a.prod+a.stop)).slice(0,12);
+ chart("sectorChart",{type:"bar",data:{
+  labels:mainSectors.map(s=>s.name.length>35?s.name.slice(0,35)+"…":s.name),
+  datasets:[
+   {label:"Produtivas",data:mainSectors.map(s=>s.prod),backgroundColor:colors.prod},
+   {label:"Paradas",data:mainSectors.map(s=>s.stop),backgroundColor:colors.stop},
+   {label:"Desperdício",data:mainSectors.map(s=>Math.max(0,s.waste)),backgroundColor:colors.waste}
+  ]
+ },options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,
+  interaction:{mode:"index",intersect:false},
+  plugins:{legend:{position:"bottom"},tooltip:{callbacks:{
+   label(context){return context.dataset.label+": "+fmt(context.parsed.x)+" h";}
+  }}},
+  scales:{x:{stacked:true,title:{display:true,text:"Horas"}},y:{stacked:true}},
+  layout:{padding:{right:18}}
+ }});
  const tops=groups.slice().sort((a,b)=>b.stop-a.stop).slice(0,12);
  chart("machineChart",{type:"bar",data:{labels:tops.map(t=>t.name.length>32?t.name.slice(0,32)+"…":t.name),datasets:[{label:"Horas de parada",data:tops.map(x=>x.stop),backgroundColor:colors.stop}]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},columbiaVisibleValues:{mode:"hours"}},layout:{padding:{right:75}}}});
 }
@@ -559,16 +580,17 @@ function renderAll(){
    :years.length===1?(months.length?months.length+" meses / "+years[0]:"Ano "+years[0])
    :"Período selecionado";
  $("rowCounter").textContent=rows.length.toLocaleString("pt-BR")+" apontamentos";
- const groups=rateGroups(rows,"segment",available),machines=rateGroups(rows,"machine",available),employees=rateEmployee(rows,available);
+ const groups=rateGroups(rows,"segment",available),sectors=rateGroups(rows,"sector",available),machines=rateGroups(rows,"machine",available),employees=rateEmployee(rows,available);
  const cols=columnDefs();
  renderTable("segmentos",groups,cols);
+ renderTable("setores",sectors,cols);
  renderTable("maquinas",machines,cols);
  renderTable("funcionarios",employees,cols);
  showMetas({...r,pProd:state.availabilityLive?r.pProd:NaN,pStop:state.availabilityLive?r.pStop:NaN,pWaste:state.availabilityLive?r.pWaste:NaN});
  const details=renderDetails(rows);
  const audit=renderAudit();
- state.exports={segmentos:groups,maquinas:machines,funcionarios:employees,auditoria:audit,metas:state.targets,detalhamento:details};
- charts(rows,available,machines);
+ state.exports={segmentos:groups,setores:sectors,maquinas:machines,funcionarios:employees,auditoria:audit,metas:state.targets,detalhamento:details};
+ charts(rows,available,machines,sectors);
  const missing=rows.filter(x=>!x.recognized);
  const monthsForAudit=new Set(selectedMonths());
  const grvForAudit=state.rows.filter(x=>monthsForAudit.has(ymonth(x)));
