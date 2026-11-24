@@ -12,8 +12,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
   <script src="https://unpkg.com/lucide@latest" defer></script>
-  <link rel="stylesheet" href="./horas.css?v=20261117-annual4">
-  <script src="./horas.js?v=20261124-consistencia-mensal" defer></script>
+  <link rel="stylesheet" href="./horas.css?v=20261124-setor-multi1">
+  <script src="./horas.js?v=20261124-setor-multi1" defer></script>
 </head>
 <body>
   <div id="accessGate" class="access-gate"><div class="loader"></div><strong>Validando acesso ao fechamento de horas...</strong></div>
@@ -31,12 +31,83 @@
       <section class="filters card">
         <div class="section-head"><div><h3>Filtros</h3><p>Todos os indicadores e gráficos acompanham os filtros.</p></div><button id="clearFilters" class="btn ghost">Limpar filtros</button></div>
         <div class="filter-grid">
-          <label>Ano<select id="yearFilter"><option value="">Todos</option></select></label>
-          <label>Mês<select id="monthFilter"><option value="">Todos</option></select></label>
-          <label>Segmento<select id="segmentFilter"><option value="">Todos</option></select></label>
-          <label>Máquina<select id="machineFilter"><option value="">Todas</option></select></label>
-          <label>Funcionário<select id="employeeFilter"><option value="">Todos</option></select></label>
-          <label>Serviço<select id="serviceFilter"><option value="">Todos</option></select></label>
+          <div class="filter-field"><span class="filter-label">Ano</span>
+            <div class="multi-filter" id="yearFilter">
+              <button type="button" class="multi-trigger" aria-expanded="false" aria-controls="yearFilter-panel"><span class="multi-summary">Todos</span><span class="multi-chevron" aria-hidden="true">▾</span></button>
+              <div class="multi-panel" id="yearFilter-panel" hidden>
+                <input type="search" class="multi-search" aria-label="Pesquisar anos..." placeholder="Pesquisar anos..." autocomplete="off">
+                <div class="multi-actions"><button type="button" class="multi-all">Selecionar tudo</button><button type="button" class="multi-none">Desmarcar tudo</button></div>
+                <div class="multi-options" role="group" aria-label="Opções de Ano"></div>
+                <p class="multi-empty" hidden>Nenhuma opção encontrada</p>
+              </div>
+            </div>
+          </div>
+          <div class="filter-field"><span class="filter-label">Mês</span>
+            <div class="multi-filter" id="monthFilter">
+              <button type="button" class="multi-trigger" aria-expanded="false" aria-controls="monthFilter-panel"><span class="multi-summary">Todos</span><span class="multi-chevron" aria-hidden="true">▾</span></button>
+              <div class="multi-panel" id="monthFilter-panel" hidden>
+                <input type="search" class="multi-search" aria-label="Pesquisar meses..." placeholder="Pesquisar meses..." autocomplete="off">
+                <div class="multi-actions"><button type="button" class="multi-all">Selecionar tudo</button><button type="button" class="multi-none">Desmarcar tudo</button></div>
+                <div class="multi-options" role="group" aria-label="Opções de Mês"></div>
+                <p class="multi-empty" hidden>Nenhuma opção encontrada</p>
+              </div>
+            </div>
+          </div>
+          <div class="filter-field"><span class="filter-label">Segmento</span>
+            <div class="multi-filter" id="segmentFilter">
+              <button type="button" class="multi-trigger" aria-expanded="false" aria-controls="segmentFilter-panel"><span class="multi-summary">Todos</span><span class="multi-chevron" aria-hidden="true">▾</span></button>
+              <div class="multi-panel" id="segmentFilter-panel" hidden>
+                <input type="search" class="multi-search" aria-label="Pesquisar segmentos..." placeholder="Pesquisar segmentos..." autocomplete="off">
+                <div class="multi-actions"><button type="button" class="multi-all">Selecionar tudo</button><button type="button" class="multi-none">Desmarcar tudo</button></div>
+                <div class="multi-options" role="group" aria-label="Opções de Segmento"></div>
+                <p class="multi-empty" hidden>Nenhuma opção encontrada</p>
+              </div>
+            </div>
+          </div>
+          <div class="filter-field"><span class="filter-label">Setor</span>
+            <div class="multi-filter" id="setorFilter">
+              <button type="button" class="multi-trigger" aria-expanded="false" aria-controls="setorFilter-panel"><span class="multi-summary">Todos</span><span class="multi-chevron" aria-hidden="true">▾</span></button>
+              <div class="multi-panel" id="setorFilter-panel" hidden>
+                <input type="search" class="multi-search" aria-label="Pesquisar setores..." placeholder="Pesquisar setores..." autocomplete="off">
+                <div class="multi-actions"><button type="button" class="multi-all">Selecionar tudo</button><button type="button" class="multi-none">Desmarcar tudo</button></div>
+                <div class="multi-options" role="group" aria-label="Opções de Setor"></div>
+                <p class="multi-empty" hidden>Nenhuma opção encontrada</p>
+              </div>
+            </div>
+          </div>
+          <div class="filter-field"><span class="filter-label">Máquina</span>
+            <div class="multi-filter" id="machineFilter">
+              <button type="button" class="multi-trigger" aria-expanded="false" aria-controls="machineFilter-panel"><span class="multi-summary">Todos</span><span class="multi-chevron" aria-hidden="true">▾</span></button>
+              <div class="multi-panel" id="machineFilter-panel" hidden>
+                <input type="search" class="multi-search" aria-label="Pesquisar máquinas..." placeholder="Pesquisar máquinas..." autocomplete="off">
+                <div class="multi-actions"><button type="button" class="multi-all">Selecionar tudo</button><button type="button" class="multi-none">Desmarcar tudo</button></div>
+                <div class="multi-options" role="group" aria-label="Opções de Máquina"></div>
+                <p class="multi-empty" hidden>Nenhuma opção encontrada</p>
+              </div>
+            </div>
+          </div>
+          <div class="filter-field"><span class="filter-label">Funcionário</span>
+            <div class="multi-filter" id="employeeFilter">
+              <button type="button" class="multi-trigger" aria-expanded="false" aria-controls="employeeFilter-panel"><span class="multi-summary">Todos</span><span class="multi-chevron" aria-hidden="true">▾</span></button>
+              <div class="multi-panel" id="employeeFilter-panel" hidden>
+                <input type="search" class="multi-search" aria-label="Pesquisar funcionários..." placeholder="Pesquisar funcionários..." autocomplete="off">
+                <div class="multi-actions"><button type="button" class="multi-all">Selecionar tudo</button><button type="button" class="multi-none">Desmarcar tudo</button></div>
+                <div class="multi-options" role="group" aria-label="Opções de Funcionário"></div>
+                <p class="multi-empty" hidden>Nenhuma opção encontrada</p>
+              </div>
+            </div>
+          </div>
+          <div class="filter-field"><span class="filter-label">Serviço</span>
+            <div class="multi-filter" id="serviceFilter">
+              <button type="button" class="multi-trigger" aria-expanded="false" aria-controls="serviceFilter-panel"><span class="multi-summary">Todos</span><span class="multi-chevron" aria-hidden="true">▾</span></button>
+              <div class="multi-panel" id="serviceFilter-panel" hidden>
+                <input type="search" class="multi-search" aria-label="Pesquisar serviços..." placeholder="Pesquisar serviços..." autocomplete="off">
+                <div class="multi-actions"><button type="button" class="multi-all">Selecionar tudo</button><button type="button" class="multi-none">Desmarcar tudo</button></div>
+                <div class="multi-options" role="group" aria-label="Opções de Serviço"></div>
+                <p class="multi-empty" hidden>Nenhuma opção encontrada</p>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="filter-footer"><span id="sourceStatus" class="status">Conectando às fontes de dados...</span><span id="rowCounter" class="counter"></span></div>
       </section>
