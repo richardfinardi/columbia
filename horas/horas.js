@@ -8,33 +8,36 @@ const APONTAMENTOS=BASE+"/custos_apontamento";
 const DISPONIVEIS=BASE+"/horas_disponiveis";
 const META_SHEET="https://docs.google.com/spreadsheets/d/1zUhza1A-dpdw2pnqXjKr_HAYHW0nEVi4QZFa_UMI_S8/gviz/tq?tqx=out:json&sheet=META_PRODUTIVIDADE";
 const TOKEN_KEY="columbia_analista_token";
-const HOURS_CACHE_KEY="columbia_horas_apontafacil_mensal_v4";
+const HOURS_CACHE_KEY="columbia_horas_apontafacil_mensal_v5";
 const CACHE_LIMIT=48;
 function currentPeriod(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")}
 function loadAvailableCache(){
  try{
   const saved=JSON.parse(localStorage.getItem(HOURS_CACHE_KEY)||"{}");
-  if(!saved||saved.version!==4||!saved.months||typeof saved.months!=="object")return;
+  if(!saved||saved.version!==5||!saved.months||typeof saved.months!=="object")return;
   const cutoff=new Date().getFullYear()-4;
   for(const [period,values] of Object.entries(saved.months)){
    if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(period)||Number(period.slice(0,4))<cutoff||!Array.isArray(values))continue;
-   state.availabilityCache.set(period,values.filter(x=>x&&x.period===period&&Number.isFinite(Number(x.available))&&typeof x.employee==="string"));
+   state.availabilityCache.set(period,values.filter(x=>x&&x.period===period
+    &&Number.isFinite(Number(x.available))&&Number.isFinite(Number(x.normal))
+    &&Number.isFinite(Number(x.extra))&&typeof x.employee==="string"));
   }
  }catch(_){}
 }
 function saveAvailableCache(){
  try{
   const months=Object.fromEntries([...state.availabilityCache.entries()].sort(([a],[b])=>b.localeCompare(a)).slice(0,CACHE_LIMIT));
-  localStorage.setItem(HOURS_CACHE_KEY,JSON.stringify({version:4,months}));
+  localStorage.setItem(HOURS_CACHE_KEY,JSON.stringify({version:5,months}));
  }catch(_){}
 }
 const now=new Date();
-const state={rows:[],available:[],targets:[],loaded:false,loading:false,selected:"segmentos",sort:{},charts:{},issues:[],metaLive:false,availabilityLive:false,sourceData:null,availabilityCache:new Map(),availabilityFetchSeq:0};
+const state={rows:[],available:[],targets:[],loaded:false,loading:false,selected:"segmentos",sort:{},charts:{},issues:[],metaLive:false,availabilityLive:false,sourceData:null,availabilityCache:new Map(),availabilityFetchSeq:0,availabilityMode:"all"};
 const $=id=>document.getElementById(id);
 const FILTERS=["yearFilter","monthFilter","segmentFilter","setorFilter","machineFilter","employeeFilter","serviceFilter"];
 const filterValues=Object.fromEntries(FILTERS.map(id=>[id,new Set()]));
 const FILTER_STORAGE_KEY="columbia_horas_filters_v2";
 const FILTERS_COLLAPSED_KEY="columbia_horas_filters_collapsed_v1";
+const HOURS_MODE_KEY="columbia_horas_modo_disponibilidade_v1";
 function matches(r,skip=""){
  const accepts=(id,value)=>id===skip||filterValues[id].size===0||filterValues[id].has(value);
  return accepts("yearFilter",r.date.slice(0,4))
@@ -141,10 +144,16 @@ function normalizeAvailable(r){
  let normal=nPick(m,["horas_normais","normais","horas_normais_trabalhadas"]);
  let extra=nPick(m,["horas_extras","horas_extra","total_horas_extras","hr_extra","extra"]);
  let available=nPick(m,["horas_disponiveis","disponiveis","available","total_disponivel"]);
- if(available===null&&normal!==null)available=normal+(extra||0);
+ const hasSplit=normal!==null||extra!==null;
+ if(available===null&&hasSplit)available=(normal||0)+(extra||0);
+ if(normal===null&&extra!==null&&available!==null)normal=Math.max(0,available-extra);
+ if(extra===null&&normal!==null&&available!==null)extra=Math.max(0,available-normal);
+ // Não inventar categorias se o backend não as informou.
  return {period:y&&mo?y+"-"+String(Number(mo)).padStart(2,"0"):"",
   employee:clean(pick(m,["nome","funcionario","colaborador","nome_funcionario"])),
-  employeeCode:code(pick(m,["codigo","cod_funcionario","matricula","cod_colaborador","id_funcionario"])),available:Math.max(0,available??0)};
+  employeeCode:code(pick(m,["codigo","cod_funcionario","matricula","cod_colaborador","id_funcionario"])),
+  available:Math.max(0,available??0),normal:hasSplit?Math.max(0,normal??0):null,
+  extra:hasSplit?Math.max(0,extra??0):null,hasSplit};
 }
 function normalizeMetas(rows){
  return rows.map(r=>{let m=entry(r);
