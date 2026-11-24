@@ -142,38 +142,47 @@ th,td{padding:8px 10px}
 }
 
 
-/* Fechamento de horas: 5 indicadores e filtros recolhíveis. */
+
+/* Painel: cinco indicadores compactos e filtros recolhíveis. */
 .filter-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 #toggleFilters{min-width:130px;display:inline-flex;align-items:center;justify-content:space-between;gap:10px}
 #toggleFiltersIcon{font-size:15px;line-height:1;color:#174a7e}
 #filtersBody[hidden]{display:none!important}
 .filters:has(#filtersBody[hidden]) .section-head{margin-bottom:6px}
-.kpis{grid-template-columns:repeat(5,minmax(0,1fr))}
+.kpis{grid-template-columns:minmax(310px,1.38fr) repeat(4,minmax(0,1fr));gap:10px;align-items:stretch}
+.kpis .kpi{min-height:165px}
+.kpis .kpi:not(.kpi-availability){display:flex;flex-direction:column}
+.kpis .kpi:not(.kpi-availability) p{margin-top:auto}
 .kpi-purple:before{background:#7c3aed}
 .kpi-purple strong{color:#4c1d95}
+
+/* Primeiro cartão: total em evidência, decomposição e controle compacto sem caixas empilhadas. */
+.kpi-availability{display:flex;flex-direction:column;padding:11px 13px}
+.kpi-availability .availability-total{display:flex;align-items:baseline;gap:5px;margin:4px 0 0}
+.kpi-availability .availability-total strong{font-size:27px}
+.kpi-availability .availability-total small{font-size:12px;color:#64748b}
+.kpi-availability .availability-breakdown{display:grid;grid-template-columns:1fr 1fr;column-gap:12px;align-items:center;margin:5px 0 7px;padding-top:6px;border-top:1px solid #e5ecf3}
+.kpi-availability .availability-breakdown>span{min-width:0;display:flex;align-items:baseline;justify-content:space-between;gap:5px}
+.kpi-availability .availability-breakdown small{font-size:10px;color:#64748b;font-weight:600}
+.kpi-availability .availability-breakdown strong{font-size:12px;font-weight:800;color:#273d58;letter-spacing:-.15px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.kpi-availability .availability-breakdown>span:nth-child(2) strong{color:#7c3aed}
+.kpi-availability .availability-mode{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;background:#eaf0f8;padding:2px;border-radius:8px;margin:0}
+.kpi-availability .availability-mode button{min-width:0;min-height:28px;border:0;border-radius:6px;background:transparent;color:#4f647c;font-size:10px;font-weight:750;line-height:1.15;padding:4px 2px;white-space:nowrap}
+.kpi-availability .availability-mode button:hover{background:#dbe8f8}
+.kpi-availability .availability-mode button[aria-pressed="true"]{background:#003e7e;color:#fff;box-shadow:0 1px 4px #003e7e20}
+.kpi-availability .availability-mode button:focus-visible{outline:2px solid #60a5fa;outline-offset:2px}
+.kpi-availability #hintAvailable{font-size:9px;line-height:1.25;color:#71829a;margin:5px 0 0;min-height:0;max-height:23px;overflow:hidden}
 @media(max-width:1180px){
  .kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .kpis .kpi{min-height:145px}
 }
 @media(max-width:760px){
  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .kpi-availability{grid-column:1/-1}
+ .kpis .kpi{min-height:130px}
+ .kpi-availability .availability-breakdown{column-gap:18px}
+ .kpi-availability .availability-mode button{font-size:11px;min-height:32px}
  .filter-head-actions{width:100%}
  .filter-head-actions .btn{flex:1;white-space:nowrap}
  .filters .section-head{flex-wrap:wrap}
-}
-
-/* Capacidade: horas normais/extras e seleção de 3 modos. */
-.kpi-availability .availability-split{display:flex;gap:5px;align-items:stretch;margin:7px 0 8px}
-.kpi-availability .availability-split>span{flex:1;min-width:0;display:flex;gap:3px;align-items:baseline;flex-wrap:wrap;font-size:10px;color:#64748b;padding:6px 6px;border-radius:7px;background:#f2f7ff}
-.kpi-availability .availability-split strong{font-size:13px;color:#183452;letter-spacing:0;font-weight:800}
-.kpi-availability .availability-split small{font-size:10px}
-.kpi-availability .availability-mode{display:flex;min-width:0;align-items:stretch;gap:2px;background:#e8eef7;padding:3px;border-radius:9px;margin:6px 0}
-.kpi-availability .availability-mode button{flex:1;min-width:0;min-height:32px;border:0;border-radius:7px;background:transparent;color:#52647a;font-size:10px;line-height:1.15;font-weight:750;padding:5px 3px;white-space:normal}
-.kpi-availability .availability-mode button[aria-pressed="true"]{background:#003e7e;color:#fff;box-shadow:0 1px 5px #003e7e30}
-.kpi-availability .availability-mode button:focus-visible{outline:2px solid #60a5fa;outline-offset:2px}
-.kpi-availability #hintAvailable{line-height:1.35;min-height:26px}
-@media(max-width:760px){
- .kpi-availability .availability-split{flex-direction:column}
- .kpi-availability .availability-mode button{font-size:9px;padding:5px 2px}
- .kpi-availability .availability-split>span{padding:4px 6px}
- .kpi-availability .availability-split strong{font-size:12px}
 }
