@@ -337,10 +337,40 @@ function availabilityFor(rows){
  const totals=new Map(),subset=new Map();
  for(const r of full){const k=ymonth(r)+"|"+idOf(r);totals.set(k,(totals.get(k)||0)+r.hoursTotal)}
  for(const r of rows){const k=ymonth(r)+"|"+idOf(r);subset.set(k,(subset.get(k)||0)+r.hoursTotal)}
- return state.available.filter(a=>months.has(a.period)).map(a=>({
-   ...a,available:a.available*(subset.get(a.period+"|"+idOf(a))||0)/
-     (totals.get(a.period+"|"+idOf(a))||Infinity)
- })).filter(a=>a.available>0);
+ return state.available.filter(a=>months.has(a.period)).map(a=>{
+  const weight=(subset.get(a.period+"|"+idOf(a))||0)/
+    (totals.get(a.period+"|"+idOf(a))||Infinity);
+  return {...a,available:a.available*weight,
+    normal:a.normal===null?null:a.normal*weight,
+    extra:a.extra===null?null:a.extra*weight};
+ }).filter(a=>a.available>0);
+}
+// A API Aponta Fácil informa a divisão real da capacidade por funcionário/mês.
+// O GRV entrega apontamentos agregados sem identificar quais foram em hora extra.
+// Nas visões "sem"/"apenas" extra, o realizado é ESTIMADO proporcionalmente
+// ao peso da capacidade normal/extra daquele funcionário em cada competência.
+function applyAvailabilityMode(rows,availableFull){
+ const mode=state.availabilityMode;
+ if(mode==="all"||!state.availabilityLive)return {rows,available:availableFull,estimated:false,missing:false};
+ const prop=mode==="normal"?"normal":"extra";
+ const missing=availableFull.some(a=>a.hasSplit!==true||a.normal===null||a.extra===null);
+ if(missing)return {rows,available:availableFull,estimated:false,missing:true};
+ const weights=new Map();
+ for(const a of state.available){
+  const pk=a.period+"|"+idOf(a);
+  const entry=weights.get(pk)||{available:0,normal:0,extra:0};
+  entry.available+=a.available;
+  entry.normal+=a.normal??0;
+  entry.extra+=a.extra??0;
+  weights.set(pk,entry);
+ }
+ const rowsWeighted=rows.map(r=>{
+  const w=weights.get(ymonth(r)+"|"+idOf(r));
+  const ratio=w?.available>0?w[prop]/w.available:0;
+  return {...r,prod:r.prod*ratio,stop:r.stop*ratio,hoursTotal:r.hoursTotal*ratio};
+ });
+ const availableMode=availableFull.map(a=>({...a,available:a[prop]}));
+ return {rows:rowsWeighted,available:availableMode,estimated:true,missing:false};
 }
 function columnDefs(){
  return [{k:"name",t:"Nome / Descrição"},{k:"available",t:"Disponíveis",num:true},{k:"pDisp",t:"% disponível",pct:true},{k:"prod",t:"Produtivas",num:true},{k:"pProd",t:"% produtiva",pct:true},{k:"stop",t:"Paradas",num:true},{k:"pStop",t:"% parada",pct:true},{k:"waste",t:"Desperdício",num:true},{k:"pWaste",t:"% desperdício",pct:true}]
