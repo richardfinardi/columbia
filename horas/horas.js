@@ -245,7 +245,7 @@ function valuesForFilter(id){
   else if(id==="monthFilter")options=MONTHS.map((label,i)=>({value:String(i+1).padStart(2,"0"),label}));
   else if(id==="employeeFilter"){
     const names=new Map();
-    for(const r of rows)names.set(idOf(r),r.employee||"Cód. "+r.employeeCode);
+    for(const r of rows)names.set(idOf(r),employeeDisplayName(r));
     options=[...names].map(([value,label])=>({value,label}));
   }else{
     const col={segmentFilter:"segment",setorFilter:"sector",machineFilter:"machine",serviceFilter:"service"}[id];
@@ -253,7 +253,7 @@ function valuesForFilter(id){
   }
   const seen=new Set(options.map(x=>x.value));
   for(const value of filterValues[id])if(!seen.has(value)){
-    const label=id==="employeeFilter"?(state.rows.find(r=>idOf(r)===value)?.employee||value)
+    const label=id==="employeeFilter"?(state.rows.find(r=>idOf(r)===value)?employeeDisplayName(state.rows.find(r=>idOf(r)===value)):value)
       :id==="monthFilter"?(MONTHS[Number(value)-1]||value):value;
     options.push({value,label});
   }
@@ -358,7 +358,7 @@ function rateGroups(rows,dimension,available){
  return [...map.values()].map(a=>({...a,...calculate([a],[a])})); // reuses available/prod/stop
 }
 function rateEmployee(rows,available){
- const groups=new Map();for(const r of rows){const k=idOf(r);let a=groups.get(k);if(!a){a={name:r.employee||r.employeeCode||"Sem identificação",employeeCode:r.employeeCode,prod:0,stop:0,available:0};groups.set(k,a)}a.prod+=r.prod;a.stop+=r.stop}
+ const groups=new Map();for(const r of rows){const k=idOf(r);let a=groups.get(k);if(!a){a={name:employeeDisplayName(r),employeeCode:r.employeeCode,prod:0,stop:0,available:0};groups.set(k,a)}a.prod+=r.prod;a.stop+=r.stop}
  let selectedByEmployee=new Set(rows.map(r=>r.date.slice(0,7)+"|"+idOf(r)));
  for(const a of available){if(!selectedByEmployee.has(a.period+"|"+idOf(a)))continue;const k=idOf(a),g=groups.get(k);if(g)g.available+=a.available}
  return [...groups.values()].map(g=>({...g,...calculate([g],[g])}));
@@ -621,8 +621,8 @@ function showMetas(result){
 }
 function renderDetails(rows){
  const input=norm($("detailSearch").value);
- const filtered=input?rows.filter(r=>[r.employee,r.employeeCode,r.machine,r.segment,r.sector,r.service,r.os,r.sourceType,r.date].some(v=>norm(v).includes(input))):rows;
- const ds=filtered.map(r=>({date:r.date?r.date.slice(5,7)+"/"+r.date.slice(0,4):"—",name:r.employee||r.employeeCode,segment:r.segment,sector:r.sector,machine:r.machine,service:r.service,os:r.os,sourceType:r.sourceType,prod:r.prod,stop:r.stop}));
+ const filtered=input?rows.filter(r=>[r.employee,employeeDisplayName(r),r.employeeCode,r.machine,r.segment,r.sector,r.service,r.os,r.sourceType,r.date].some(v=>norm(v).includes(input))):rows;
+ const ds=filtered.map(r=>({date:r.date?r.date.slice(5,7)+"/"+r.date.slice(0,4):"—",name:employeeDisplayName(r),segment:r.segment,sector:r.sector,machine:r.machine,service:r.service,os:r.os,sourceType:r.sourceType,prod:r.prod,stop:r.stop}));
  renderTable("detalhamento",ds,[{k:"date",t:"Competência"},{k:"name",t:"Funcionário"},{k:"segment",t:"Segmento"},{k:"sector",t:"Setor"},{k:"machine",t:"Máquina"},{k:"service",t:"Serviço"},{k:"os",t:"OS"},{k:"sourceType",t:"Tipo"},{k:"prod",t:"Produtivas",num:true},{k:"stop",t:"Paradas",num:true}],{total:false,limit:1500});
  $("detailCount").textContent=filtered.length>1500? "Exibindo 1.500 de "+filtered.length+" registros. A exportação inclui todos.":filtered.length+" registros no detalhamento.";
  return ds;
@@ -640,7 +640,9 @@ function renderAudit(){
   {k:"issue",t:"Situação"}];
  $("auditSummary").textContent="Aponta Fácil: "+fmt(sum(all,"available"))+" h · "+
   "Com vínculo GRV: "+fmt(sum(matched,"available"))+" h · "+
-  "Sem vínculo: "+fmt(sum(missing,"available"))+" h em "+missing.length+" registro(s).";
+  "Sem vínculo: "+fmt(sum(missing,"available"))+" h em "+missing.length+" registro(s)."+
+  " · Nomes CPS truncados conciliados: "+state.nameMatchStats.linked+
+  (state.nameMatchStats.ambiguous?" · Prefixos ambíguos (sem vínculo): "+state.nameMatchStats.ambiguous:"");
  renderTable("auditoria",rows,cols,{total:false,limit:400});
  return rows;
 }
@@ -727,6 +729,9 @@ async function syncAvailability({refreshCurrent=false}={}){
   if(sequence!==state.availabilityFetchSeq)return;
   const cached=months.filter(p=>state.availabilityCache.has(p));
   state.available=cached.flatMap(p=>state.availabilityCache.get(p)||[]);
+  // Reconciliar ANTES de qualquer filtro, rateio, KPI ou auditoria.
+  reconcileEmployeeNames();
+  renderAllFilters();
   state.availabilityLive=!!months.length&&cached.length===months.length&&state.available.length>0;
   renderAll();
   return cached.length;
@@ -780,6 +785,8 @@ async function load(){
   if(!state.metaLive)warning("Metas: planilha não está acessível diretamente pelo navegador. Usando a referência de 2026 lida da planilha. Alterações futuras precisam de publicação/integração da planilha.");
   // Exibe os dados GRV imediatamente. Consulta o Aponta Fácil somente para o período selecionado.
   state.available=[];state.availabilityLive=false;
+  state.employeeAliases=new Map();state.employeeNames=new Map();
+  state.nameMatchStats={linked:0,ambiguous:0};
   state.loaded=true;
   buildFilters();restorePending();renderAll();
   $("updatedAt").textContent="Atualizado "+new Date().toLocaleString("pt-BR");
