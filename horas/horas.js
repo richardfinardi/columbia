@@ -440,10 +440,6 @@ function charts(rows,available,groups){
      if(!m)return "";
      const hours=[m.prod,m.stop,Math.max(0,m.available-m.prod-m.stop)];
      return context.dataset.label+": "+fmt(hours[context.datasetIndex]??0)+" h";
-    },
-    footer(items){
-     const m=data[items[0]?.dataIndex];
-     return m?"Funcionários considerados: "+(state.availabilityLive?m.people.size:"—"):"";
     }
    }}
   },layout:{padding:{top:9}},scales:{x:{stacked:true},y:{stacked:true,title:{display:true,text:"% da capacidade"},suggestedMax:100}}}});
