@@ -140,3 +140,23 @@ th,td{padding:8px 10px}
  .filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
  .multi-panel{width:min(300px,calc(100vw - 30px))}
 }
+
+
+/* Fechamento de horas: 5 indicadores e filtros recolhíveis. */
+.filter-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#toggleFilters{min-width:130px;display:inline-flex;align-items:center;justify-content:space-between;gap:10px}
+#toggleFiltersIcon{font-size:15px;line-height:1;color:#174a7e}
+#filtersBody[hidden]{display:none!important}
+.filters:has(#filtersBody[hidden]) .section-head{margin-bottom:6px}
+.kpis{grid-template-columns:repeat(5,minmax(0,1fr))}
+.kpi-purple:before{background:#7c3aed}
+.kpi-purple strong{color:#4c1d95}
+@media(max-width:1180px){
+ .kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:760px){
+ .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .filter-head-actions{width:100%}
+ .filter-head-actions .btn{flex:1;white-space:nowrap}
+ .filters .section-head{flex-wrap:wrap}
+}
