@@ -181,6 +181,101 @@ function buildFilters(){
   filterValues.yearFilter.add(String(now.getFullYear()));
  renderAllFilters();
 }
+function valuesForFilter(id){
+  // Opções disponíveis obedecem aos demais filtros; preserva selecionados sem dados.
+  const rows=state.rows.filter(r=>matches(r,id));
+  let options=[];
+  if(id==="yearFilter")options=yearsInData().map(value=>({value,label:value}));
+  else if(id==="monthFilter")options=MONTHS.map((label,i)=>({value:String(i+1).padStart(2,"0"),label}));
+  else if(id==="employeeFilter"){
+    const names=new Map();
+    for(const r of rows)names.set(idOf(r),r.employee||"Cód. "+r.employeeCode);
+    options=[...names].map(([value,label])=>({value,label}));
+  }else{
+    const col={segmentFilter:"segment",setorFilter:"sector",machineFilter:"machine",serviceFilter:"service"}[id];
+    options=[...new Set(rows.map(r=>r[col]).filter(Boolean))].map(value=>({value,label:value}));
+  }
+  const seen=new Set(options.map(x=>x.value));
+  for(const value of filterValues[id])if(!seen.has(value)){
+    const label=id==="employeeFilter"?(state.rows.find(r=>idOf(r)===value)?.employee||value)
+      :id==="monthFilter"?(MONTHS[Number(value)-1]||value):value;
+    options.push({value,label});
+  }
+  return options.sort((a,b)=>id==="monthFilter"||id==="yearFilter"
+    ?a.value.localeCompare(b.value):a.label.localeCompare(b.label,"pt-BR"));
+}
+function renderMultiFilter(id){
+  const holder=$(id),menu=holder.querySelector(".multi-panel");
+  if(!menu)return;
+  const options=valuesForFilter(id),list=menu.querySelector(".multi-options");
+  list.replaceChildren();
+  const term=norm(menu.querySelector(".multi-search").value);
+  let found=0;
+  for(const choice of options){
+    const label=document.createElement("label");label.className="multi-option";
+    const checkbox=document.createElement("input");
+    checkbox.type="checkbox";checkbox.value=choice.value;checkbox.checked=filterValues[id].has(choice.value);
+    const span=document.createElement("span");span.textContent=choice.label;
+    label.append(checkbox,span);
+    label.hidden=!!term&&!norm(choice.label).includes(term);
+    if(!label.hidden)found++;
+    checkbox.addEventListener("change",()=>{
+      if(checkbox.checked)filterValues[id].add(choice.value);
+      else filterValues[id].delete(choice.value);
+      onFilterChanged(id);
+    });
+    list.append(label);
+  }
+  menu.querySelector(".multi-empty").hidden=found>0;
+  const selected=filterValues[id];
+  const summary=selected.size===0?(id==="machineFilter"?"Todas":"Todos")
+    :selected.size===1?(options.find(o=>selected.has(o.value))?.label||[...selected][0])
+    :selected.size+" selecionados";
+  const trigger=holder.querySelector(".multi-trigger");
+  trigger.querySelector(".multi-summary").textContent=summary;
+  trigger.title=selected.size?options.filter(x=>selected.has(x.value)).map(x=>x.label).join(", "):"Todos";
+  trigger.classList.toggle("has-selection",selected.size>0);
+}
+function renderAllFilters(){FILTERS.forEach(renderMultiFilter)}
+function closeMultiFilters(except=""){
+  for(const id of FILTERS){
+    if(id===except)continue;
+    const h=$(id);
+    h.querySelector(".multi-panel").hidden=true;
+    h.querySelector(".multi-trigger").setAttribute("aria-expanded","false");
+  }
+}
+function initMultiFilters(){
+  FILTERS.forEach(id=>{
+    const holder=$(id),trigger=holder.querySelector(".multi-trigger"),menu=holder.querySelector(".multi-panel");
+    trigger.addEventListener("click",()=>{
+      const opening=menu.hidden;
+      closeMultiFilters(id);
+      menu.hidden=!opening;
+      trigger.setAttribute("aria-expanded",String(opening));
+      if(opening)menu.querySelector(".multi-search").focus();
+    });
+    menu.querySelector(".multi-search").addEventListener("input",()=>renderMultiFilter(id));
+    menu.querySelector(".multi-all").addEventListener("click",()=>{
+      filterValues[id]=new Set(valuesForFilter(id).map(o=>o.value));
+      onFilterChanged(id);
+    });
+    menu.querySelector(".multi-none").addEventListener("click",()=>{
+      filterValues[id].clear();onFilterChanged(id);
+    });
+    renderMultiFilter(id);
+  });
+  document.addEventListener("pointerdown",e=>{
+    if(!e.target.closest(".multi-filter"))closeMultiFilters();
+  });
+  document.addEventListener("keydown",e=>{if(e.key==="Escape")closeMultiFilters()});
+}
+function onFilterChanged(id){
+  renderAllFilters();
+  persist();
+  renderAll();
+  if(id==="yearFilter"||id==="monthFilter")void syncAvailability({refreshCurrent:false});
+}
 const sum=(rows,field)=>rows.reduce((s,r)=>s+(Number(r[field])||0),0);
 function calculate(rows,availability){
  const prod=sum(rows,"prod"),stop=sum(rows,"stop");
