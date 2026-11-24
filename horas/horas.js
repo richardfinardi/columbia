@@ -105,7 +105,8 @@ function normalizeApontamento(r){
  const date=dateOf(pick(m,["data","data_apontamento","dt_apontamento","dt_inicio","data_inicio","dataaponta","dt_inicio_producao","data_aponta","dt_producao","data_lancamento","dt_data","dia","dataref","dt_ref","datahora","data_hora"]))||monthFromRecord(m);
  const employee=clean(pick(m,["funcionario","nome_funcionario","colaborador","operador","nome","nm_funcionario","funcionario_nome","nome_colaborador","responsavel","recurso_humano"]));
  const employeeCode=code(pick(m,["cod_funcionario","codigo_funcionario","cod_funcion","cod_operador","codigo_operador","id_funcionario","matricula","codigo","cod_colaborador"]));
- const segment=clean(pick(m,["seguimento","segmento","nome_segmento","grupo_maquina","setor","departamento","centro_custo","centrocusto"]))||"Sem segmento";
+ const segment=clean(pick(m,["seguimento","segmento","nome_segmento","grupo_maquina","centro_custo","centrocusto"]))||"Sem segmento";
+  const sector=clean(pick(m,["setor","nome_setor","descricao_setor","departamento"]))||"Sem setor";
  const machine=clean(pick(m,["maquina","nome_maquina","recurso","equipamento","descricao_maquina","tp_maquina","maquina_nome"]))||"Não informado";
  const service=clean(pick(m,["servico","descricao_servico","tipo_servico","servico_nome","descricao","processo"]))||"Não informado";
  const explicitProd=nPick(m,["horas_produtivas","produtivas","hr_produtiva","horas_producao","horas_prod","tempo_produtivo","horas_produtiva"]);
@@ -115,7 +116,7 @@ function normalizeApontamento(r){
  if(explicitProd===null && explicitStop===null && total!==null){if(isStop(m))stop=total;else prod=total}
  else if(total!==null && explicitProd===null && explicitStop!==null)prod=Math.max(0,total-stop);
  else if(total!==null && explicitStop===null && explicitProd!==null)stop=Math.max(0,total-prod);
- return {date,employee,employeeCode,segment,machine,service,prod,stop,hoursTotal:total??(prod+stop),
+ return {date,employee,employeeCode,segment,sector,machine,service,prod,stop,hoursTotal:total??(prod+stop),
   sourceType:clean(pick(m,["tipo_apontamento","tp_maquina","classificacao","tipo_hora"]))||"—",
   os:clean(pick(m,["os","cod_os","numero_os","ordem_servico"]))||"—",
   recognized:explicitProd!==null||explicitStop!==null||total!==null,
