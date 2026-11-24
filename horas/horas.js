@@ -31,7 +31,7 @@ function saveAvailableCache(){
  }catch(_){}
 }
 const now=new Date();
-const state={rows:[],available:[],targets:[],loaded:false,loading:false,selected:"segmentos",sort:{},charts:{},issues:[],metaLive:false,availabilityLive:false,sourceData:null,availabilityCache:new Map(),availabilityFetchSeq:0,availabilityMode:"all"};
+const state={rows:[],available:[],targets:[],loaded:false,loading:false,selected:"segmentos",sort:{},charts:{},issues:[],metaLive:false,availabilityLive:false,sourceData:null,availabilityCache:new Map(),availabilityFetchSeq:0,availabilityMode:"all",employeeAliases:new Map(),employeeNames:new Map(),nameMatchStats:{linked:0,ambiguous:0}};
 const $=id=>document.getElementById(id);
 const FILTERS=["yearFilter","monthFilter","segmentFilter","setorFilter","machineFilter","employeeFilter","serviceFilter"];
 const filterValues=Object.fromEntries(FILTERS.map(id=>[id,new Set()]));
@@ -85,9 +85,47 @@ function monthFromRecord(m){
 }
 function ymonth(r){return (r.date||"").slice(0,7)}
 function code(v){return clean(v).replace(/^0+(?=\d)/,"").toUpperCase()}
-// O codigo de matricula do Aponta Facil nao e equivalente ao ID interno do GRV.
-// Concilia primeiro pelo nome completo normalizado, evitando cruzamentos com pessoas erradas.
-function idOf(r){const name=norm(r.employee);return name?"nome:"+name:"codigo:"+code(r.employeeCode)}
+// Matrícula Aponta Fácil e ID GRV não são equivalentes.
+// Aponta Fácil pode trazer o nome completo, enquanto o CPS corta o nome em 40 caracteres.
+// A identidade canônica permanece a do CPS e os nomes completos só viram aliases
+// após reconciliação por prefixo longo, único e sem ambiguidades.
+function idOf(r){
+ const name=norm(r.employee);
+ return name?"nome:"+(state.employeeAliases.get(name)||name):"codigo:"+code(r.employeeCode);
+}
+function employeeDisplayName(r){
+ return state.employeeNames.get(idOf(r))||r.employee||r.employeeCode||"Sem identificação";
+}
+function reconcileEmployeeNames(){
+ const grv=new Map(),aponta=new Map();
+ for(const r of state.rows){const k=norm(r.employee);if(k&&!grv.has(k))grv.set(k,r.employee)}
+ for(const r of state.available){const k=norm(r.employee);if(k&&!aponta.has(k))aponta.set(k,r.employee)}
+ const aliases=new Map(),names=new Map(),candidates=[];
+ let ambiguous=0;
+ for(const [short,rawName] of grv){
+  // CPS armazena até 40 caracteres. Aceita prefixos longos, próximos
+  // do corte, inclusive quando a última palavra está incompleta.
+  if(clean(rawName).length<38||short.length<30||aponta.has(short))continue;
+  const fullMatches=[...aponta.keys()].filter(full=>full.length>short.length&&full.startsWith(short));
+  if(fullMatches.length>1){ambiguous++;continue}
+  if(fullMatches.length===1)candidates.push({short,full:fullMatches[0]});
+ }
+ const fromFull=new Map();
+ for(const pair of candidates){
+  if(!fromFull.has(pair.full))fromFull.set(pair.full,[]);
+  fromFull.get(pair.full).push(pair.short);
+ }
+ let linked=0;
+ for(const {short,full} of candidates){
+  if(fromFull.get(full).length!==1){ambiguous++;continue}
+  aliases.set(full,short);
+  names.set("nome:"+short,aponta.get(full));
+  linked++;
+ }
+ state.employeeAliases=aliases;
+ state.employeeNames=names;
+ state.nameMatchStats={linked,ambiguous};
+}
 async function getJson(url,{signal}={}){
  const token=localStorage.getItem(TOKEN_KEY);
  if(!token)throw new Error("Sessão não encontrada. Entre novamente no portal.");
