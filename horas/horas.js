@@ -31,7 +31,19 @@ function saveAvailableCache(){
 const now=new Date();
 const state={rows:[],available:[],targets:[],loaded:false,loading:false,selected:"segmentos",sort:{},charts:{},issues:[],metaLive:false,availabilityLive:false,sourceData:null,availabilityCache:new Map(),availabilityFetchSeq:0};
 const $=id=>document.getElementById(id);
-const FILTERS=["yearFilter","monthFilter","segmentFilter","machineFilter","employeeFilter","serviceFilter"];
+const FILTERS=["yearFilter","monthFilter","segmentFilter","setorFilter","machineFilter","employeeFilter","serviceFilter"];
+const filterValues=Object.fromEntries(FILTERS.map(id=>[id,new Set()]));
+const FILTER_STORAGE_KEY="columbia_horas_filters_v2";
+function matches(r,skip=""){
+ const accepts=(id,value)=>id===skip||filterValues[id].size===0||filterValues[id].has(value);
+ return accepts("yearFilter",r.date.slice(0,4))
+   &&accepts("monthFilter",r.date.slice(5,7))
+   &&accepts("segmentFilter",r.segment)
+   &&accepts("setorFilter",r.sector)
+   &&accepts("machineFilter",r.machine)
+   &&accepts("employeeFilter",idOf(r))
+   &&accepts("serviceFilter",r.service);
+}
 const MONTHS=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const DEFAULT_METAS=[{periodo:"2026",prod_ruim:.6,prod_regular:.75,prod_bom:.8,prod_otimo:1,desp_ruim:1,desp_regular:.3,desp_bom:.05,desp_otimo:.02,para_ruim:1,para_regular:.4,para_bom:.2,para_otimo:.1}];
 const num=(v)=>{if(v==null||v==="")return 0;if(typeof v==="number")return Number.isFinite(v)?v:0;let x=String(v).trim().replace(/\s/g,"").replace(/%$/,"");if(x.includes(",")&&x.includes("."))x=x.replace(/\./g,"").replace(",",".");else if(x.includes(","))x=x.replace(",",".");let n=Number(x);return Number.isFinite(n)?n:0};
