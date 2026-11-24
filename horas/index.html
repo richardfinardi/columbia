@@ -13,7 +13,7 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
   <script src="https://unpkg.com/lucide@latest" defer></script>
   <link rel="stylesheet" href="./horas.css?v=20261124-funcionarios3">
-  <script src="./horas.js?v=20261124-funcionarios3" defer></script>
+  <script src="./horas.js?v=20261124-setores1" defer></script>
 </head>
 <body>
   <div id="accessGate" class="access-gate"><div class="loader"></div><strong>Validando acesso ao fechamento de horas...</strong></div>
@@ -123,6 +123,7 @@
       </section>
       <section class="view-tabs" role="tablist" aria-label="Visões do fechamento">
         <button class="tab active" data-view="segmentos" role="tab" aria-selected="true">Segmentos</button>
+        <button class="tab" data-view="setores" role="tab" aria-selected="false">Setores</button>
         <button class="tab" data-view="maquinas" role="tab" aria-selected="false">Máquinas</button>
         <button class="tab" data-view="funcionarios" role="tab" aria-selected="false">Funcionários</button>
         <button class="tab" data-view="auditoria" role="tab" aria-selected="false">Conciliação</button>
@@ -133,6 +134,16 @@
         <div class="chart-grid"><div class="card chart-card"><h3>Composição mensal das horas</h3><p>Percentual das horas disponíveis por mês · quantidade de funcionários abaixo de cada mês</p><small class="chart-click-hint">Clique ou toque em um mês para filtrar todo o painel. Toque novamente para ver o ano.</small><div class="canvas-wrap"><canvas id="monthlyChart"></canvas></div></div>
           <div class="card chart-card"><h3>Distribuição no período</h3><p>Produtivas, paradas e desperdício</p><div class="canvas-wrap"><canvas id="mixChart"></canvas></div></div></div>
         <div class="card table-card"><div class="table-head"><div><h3>Resultado por segmento</h3><p>Desempenho por grupo de máquinas</p></div><button data-export="segmentos" class="btn export">Exportar Excel</button></div><div class="table-scroll"><table id="table-segmentos"></table></div></div>
+      </section>
+      <section class="view" id="view-setores" hidden>
+        <div class="card table-card">
+          <div class="table-head"><div><h3>Resultado por setor</h3><p>Horas disponíveis rateadas, produtivas, paradas e desperdício por setor, conforme os filtros.</p></div><button data-export="setores" class="btn export">Exportar Excel</button></div>
+          <div class="table-scroll"><table id="table-setores"></table></div>
+        </div>
+        <div class="card chart-card wide">
+          <h3>Horas por setor</h3><p>Comparativo de horas produtivas, paradas e desperdício nos setores com mais apontamentos.</p>
+          <div class="canvas-wrap"><canvas id="sectorChart"></canvas></div>
+        </div>
       </section>
       <section class="view" id="view-maquinas" hidden>
         <div class="card table-card"><div class="table-head"><div><h3>Resultado por máquina</h3><p>Comparativo da disponibilidade rateada com o realizado</p></div><button data-export="maquinas" class="btn export">Exportar Excel</button></div><div class="table-scroll"><table id="table-maquinas"></table></div></div>
