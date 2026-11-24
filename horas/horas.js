@@ -482,17 +482,28 @@ function chart(id,config){
 }
 function charts(rows,available,groups,sectors){
  const groupMonth=new Map();
- for(const m of selectedMonths())groupMonth.set(m,{month:m,prod:0,stop:0,available:0,people:new Set()});
+ for(const m of selectedMonths())groupMonth.set(m,{month:m,prod:0,stop:0,available:0,extra:0,extraValid:true,hasAvailability:false,people:new Set()});
  for(const a of available){
   const g=groupMonth.get(a.period);
   if(!g)continue;
   g.available+=a.available;
+  g.hasAvailability=true;
+  // Horas extras do Aponta Fácil, com o mesmo rateio funcionário/mês aplicado à capacidade.
+  // Não mostrar zero inventado quando a API não devolveu a decomposição.
+  if(a.hasSplit&&a.extra!==null&&Number.isFinite(a.extra))g.extra+=a.extra;
+  else g.extraValid=false;
   if(a.available>0&&idOf(a))g.people.add(idOf(a));
  }
  for(const r of rows){let g=groupMonth.get(ymonth(r));if(g){g.prod+=r.prod;g.stop+=r.stop}}
  const data=[...groupMonth.values()];
  const colors={prod:"#059669",stop:"#f59e0b",waste:"#ef4444"};
- chart("monthlyChart",{type:"bar",data:{labels:data.map(d=>[chartMonthLabel(d.month),state.availabilityLive?d.people.size+" func.":"— func."]),datasets:[{label:"Produtivas",data:data.map(d=>d.available?d.prod/d.available*100:0),backgroundColor:colors.prod},{label:"Paradas",data:data.map(d=>d.available?d.stop/d.available*100:0),backgroundColor:colors.stop},{label:"Desperdício",data:data.map(d=>d.available?Math.max(0,d.available-d.prod-d.stop)/d.available*100:0),backgroundColor:colors.waste}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
+ const extraSeries=data.map(d=>d.hasAvailability&&d.extraValid?d.extra:null);
+ const hasExtraSeries=extraSeries.some(v=>v!==null);
+ chart("monthlyChart",{type:"bar",data:{labels:data.map(d=>[chartMonthLabel(d.month),state.availabilityLive?d.people.size+" func.":"— func."]),datasets:[{label:"Produtivas",data:data.map(d=>d.available?d.prod/d.available*100:0),backgroundColor:colors.prod},{label:"Paradas",data:data.map(d=>d.available?d.stop/d.available*100:0),backgroundColor:colors.stop},{label:"Desperdício",data:data.map(d=>d.available?Math.max(0,d.available-d.prod-d.stop)/d.available*100:0),backgroundColor:colors.waste},
+  ...(hasExtraSeries?[{type:"line",label:"Horas extras",data:extraSeries,
+   yAxisID:"yExtra",borderColor:"#7c3aed",backgroundColor:"#7c3aed",borderWidth:2,
+   tension:.28,pointRadius:3.5,pointHoverRadius:5,pointBackgroundColor:"#7c3aed",
+   fill:false,spanGaps:false,order:-1}]:[])]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
   onClick(event,_active,plot){
    const area=plot.chartArea;
    if(!area||event.x<area.left||event.x>area.right||event.y<area.top||event.y>area.bottom)return;
@@ -521,10 +532,17 @@ function charts(rows,available,groups,sectors){
      const m=data[context.dataIndex];
      if(!m)return "";
      const hours=[m.prod,m.stop,Math.max(0,m.available-m.prod-m.stop)];
+     if(context.dataset.label==="Horas extras")return "Horas extras: "+fmt(m.extra)+" h";
      return context.dataset.label+": "+fmt(hours[context.datasetIndex]??0)+" h";
     }
    }}
-  },layout:{padding:{top:9}},scales:{x:{stacked:true},y:{stacked:true,title:{display:true,text:"% da capacidade"},suggestedMax:100}}}});
+  },layout:{padding:{top:9}},scales:{
+    x:{stacked:true},
+    y:{stacked:true,title:{display:true,text:"% da capacidade"},suggestedMax:100},
+    ...(hasExtraSeries?{yExtra:{type:"linear",position:"right",beginAtZero:true,
+     title:{display:true,text:"Horas extras (h)",color:"#6d28d9"},
+     ticks:{color:"#6d28d9",maxTicksLimit:5},grid:{drawOnChartArea:false}}}:{})
+   }}});
  const result=calculate(rows,available);chart("mixChart",{type:"doughnut",data:{labels:["Produtivas","Paradas","Desperdício"],datasets:[{data:[result.prod,result.stop,Math.max(0,result.waste)],backgroundColor:[colors.prod,colors.stop,colors.waste],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:"59%",layout:{padding:18},plugins:{legend:{position:"bottom"},columbiaVisibleValues:{mode:"donut"},tooltip:{callbacks:{
    label(context){return context.label+": "+fmt(context.parsed)+" h";}
   }}}}});
