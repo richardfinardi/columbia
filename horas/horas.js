@@ -214,10 +214,12 @@ function rateEmployee(rows,available){
 }
 function availabilityFor(rows){
  const f=selected(),months=new Set(selectedMonths());
- const employees=new Set(rows.map(idOf).filter(Boolean));
+ // Cada funcionário só pode receber capacidade em competências nas quais
+  // teve apontamento GRV. Cruzar apenas pelo nome infla os meses do gráfico anual.
+  const employeeMonths=new Set(rows.map(r=>ymonth(r)+"|"+idOf(r)));
  // With subgroup filters (segment/machine/service), rate available by worked time in that group.
  const restricting=!!(f.segmentFilter||f.machineFilter||f.serviceFilter);
- if(!restricting) return state.available.filter(r=>months.has(r.period)&&(!f.employeeFilter||idOf(r)===f.employeeFilter)&&(!employees.size||employees.has(idOf(r))));
+ if(!restricting) return state.available.filter(r=>months.has(r.period)&&(!f.employeeFilter||idOf(r)===f.employeeFilter)&&employeeMonths.has(r.period+"|"+idOf(r)));
  const full=state.rows.filter(r=>months.has(ymonth(r))&&(!f.employeeFilter||idOf(r)===f.employeeFilter));
  const totals=new Map(),subset=new Map();
  for(const r of full){const k=ymonth(r)+"|"+idOf(r);totals.set(k,(totals.get(k)||0)+r.hoursTotal)}
