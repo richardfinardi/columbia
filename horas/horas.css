@@ -160,3 +160,20 @@ th,td{padding:8px 10px}
  .filter-head-actions .btn{flex:1;white-space:nowrap}
  .filters .section-head{flex-wrap:wrap}
 }
+
+/* Capacidade: horas normais/extras e seleção de 3 modos. */
+.kpi-availability .availability-split{display:flex;gap:5px;align-items:stretch;margin:7px 0 8px}
+.kpi-availability .availability-split>span{flex:1;min-width:0;display:flex;gap:3px;align-items:baseline;flex-wrap:wrap;font-size:10px;color:#64748b;padding:6px 6px;border-radius:7px;background:#f2f7ff}
+.kpi-availability .availability-split strong{font-size:13px;color:#183452;letter-spacing:0;font-weight:800}
+.kpi-availability .availability-split small{font-size:10px}
+.kpi-availability .availability-mode{display:flex;min-width:0;align-items:stretch;gap:2px;background:#e8eef7;padding:3px;border-radius:9px;margin:6px 0}
+.kpi-availability .availability-mode button{flex:1;min-width:0;min-height:32px;border:0;border-radius:7px;background:transparent;color:#52647a;font-size:10px;line-height:1.15;font-weight:750;padding:5px 3px;white-space:normal}
+.kpi-availability .availability-mode button[aria-pressed="true"]{background:#003e7e;color:#fff;box-shadow:0 1px 5px #003e7e30}
+.kpi-availability .availability-mode button:focus-visible{outline:2px solid #60a5fa;outline-offset:2px}
+.kpi-availability #hintAvailable{line-height:1.35;min-height:26px}
+@media(max-width:760px){
+ .kpi-availability .availability-split{flex-direction:column}
+ .kpi-availability .availability-mode button{font-size:9px;padding:5px 2px}
+ .kpi-availability .availability-split>span{padding:4px 6px}
+ .kpi-availability .availability-split strong{font-size:12px}
+}
