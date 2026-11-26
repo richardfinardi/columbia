@@ -131,3 +131,13 @@ thead th:last-child{padding-right:15px}
   .table-scroll{max-height:clamp(300px, 60vh, 620px)}
   .table-scroll table{min-width:1620px}
 }
+
+
+/* Resultado da comparação do NCM cadastrado com o da última NF de entrada. */
+.ncm-comparison{
+  display:inline-block;padding:6px 10px;border-radius:999px;
+  font-size:10px;font-weight:850;white-space:nowrap;
+}
+.ncm-comparison.ncm-igual{color:#12764f;background:#e3f7eb}
+.ncm-comparison.ncm-diferente{color:#a52b31;background:#fbe3e5}
+.ncm-comparison.ncm-indefinido{color:#69788a;background:#eef2f6}
