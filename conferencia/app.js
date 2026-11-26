@@ -30,6 +30,7 @@
     ["subgrupo2","Subgrupo 2"],
     ["unidade","Unidade"],
     ["classificacao_fiscal","NCM"],
+    ["ncm_ultima_entrada","NCM última entrada"],
     ["ipi","IPI (%)"],
     ["cean_i03","GTIN"],
     ["cbenef_i05f","Benefício fiscal"],
@@ -254,6 +255,7 @@
     return normalized([
       row.codigo, row.codigo_interno, row.nome, row.grupo, row.subgrupo1,
       row.subgrupo2, row.classificacao_fiscal, row.descricao_classi_fiscal,
+      row.ncm_ultima_entrada, row.ultima_nf_entrada,
       row.cean_i03, row.cbenef_i05f, row.cclass_trib_ibscbs,
       row.desc_cclass_trib_ibscbs
     ].join(" ")).includes(q);
@@ -280,6 +282,13 @@
   function tableCell(row,key) {
     if (key==="codigo_interno") return '<div class="item-code">'+cell(row.codigo_interno||row.codigo)+'</div><div class="item-sub">ID '+cell(row.codigo)+'</div>';
     if (key==="nome") return '<div class="item-name">'+cell(row.nome)+'</div>';
+    if (key==="ncm_ultima_entrada") {
+      const informacoes=[];
+      if(row.ultima_nf_entrada) informacoes.push("NF "+row.ultima_nf_entrada);
+      const data=row.dt_recebimento_ultima_nf||row.dt_emissao_ultima_nf;
+      if(data) informacoes.push("Data "+formatEntryDate(data));
+      return '<div class="single-line ncm-entry-cell" title="'+escapeHtml(informacoes.join(" · ")||"Última NF de entrada · somente consulta")+'">'+cell(row.ncm_ultima_entrada)+'</div>';
+    }
     if (key==="ipi") return escapeHtml(formatIpi(row.ipi));
     if (key==="u_revisado") return '<span class="status '+(isDone(row)?"done":"pending")+'">'+(isDone(row)?"Revisado":"Pendente")+'</span>';
     let title="";
