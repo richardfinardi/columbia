@@ -147,3 +147,44 @@ thead th:last-child{padding-right:15px}
   display:block;max-width:260px;overflow-wrap:anywhere;
   font-weight:750;font-size:11px;color:#1f567c;line-height:1.4;
 }
+
+
+/* Correção controlada do NCM pela última entrada: apenas divergentes filtrados. */
+.sync-ncm-bar{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:15px 24px;margin:2px 24px 18px;border:1px solid #e8b9b9;
+  border-left:4px solid #b83c40;border-radius:11px;background:#fff7f6;
+}
+.sync-ncm-caption{display:flex;flex-direction:column;gap:4px;min-width:0}
+.sync-ncm-caption strong{font-size:13px;font-weight:850;color:#6f2630}
+.sync-ncm-caption small{font-size:11px;color:#85616b;line-height:1.45}
+.btn-sync-ncm{
+  color:#fff;background:#a62d38;border-color:#a62d38;
+  padding:10px 16px;min-height:42px;
+}
+.btn-sync-ncm:hover{background:#85262e;filter:none}
+.btn-sync-ncm:disabled{background:#ddc0c1;border-color:#ddc0c1;color:#766a6b}
+.sync-editor{width:min(100%,560px)}
+.sync-alert{
+  padding:18px;border:1px solid #e9b1b4;background:#fff2f2;
+  border-radius:12px;margin:22px 0;color:#76252c;
+}
+.sync-alert strong{font-size:14px}
+.sync-alert p{font-size:12px;line-height:1.65;margin:11px 0 0}
+.sync-typed-check{display:flex;flex-direction:column;gap:11px;margin:25px 0}
+.sync-typed-check label{font-size:13px;color:#33465d;font-weight:750}
+.sync-confirmation-phrase{
+  font-size:18px;font-weight:900;letter-spacing:1.1px;color:#8d1f2d;
+  padding:14px;border:1px dashed #d5a1aa;background:#fff4f4;
+  border-radius:8px;text-align:center;user-select:none;-webkit-user-select:none;
+  -webkit-touch-callout:none;cursor:default;
+}
+.sync-typed-check input{font-size:15px;letter-spacing:.5px;font-weight:700}
+.sync-typed-check small{color:#64748b;font-size:11px}
+.sync-editor .editor-content .error-message{margin:12px 0}
+@media(max-width:700px){
+ .sync-ncm-bar{margin:0 14px 14px;padding:13px;flex-direction:column;align-items:stretch}
+ .sync-ncm-bar .btn-sync-ncm{width:100%}
+ .sync-editor .editor-footer{display:flex;flex-direction:column}
+ .sync-editor .editor-footer .btn{width:100%}
+}
