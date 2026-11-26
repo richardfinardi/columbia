@@ -5,6 +5,27 @@ A página valida o usuário por \`GET /producao/portal/me\`. O botão do menu ta
 
 ## Consulta dos dados
 
+### Fornecedor da última NF de entrada
+O frontend exibe, na mesma célula de **Última NF / datas**, o nome do fornecedor, o número da NF, a emissão e a data da entrada. O nome é consultivo, sem qualquer alteração na rotina de gravação.
+
+O endpoint `GET /revenda` deve retornar o campo JSON `fornecedor_ultima_entrada` **referente à mesma última NF** que gerou `ncm_ultima_entrada`, `ultima_nf_entrada` e as datas. Dentro do `LEFT JOIN LATERAL` que seleciona a última nota, acrescente:
+
+```sql
+LEFT JOIN tfornece forn
+  ON forn.cod_empresa = co.cod_empresa
+ AND forn.codigo = co.cod_fornecedor
+```
+
+E na lista de campos da subconsulta da última nota:
+
+```sql
+forn.nome AS fornecedor_ultima_entrada
+```
+
+Inclua `ultima_nf.fornecedor_ultima_entrada` no `SELECT` principal. Os nomes dos aliases `co` e `ultima_nf` devem corresponder aos usados na SQL do endpoint. Confirmar que o cadastro TFORNECE tem o campo `nome` (não há inspeção direta ao esquema do banco). O filtro por coluna e a pesquisa global incluem o fornecedor.
+
+
+
 | Endpoint GET (na API Columbia) | Uso |
 | --- | --- |
 | \`/revenda\` | Materiais de revenda ativos. Empresa 1, família 20, reposição 0. |
