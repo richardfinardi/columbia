@@ -90,3 +90,44 @@ thead th:last-child{padding-right:15px}
 .ncm-entrada-tag{font-size:10px;font-weight:800;color:#516b85;border-radius:999px;padding:5px 8px;background:#e0ebf5}
 .ncm-entrada-consulta input[readonly]{background:#fff;color:#264d70;font-weight:800}
 .ncm-entrada-consulta small{display:block;font-size:11px;color:#6a7f93;margin-top:9px;line-height:1.5}
+
+
+/* Conferência: tabela com rolagem vertical própria e cabeçalho congelado. */
+.table-scroll{
+  position:relative;
+  max-height:clamp(320px, 66vh, 720px);
+  overflow:auto;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+}
+.table-scroll table{
+  border-collapse:separate;
+  border-spacing:0;
+  min-width:1740px;
+}
+.table-scroll thead th{
+  position:sticky;
+  top:0;
+  z-index:5;
+  background:#e7edf4;
+  box-shadow:0 2px 0 #cbd9e8;
+}
+.table-scroll tbody td{background-clip:padding-box}
+.table-scroll tbody td.ncm-td-divergente{
+  background:#fce6e6;
+  border-bottom-color:#f4bcbc;
+  box-shadow:inset 3px 0 0 #dc6262;
+}
+.table-scroll tbody tr:hover td.ncm-td-divergente{background:#f9d6d6}
+.ncm-entry-cell.ncm-divergente{
+  color:#a82b2b;
+  font-weight:850;
+}
+.nf-ultima-cell{display:flex;flex-direction:column;gap:4px;min-width:145px;line-height:1.35}
+.nf-ultima-cell strong{font-size:11px;color:#284b6d}
+.nf-ultima-cell small{font-size:10px;color:#64748b;white-space:nowrap}
+.nf-sem-dados{font-size:11px;color:#9aa7b6}
+@media(max-width:650px){
+  .table-scroll{max-height:clamp(300px, 60vh, 620px)}
+  .table-scroll table{min-width:1620px}
+}
