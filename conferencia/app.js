@@ -363,7 +363,7 @@
     const start=(state.page-1)*state.pageSize, items=pageRows(rows);
     $("rows").innerHTML=items.length?items.map((row)=>
       '<tr><td class="check-col"><input type="checkbox" class="row-check" data-select-id="'+escapeHtml(row.codigo)+'" aria-label="Selecionar '+escapeHtml(row.codigo_interno||row.codigo)+'" '+(state.selected.has(String(row.codigo))?"checked":"")+'></td>'+
-      COLS.map(([key])=>'<td>'+tableCell(row,key)+'</td>').join("")+
+      COLS.map(([key])=>'<td'+(key==="ncm_ultima_entrada" && hasNcmDivergence(row) ? ' class="ncm-td-divergente"' : '')+'>'+tableCell(row,key)+'</td>').join("")+
       '<td><button type="button" class="table-action" data-id="'+escapeHtml(row.codigo)+'">'+(isDone(row)?"Reabrir":"Conferir")+'</button></td></tr>'
     ).join(""):'<tr><td colspan="'+(COLS.length+2)+'" class="empty">Nenhum material encontrado para estes filtros.</td></tr>';
     $("pageInfo").textContent=rows.length?formatNumber(start+1)+" a "+formatNumber(start+items.length)+" de "+formatNumber(rows.length):"Nenhum registro";
