@@ -14,7 +14,7 @@
   const $ = (id) => document.getElementById(id);
   const state = {
     materials: [], ncm: [], cbs: [], loading: false, referenceReady: false,
-    page: 1, pageSize: 50, query: "", status: "pending",
+    page: 1, pageSize: 50, query: "", status: "pending", ncmCompareFilter: "all",
     sort: "nome", direction: 1, material: null,
     selectedNcm: null, selectedCbs: null, inFlight: false, toastTimer: null,
     selected: new Set(), columnFilters: {}, openFilter: null, filterDraft: null, searchTimer: null,
@@ -31,6 +31,7 @@
     ["unidade","Unidade"],
     ["classificacao_fiscal","NCM"],
     ["ncm_ultima_entrada","NCM última entrada"],
+    ["status_ncm","Comparação NCM"],
     ["ultima_nf_detalhe","Última NF / datas"],
     ["ipi","IPI (%)"],
     ["cean_i03","GTIN"],
@@ -79,6 +80,12 @@
     const ncmProduto = normalizeNcmCompare(row.classificacao_fiscal);
     const ncmEntrada = normalizeNcmCompare(row.ncm_ultima_entrada);
     return Boolean(ncmProduto && ncmEntrada && ncmProduto !== ncmEntrada);
+  }
+  function ncmComparisonStatus(row) {
+    const produto = normalizeNcmCompare(row.classificacao_fiscal);
+    const entrada = normalizeNcmCompare(row.ncm_ultima_entrada);
+    if (!produto || !entrada) return "Sem comparação";
+    return produto === entrada ? "Igual" : "Diferente";
   }
   function isDone(row) { return number(row.u_revisado) === 1; }
   function formatNumber(v) { return new Intl.NumberFormat("pt-BR").format(v); }
@@ -265,11 +272,18 @@
   }
   function columnValue(row, key) {
     if (key === "u_revisado") return isDone(row) ? "Revisado" : "Pendente";
+    if (key === "status_ncm") return ncmComparisonStatus(row);
     return text(row[key]) || "(Vazio)";
   }
   function matchesGlobal(row) {
     if (state.status === "pending" && isDone(row)) return false;
     if (state.status === "done" && !isDone(row)) return false;
+    if (state.ncmCompareFilter !== "all") {
+      const status = ncmComparisonStatus(row);
+      if (state.ncmCompareFilter === "equal" && status !== "Igual") return false;
+      if (state.ncmCompareFilter === "different" && status !== "Diferente") return false;
+      if (state.ncmCompareFilter === "missing" && status !== "Sem comparação") return false;
+    }
     const q = normalized(state.query);
     if (!q) return true;
     return normalized([
@@ -288,7 +302,7 @@
   function filtered() {
     const rows = state.materials.filter((r) => matchesGlobal(r) && matchesColumns(r));
     return rows.sort((a,b) => {
-      const av = a[state.sort], bv = b[state.sort];
+      const av = columnValue(a,state.sort), bv = columnValue(b,state.sort);
       if (state.sort === "u_revisado" || state.sort === "codigo" || state.sort === "ipi") {
         return (number(av)-number(bv))*state.direction;
       }
@@ -327,6 +341,11 @@
         (emissao?'<small>'+emissao+'</small>':'')+
         (recebimento?'<small>'+recebimento+'</small>':'')+
         '</div>';
+    }
+    if (key==="status_ncm") {
+      const compare=ncmComparisonStatus(row);
+      const kind=compare==="Igual"?"ncm-igual":compare==="Diferente"?"ncm-diferente":"ncm-indefinido";
+      return '<span class="ncm-comparison '+kind+'">'+escapeHtml(compare)+'</span>';
     }
     if (key==="ipi") return escapeHtml(formatIpi(row.ipi));
     if (key==="u_revisado") return '<span class="status '+(isDone(row)?"done":"pending")+'">'+(isDone(row)?"Revisado":"Pendente")+'</span>';
@@ -742,10 +761,15 @@
       state.searchTimer=setTimeout(()=>{state.query=query;state.page=1;render();},140);
     });
     $("statusFilter").addEventListener("change", (event) => { state.status = event.target.value; state.page = 1; render(); });
+    $("ncmCompareFilter").addEventListener("change", (event) => {
+      state.ncmCompareFilter = event.target.value; state.page = 1; render();
+    });
     $("pageSize").addEventListener("change", (event) => { state.pageSize = Number(event.target.value); state.page = 1; render(); });
     $("clearFilters").addEventListener("click", () => {
-      state.query = ""; state.status = "all"; state.page = 1; state.columnFilters = {};
-      $("search").value = ""; $("statusFilter").value = "all"; closeColumnFilter(); render();
+      state.query = ""; state.status = "all"; state.ncmCompareFilter = "all";
+      state.page = 1; state.columnFilters = {};
+      $("search").value = ""; $("statusFilter").value = "all";
+      $("ncmCompareFilter").value = "all"; closeColumnFilter(); render();
     });
     $("previous").addEventListener("click", () => { state.page--; render(); });
     $("next").addEventListener("click", () => { state.page++; render(); });
