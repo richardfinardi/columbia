@@ -93,7 +93,8 @@
   <script>
   (() => {
     'use strict';
-    const BASE = 'https://columbia.consultoriarf.net/producao/permissoes';
+    let BASE = 'https://columbia.consultoriarf.net/producao/permissoes';
+    const ALT_BASE = 'https://columbia.consultoriarf.net/permissoes';
     const TOKEN_KEY = 'columbia_analista_token';
     const CAMPOS = [
       ['analista_cadastro','Conferência'],['anexo','Anexos'],['custos','Custos'],
@@ -109,7 +110,12 @@
     function erro(m, isError=false){const el=$('message');el.textContent=m||'';el.className='message'+(m?' show':'')+(isError?' error':'');}
     function auth(){return {'Authorization':'Bearer '+(localStorage.getItem(TOKEN_KEY)||''),'Content-Type':'application/json'};}
     async function req(caminho, init={}){
-      const r=await fetch(BASE+caminho,{...init,headers:auth(),cache:'no-store'});
+      const options={...init,headers:auth(),cache:'no-store'};
+      let r=await fetch(BASE+caminho,options);
+      if(caminho==='/me' && !init.method && BASE!==ALT_BASE && (r.status===404 || r.status===405)){
+        r=await fetch(ALT_BASE+caminho,options);
+        if(r.ok)BASE=ALT_BASE;
+      }
       const data=await r.json().catch(()=>({}));
       if(r.status===401){localStorage.removeItem(TOKEN_KEY);window.location.replace('./login.html');throw Error('Sessão expirada.');}
       if(r.status===403){throw Error('Seu usuário não possui mais permissão de gestor.');}
@@ -221,7 +227,7 @@
     icon();
     if(!localStorage.getItem(TOKEN_KEY)){window.location.replace('./login.html');return;}
     req('/me').then(p=>{
-      if(p.u_gestor!==1)throw Error('Acesso restrito aos gestores.');
+      if(!flag(p.u_gestor))throw Error('Acesso restrito aos gestores.');
       return carregar();
     }).catch(e=>{erro(e.message,true);$('atualizar').disabled=true;$('salvarTodos').disabled=true;});
   })();
