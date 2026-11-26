@@ -60,6 +60,11 @@
     return Number.isFinite(num) ? num : 0;
   }
   function normalized(s) { return text(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
+  function formatEntryDate(raw) {
+    const dateText = text(raw);
+    const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateText);
+    return iso ? iso[3] + "/" + iso[2] + "/" + iso[1] : dateText;
+  }
   function isDone(row) { return number(row.u_revisado) === 1; }
   function formatNumber(v) { return new Intl.NumberFormat("pt-BR").format(v); }
   function formatIpi(v) { return v === null || v === undefined || text(v) === "" ? "—" : number(v).toLocaleString("pt-BR", { maximumFractionDigits: 4 }) + "%"; }
@@ -89,7 +94,12 @@
       u_revisado: value(row, "u_revisado") ?? 0,
       grupo: text(value(row, "grupo")),
       subgrupo1: text(value(row, "subgrupo1")),
-      subgrupo2: text(value(row, "subgrupo2"))
+      subgrupo2: text(value(row, "subgrupo2")),
+      // Campos informativos da última NF de entrada. Não participam das gravações.
+      ncm_ultima_entrada: text(value(row, "ncm_ultima_entrada")),
+      ultima_nf_entrada: text(value(row, "ultima_nf_entrada")),
+      dt_emissao_ultima_nf: text(value(row, "dt_emissao_ultima_nf")),
+      dt_recebimento_ultima_nf: text(value(row, "dt_recebimento_ultima_nf"))
     };
   }
   function normalizeNcm(row) {
@@ -433,6 +443,15 @@
       $("cbsCode").value = material.cclass_trib_ibscbs;
       $("cbsDescription").value = material.desc_cclass_trib_ibscbs;
     }
+    $("lastEntryNcm").value = material.ncm_ultima_entrada || "Não informado";
+    const dadosUltimaEntrada = [];
+    if (material.ultima_nf_entrada) dadosUltimaEntrada.push("NF " + material.ultima_nf_entrada);
+    const dataUltimaEntrada = material.dt_recebimento_ultima_nf || material.dt_emissao_ultima_nf;
+    if (dataUltimaEntrada) dadosUltimaEntrada.push("Data " + formatEntryDate(dataUltimaEntrada));
+    $("lastEntryInfo").textContent = [
+      ...dadosUltimaEntrada,
+      "Somente consulta: não altera o cadastro."
+    ].join(" · ");
     $("gtin").value = material.cean_i03;
     $("benefit").value = material.cbenef_i05f;
     $("reviewCurrent").textContent = isDone(material) ? "Material já revisado" : "Pendente de revisão";
