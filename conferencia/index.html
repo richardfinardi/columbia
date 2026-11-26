@@ -6,8 +6,8 @@
   <meta name="robots" content="noindex,nofollow">
   <link rel="icon" type="image/png" href="../LOGO MINIMALISTA.png">
   <title>Conferência de Revenda | Columbia Machine</title>
-  <link rel="stylesheet" href="./style.css?v=20261119-4">
-  <script defer src="./app.js?v=20261119-6"></script>
+  <link rel="stylesheet" href="./style.css?v=20261126-1">
+  <script defer src="./app.js?v=20261126-1"></script>
 </head>
 <body>
   <header class="topbar">
@@ -93,6 +93,14 @@
             <label class="field"><span>NCM</span><input id="ncmNumber" readonly tabindex="-1"></label>
             <label class="field full"><span>Descrição do NCM</span><input id="ncmDescription" readonly tabindex="-1"></label>
             <label class="field"><span>IPI do NCM (%)</span><input id="ncmIpi" readonly tabindex="-1"></label>
+          </div>
+          <div class="ncm-entrada-consulta" aria-label="Consulta da última nota fiscal de entrada">
+            <div class="ncm-entrada-head">
+              <span class="ncm-entrada-label">NCM da última NF de entrada</span>
+              <span class="ncm-entrada-tag">Somente consulta</span>
+            </div>
+            <input id="lastEntryNcm" type="text" readonly tabindex="-1" aria-label="NCM da última nota fiscal de entrada">
+            <small id="lastEntryInfo">Informação proveniente da última nota fiscal de entrada. Não altera o NCM cadastrado.</small>
           </div>
           <div class="section-label">Dados complementares</div>
           <div class="field-grid">
