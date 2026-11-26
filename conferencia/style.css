@@ -141,3 +141,9 @@ thead th:last-child{padding-right:15px}
 .ncm-comparison.ncm-igual{color:#12764f;background:#e3f7eb}
 .ncm-comparison.ncm-diferente{color:#a52b31;background:#fbe3e5}
 .ncm-comparison.ncm-indefinido{color:#69788a;background:#eef2f6}
+
+/* Fornecedor da última nota de entrada dentro da coluna NF / datas. */
+.nf-ultima-cell .nf-fornecedor{
+  display:block;max-width:260px;overflow-wrap:anywhere;
+  font-weight:750;font-size:11px;color:#1f567c;line-height:1.4;
+}
