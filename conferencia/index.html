@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="../LOGO MINIMALISTA.png">
   <title>Conferência de Revenda | Columbia Machine</title>
   <link rel="stylesheet" href="./style.css?v=20261126-3">
-  <script defer src="./app.js?v=20261126-3"></script>
+  <script defer src="./app.js?v=20261126-4"></script>
 </head>
 <body>
   <header class="topbar">
@@ -50,6 +50,12 @@
         <div class="filters">
           <label class="filter search"><span>Pesquisa incremental</span><input id="search" type="search" placeholder="Código, nome, grupo, subgrupo, NCM, GTIN, CBS..." autocomplete="off"></label>
           <label class="filter"><span>Situação</span><select id="statusFilter"><option value="all">Todos os materiais</option><option value="pending" selected>Somente pendentes</option><option value="done">Somente revisados</option></select></label>
+          <label class="filter"><span>Comparação NCM</span><select id="ncmCompareFilter">
+            <option value="all">Todos</option>
+            <option value="equal">Iguais</option>
+            <option value="different">Diferentes</option>
+            <option value="missing">Sem comparação</option>
+          </select></label>
           <label class="filter"><span>Exibir</span><select id="pageSize"><option>25</option><option selected>50</option><option>100</option></select></label>
           <button id="clearFilters" type="button" class="btn btn-text">Limpar todos os filtros</button>
         </div>
@@ -64,7 +70,7 @@
         <div class="table-scroll" tabindex="0" aria-label="Tabela de materiais com cabeçalho fixo. Role para baixo para ver linhas e horizontalmente para ver colunas">
           <table>
             <thead id="materialHead"></thead>
-            <tbody id="rows"><tr><td colspan="16" class="empty">Carregando materiais...</td></tr></tbody>
+            <tbody id="rows"><tr><td colspan="17" class="empty">Carregando materiais...</td></tr></tbody>
           </table>
         </div>
         <div class="pager"><span id="pageInfo"></span><div><button class="btn btn-text" id="previous" type="button">← Anterior</button><button class="btn btn-text" id="next" type="button">Próxima →</button></div></div>
