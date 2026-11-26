@@ -6,8 +6,8 @@
   <meta name="robots" content="noindex,nofollow">
   <link rel="icon" type="image/png" href="../LOGO MINIMALISTA.png">
   <title>Conferência de Revenda | Columbia Machine</title>
-  <link rel="stylesheet" href="./style.css?v=20261126-5">
-  <script defer src="./app.js?v=20261126-6"></script>
+  <link rel="stylesheet" href="./style.css?v=20261126-7">
+  <script defer src="./app.js?v=20261126-7"></script>
 </head>
 <body>
   <header class="topbar">
@@ -65,6 +65,14 @@
           <button id="selectFiltered" class="btn btn-text" type="button">Selecionar todos filtrados</button>
           <button id="clearSelection" class="btn btn-text" type="button">Desmarcar</button>
           <button id="openBulk" class="btn btn-primary" type="button" disabled>Alteração em massa</button>
+        </div>
+        <div class="sync-ncm-bar">
+          <div class="sync-ncm-caption">
+            <strong>Corrigir NCM conforme última entrada</strong>
+            <small id="syncNcmCount">Consultando materiais divergentes...</small>
+            <small>Somente materiais da filtragem atual com NCM diferente. Sem marcar como revisado.</small>
+          </div>
+          <button id="syncLastNcm" class="btn btn-sync-ncm" type="button" disabled>Corrigir NCM pela última NF</button>
         </div>
         <div id="dataError" class="error-message" role="alert" hidden></div>
         <div class="table-scroll" tabindex="0" aria-label="Tabela de materiais com cabeçalho fixo. Role para baixo para ver linhas e horizontalmente para ver colunas">
@@ -189,6 +197,41 @@
           <div id="bulkFooterError" class="bulk-footer-error" role="alert" aria-live="assertive" hidden></div>
           <button id="cancelBulk" class="btn btn-text" type="button">Cancelar</button>
           <button id="applyBulk" class="btn btn-primary" type="submit">Aplicar alterações no CPS</button>
+        </footer>
+      </form>
+    </section>
+  </div>
+  <div id="syncOverlay" class="overlay" hidden>
+    <section class="editor sync-editor" role="dialog" aria-modal="true" aria-labelledby="syncTitle">
+      <div class="editor-header">
+        <div>
+          <span class="eyebrow">CONFIRMAÇÃO FINAL · ATUALIZAÇÃO NO CPS</span>
+          <h2 id="syncTitle">Confirmar correção de NCM</h2>
+          <p>Esta operação altera o cadastro fiscal dos materiais filtrados.</p>
+        </div>
+        <button id="syncClose" class="icon-btn" type="button" aria-label="Cancelar e fechar">×</button>
+      </div>
+      <form id="syncForm" novalidate autocomplete="off">
+        <div class="editor-content">
+          <div class="sync-alert">
+            <strong>ATENÇÃO: alteração em massa no cadastro fiscal</strong>
+            <p id="syncSummary"></p>
+            <p>A operação irá buscar novamente a última entrada e validar cada NCM na tabela fiscal do CPS.
+            Se algum código não existir ou os dados mudarem desde a consulta, o lote será cancelado.</p>
+          </div>
+          <div class="sync-typed-check">
+            <label for="syncPhraseInput">Para autorizar, digite exatamente a frase abaixo:</label>
+            <strong id="syncPhraseText" class="sync-confirmation-phrase" draggable="false">SIM, TENHO CERTEZA</strong>
+            <input id="syncPhraseInput" type="text" autocomplete="off" autocorrect="off"
+              autocapitalize="characters" spellcheck="false" maxlength="18"
+              placeholder="Digite a frase acima manualmente" aria-describedby="syncInputHint" required>
+            <small id="syncInputHint">Copiar, colar e arrastar o texto estão bloqueados neste campo.</small>
+          </div>
+          <div id="syncError" class="error-message" role="alert" aria-live="assertive" hidden></div>
+        </div>
+        <footer class="editor-footer">
+          <button id="syncCancel" class="btn btn-text" type="button">Cancelar</button>
+          <button id="syncConfirm" class="btn btn-sync-ncm" type="submit" disabled>Confirmar e corrigir NCM</button>
         </footer>
       </form>
     </section>
