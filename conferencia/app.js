@@ -31,6 +31,7 @@
     ["unidade","Unidade"],
     ["classificacao_fiscal","NCM"],
     ["ncm_ultima_entrada","NCM última entrada"],
+    ["ultima_nf_detalhe","Última NF / datas"],
     ["ipi","IPI (%)"],
     ["cean_i03","GTIN"],
     ["cbenef_i05f","Benefício fiscal"],
@@ -66,6 +67,19 @@
     const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateText);
     return iso ? iso[3] + "/" + iso[2] + "/" + iso[1] : dateText;
   }
+  // Compara apenas NCMs informados. Aceita pontuação (84.74.90.00)
+  // e eventuais zeros à esquerda perdidos ao importar números.
+  function normalizeNcmCompare(raw) {
+    const str = text(raw);
+    if (!str) return "";
+    const digits = str.replace(/\D/g, "");
+    return digits && digits.length <= 8 ? digits.padStart(8, "0") : digits;
+  }
+  function hasNcmDivergence(row) {
+    const ncmProduto = normalizeNcmCompare(row.classificacao_fiscal);
+    const ncmEntrada = normalizeNcmCompare(row.ncm_ultima_entrada);
+    return Boolean(ncmProduto && ncmEntrada && ncmProduto !== ncmEntrada);
+  }
   function isDone(row) { return number(row.u_revisado) === 1; }
   function formatNumber(v) { return new Intl.NumberFormat("pt-BR").format(v); }
   function formatIpi(v) { return v === null || v === undefined || text(v) === "" ? "—" : number(v).toLocaleString("pt-BR", { maximumFractionDigits: 4 }) + "%"; }
@@ -100,7 +114,13 @@
       ncm_ultima_entrada: text(value(row, "ncm_ultima_entrada")),
       ultima_nf_entrada: text(value(row, "ultima_nf_entrada")),
       dt_emissao_ultima_nf: text(value(row, "dt_emissao_ultima_nf")),
-      dt_recebimento_ultima_nf: text(value(row, "dt_recebimento_ultima_nf"))
+      dt_recebimento_ultima_nf: text(value(row, "dt_recebimento_ultima_nf")),
+      // Agrupa NF e datas para a filtragem individual da coluna.
+      ultima_nf_detalhe: [
+        text(value(row, "ultima_nf_entrada")),
+        formatEntryDate(value(row, "dt_emissao_ultima_nf")),
+        formatEntryDate(value(row, "dt_recebimento_ultima_nf"))
+      ].filter(Boolean).join(" · ")
     };
   }
   function normalizeNcm(row) {
@@ -256,6 +276,7 @@
       row.codigo, row.codigo_interno, row.nome, row.grupo, row.subgrupo1,
       row.subgrupo2, row.classificacao_fiscal, row.descricao_classi_fiscal,
       row.ncm_ultima_entrada, row.ultima_nf_entrada,
+      row.dt_emissao_ultima_nf, row.dt_recebimento_ultima_nf, row.ultima_nf_detalhe,
       row.cean_i03, row.cbenef_i05f, row.cclass_trib_ibscbs,
       row.desc_cclass_trib_ibscbs
     ].join(" ")).includes(q);
@@ -287,7 +308,25 @@
       if(row.ultima_nf_entrada) informacoes.push("NF "+row.ultima_nf_entrada);
       const data=row.dt_recebimento_ultima_nf||row.dt_emissao_ultima_nf;
       if(data) informacoes.push("Data "+formatEntryDate(data));
-      return '<div class="single-line ncm-entry-cell" title="'+escapeHtml(informacoes.join(" · ")||"Última NF de entrada · somente consulta")+'">'+cell(row.ncm_ultima_entrada)+'</div>';
+      const divergence = hasNcmDivergence(row);
+      const title = divergence
+        ? "NCM divergente do cadastro: "+(row.classificacao_fiscal||"não informado")+
+          " × "+row.ncm_ultima_entrada+". "+informacoes.join(" · ")
+        : (informacoes.join(" · ")||"Última NF de entrada · somente consulta");
+      return '<div class="single-line ncm-entry-cell'+(divergence?' ncm-divergente':'')+'" title="'+
+        escapeHtml(title)+'">'+cell(row.ncm_ultima_entrada)+'</div>';
+    }
+    if (key==="ultima_nf_detalhe") {
+      if (!row.ultima_nf_entrada && !row.dt_recebimento_ultima_nf && !row.dt_emissao_ultima_nf)
+        return '<span class="nf-sem-dados">Sem entrada</span>';
+      const nr = row.ultima_nf_entrada ? 'NF '+escapeHtml(row.ultima_nf_entrada) : 'NF não informada';
+      const emissao = row.dt_emissao_ultima_nf ? 'Emissão: '+escapeHtml(formatEntryDate(row.dt_emissao_ultima_nf)) : '';
+      const recebimento = row.dt_recebimento_ultima_nf ? 'Entrada: '+escapeHtml(formatEntryDate(row.dt_recebimento_ultima_nf)) : '';
+      return '<div class="nf-ultima-cell" title="Dados da última nota fiscal de entrada · somente consulta">'+
+        '<strong>'+nr+'</strong>'+
+        (emissao?'<small>'+emissao+'</small>':'')+
+        (recebimento?'<small>'+recebimento+'</small>':'')+
+        '</div>';
     }
     if (key==="ipi") return escapeHtml(formatIpi(row.ipi));
     if (key==="u_revisado") return '<span class="status '+(isDone(row)?"done":"pending")+'">'+(isDone(row)?"Revisado":"Pendente")+'</span>';
