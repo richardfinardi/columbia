@@ -400,13 +400,19 @@
     $("selectedCount").textContent=formatNumber(state.selected.size)+" materiais selecionados";
     $("openBulk").disabled=!state.selected.size||!state.referenceReady||state.selected.size>BULK_MAX;
     $("openBulk").title=state.selected.size>BULK_MAX?"Máximo de "+BULK_MAX+" materiais por lote":"";
-    const divergentes = rows.filter(hasNcmDivergence);
-    $("syncNcmCount").textContent = formatNumber(divergentes.length)+" divergente(s) entre "+
-      formatNumber(rows.length)+" material(is) filtrado(s)";
-    $("syncLastNcm").disabled = divergentes.length===0 || divergentes.length>BULK_MAX ||
+    // Apenas registros MARCADOS, ainda visíveis nos filtros e com NCM divergente.
+    const syncRows = rows.filter((row) =>
+      state.selected.has(String(row.codigo)) && hasNcmDivergence(row));
+    const selectedFiltered = rows.filter((row) =>
+      state.selected.has(String(row.codigo))).length;
+    $("syncNcmCount").textContent =
+      formatNumber(syncRows.length)+" selecionado(s) divergente(s) de "+
+      formatNumber(selectedFiltered)+" selecionado(s) nos filtros ("+
+      formatNumber(rows.length)+" material(is) filtrado(s))";
+    $("syncLastNcm").disabled = syncRows.length===0 || syncRows.length>BULK_MAX ||
       state.loading || state.syncInFlight;
-    $("syncLastNcm").title = divergentes.length>BULK_MAX
-      ? "Refine os filtros para até "+BULK_MAX+" itens divergentes por operação." : "";
+    $("syncLastNcm").title = syncRows.length>BULK_MAX
+      ? "Selecione no máximo "+BULK_MAX+" materiais divergentes por operação." : "";
     document.querySelectorAll("[data-filter-open]").forEach((button)=>{
       const selected=state.columnFilters[button.dataset.filterOpen];
       const active=selected instanceof Set;
@@ -634,10 +640,11 @@
     state.material = null;
     document.body.style.overflow = "";
   }
-  // A seleção para esta operação vem SOMENTE do resultado filtrado,
-  // independente dos checkboxes da alteração em massa.
+  // O lote considera a INTERSEÇÃO entre linhas marcadas, filtros atuais e divergência.
+  // Nunca inclui linhas apenas filtradas que não foram selecionadas pelo usuário.
   function syncCandidates() {
-    return filtered().filter(hasNcmDivergence);
+    return filtered().filter((row) =>
+      state.selected.has(String(row.codigo)) && hasNcmDivergence(row));
   }
   function closeSyncModal() {
     if(state.syncInFlight)return;
@@ -650,19 +657,20 @@
   function openSyncLastNcm() {
     if(state.syncInFlight || state.loading)return;
     const visible=filtered();
-    const candidates=visible.filter(hasNcmDivergence);
+    const candidates=syncCandidates();
     if(!candidates.length)
-      return showToast("Não há NCM divergente entre os materiais filtrados.",true);
+      return showToast("Selecione pelo menos um material divergente nos filtros atuais.",true);
     if(candidates.length>BULK_MAX)
-      return showToast("Refine os filtros para no máximo "+BULK_MAX+" materiais divergentes.",true);
+      return showToast("Selecione no máximo "+BULK_MAX+" materiais divergentes.",true);
     const count=candidates.length;
     if(!window.confirm(
       "TEM CERTEZA????\n\n"+
-      "Você vai corrigir o NCM de "+formatNumber(count)+" material(is) DIVERGENTE(S),"+
-      " entre "+formatNumber(visible.length)+" material(is) filtrado(s).\n\n"+
+      "Você vai corrigir o NCM de SOMENTE "+formatNumber(count)+
+      " material(is) MARCADO(S) E DIVERGENTE(S).\n"+
+      "Existem "+formatNumber(visible.length)+" materiais filtrados, mas os não selecionados NÃO serão alterados.\n\n"+
       "O NCM, código fiscal, descrição e IPI serão substituídos pelos dados"+
       " correspondentes à última NF de entrada.\n"+
-      "Nenhum material fora dos filtros será solicitado para atualização."
+      "Nenhum material sem check marcado será enviado para atualização."
     ))return;
     // Congela a lista e os valores vistos no momento da primeira confirmação.
     // O servidor conferirá novamente a última NF e o cadastro de cada item.
@@ -672,9 +680,9 @@
       ncm_ultima_entrada:row.ncm_ultima_entrada
     }));
     $("syncSummary").textContent =
-      formatNumber(count)+" material(is) divergente(s) de "+
-      formatNumber(visible.length)+" filtrado(s). Não serão alterados CBS/IBS, GTIN,"+
-      " benefício fiscal ou situação da revisão.";
+      "Apenas "+formatNumber(count)+" material(is) MARCADO(S) e divergente(s) serão alterados,"+
+      " entre "+formatNumber(visible.length)+" materiais filtrados. "+
+      "Itens desmarcados NÃO serão alterados. CBS/IBS, GTIN, benefício fiscal e revisão serão preservados.";
     $("syncPhraseInput").value="";
     $("syncConfirm").disabled=true;
     $("syncError").textContent="";
