@@ -22,13 +22,14 @@
       </div>
       <div class="flex items-center gap-2">
         <span id="userDisplay" class="hidden sm:inline text-xs font-bold bg-columbia-800 px-3 py-2 rounded-xl"></span>
-        <a id="linkGestaoAcessos" href="./gerenciar-acessos.html" class="hidden items-center justify-center rounded-xl px-2.5 py-2 bg-white/15 hover:bg-white/25 border border-white/20" title="Gerenciar acessos (gestor)" aria-label="Gerenciar acessos"><i data-lucide="shield-check" class="w-5 h-5"></i></a>
+        <a id="linkGestaoAcessos" href="./gerenciar-acessos.html" class="hidden items-center justify-center rounded-xl px-2.5 py-2 bg-white/15 hover:bg-white/25 border border-white/20" title="Gerenciar acessos (gestor)" aria-label="Gerenciar acessos"><i data-lucide="shield-check" class="w-5 h-5"></i><span class="hidden sm:inline text-xs font-bold ml-1.5">Acessos</span></a>
         <button onclick="logout()" class="flex items-center gap-1.5 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-xl text-xs font-bold"><i data-lucide="log-out" class="w-4 h-4"></i>Sair</button>
       </div>
     </div>
   </header>
   <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
     <div class="mb-6"><h2 class="text-2xl sm:text-3xl font-black text-slate-900">Menu</h2><p class="text-sm text-slate-500 mt-1">Escolha o módulo que deseja acessar.</p></div>
+    <div id="gestorStatus" role="status" class="hidden mb-5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><span id="gestorStatusMsg"></span> <button type="button" onclick="verificarGestor()" class="font-bold underline ml-2">Tentar novamente</button></div>
     <section class="grid md:grid-cols-3 gap-5">
       <a id="cardConferencia" href="conferencia/" class="group hidden bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition p-6 sm:p-7">
         <div class="w-12 h-12 rounded-2xl bg-blue-50 text-columbia-700 flex items-center justify-center mb-5"><i data-lucide="clipboard-check" class="w-6 h-6"></i></div>
@@ -100,16 +101,35 @@
     function logout(){localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(PERMISSIONS_KEY);localStorage.removeItem('columbia_analista_usuario');localStorage.removeItem('columbia_analista_cod_responsavel');window.location.href='login.html'}
     async function verificarGestor(){
       const token=localStorage.getItem(TOKEN_KEY);
+      const link=document.getElementById('linkGestaoAcessos');
+      const status=document.getElementById('gestorStatus');
+      const msg=document.getElementById('gestorStatusMsg');
+      link.classList.add('hidden');
+      link.classList.remove('inline-flex');
+      status.classList.add('hidden');
       if(!token)return;
       try{
-        const r=await fetch(API_BASE+'/permissoes/me',{headers:{Authorization:'Bearer '+token},cache:'no-store'});
-        if(!r.ok)return;
+        const urls=[API_BASE+'/permissoes/me',new URL(API_BASE).origin+'/permissoes/me'];
+        let r;
+        for(const url of urls){
+          r=await fetch(url,{headers:{Authorization:'Bearer '+token},cache:'no-store'});
+          if(r.status!==404 && r.status!==405)break;
+        }
+        if(r.status===401 || r.status===403){
+          if(r.status===401)throw new Error('sessão não reconhecida pela API (HTTP 401). Saia e entre novamente.');
+          return;
+        }
+        if(!r.ok)throw new Error('API de acessos indisponível (HTTP '+r.status+').');
         const p=await r.json();
-        const gestor=Number(p.u_gestor||0)===1;
-        const link=document.getElementById('linkGestaoAcessos');
+        if(![0,1,'0','1',true,false].includes(p.u_gestor))throw new Error('a API não informou o perfil gestor.');
+        const gestor=Number(p.u_gestor)===1;
+        if(localStorage.getItem(TOKEN_KEY)!==token)return;
         link.classList.toggle('hidden',!gestor);
         link.classList.toggle('inline-flex',gestor);
-      }catch(_){ /* gestor nao liberado quando a API estiver indisponivel */ }
+      }catch(e){
+        msg.textContent='Não foi possível verificar o gerenciamento de acessos: '+(e.message||'falha de comunicação.');
+        status.classList.remove('hidden');
+      }
     }
     lucide.createIcons();carregarPermissoes();verificarGestor();
   </script>
