@@ -341,7 +341,7 @@
       const fornecedor = row.fornecedor_ultima_entrada ? escapeHtml(row.fornecedor_ultima_entrada) : "";
       return '<div class="nf-ultima-cell" title="Dados da última nota fiscal de entrada · somente consulta">'+
         '<strong>'+nr+'</strong>'+
-        (fornecedor?'<span class="nf-fornecedor" title="'+fornecedor+'">Fornecedor: '+fornecedor+'</span>':'')+
+        '<span class="nf-fornecedor" title="'+(fornecedor||'Não informado')+'">Fornecedor: '+(fornecedor||'Não informado')+'</span>'+
         (emissao?'<small>'+emissao+'</small>':'')+
         (recebimento?'<small>'+recebimento+'</small>':'')+
         '</div>';
