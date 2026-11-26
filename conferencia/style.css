@@ -81,3 +81,12 @@ thead th:last-child{padding-right:15px}
   .bulk-footer-error{flex:1 0 100%;font-size:11px}
   .bulk-footer .btn{flex:1}
 }
+
+
+/* NCM trazido da última NF de entrada: exclusivamente informativo. */
+.ncm-entrada-consulta{margin:20px 0 6px;padding:15px 17px;background:#f2f7fc;border:1px solid #d6e5f4;border-left:3px solid #347fbc;border-radius:10px}
+.ncm-entrada-head{display:flex;align-items:center;gap:9px;justify-content:space-between;flex-wrap:wrap;margin-bottom:10px}
+.ncm-entrada-label{font-size:12px;font-weight:850;color:#174f80}
+.ncm-entrada-tag{font-size:10px;font-weight:800;color:#516b85;border-radius:999px;padding:5px 8px;background:#e0ebf5}
+.ncm-entrada-consulta input[readonly]{background:#fff;color:#264d70;font-weight:800}
+.ncm-entrada-consulta small{display:block;font-size:11px;color:#6a7f93;margin-top:9px;line-height:1.5}
