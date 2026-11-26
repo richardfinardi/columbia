@@ -81,12 +81,14 @@
   function hasNcmDivergence(row) {
     const ncmProduto = normalizeNcmCompare(row.classificacao_fiscal);
     const ncmEntrada = normalizeNcmCompare(row.ncm_ultima_entrada);
-    return Boolean(ncmProduto && ncmEntrada && ncmProduto !== ncmEntrada);
+    // A NF possui NCM e o cadastro está vazio? Também é divergente.
+    // Sem NCM na NF não existe valor seguro a ser copiado.
+    return Boolean(ncmEntrada && ncmProduto !== ncmEntrada);
   }
   function ncmComparisonStatus(row) {
     const produto = normalizeNcmCompare(row.classificacao_fiscal);
     const entrada = normalizeNcmCompare(row.ncm_ultima_entrada);
-    if (!produto || !entrada) return "Sem comparação";
+    if (!entrada) return "Sem comparação";
     return produto === entrada ? "Igual" : "Diferente";
   }
   function isDone(row) { return number(row.u_revisado) === 1; }
