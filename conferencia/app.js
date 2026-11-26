@@ -7,7 +7,8 @@
     ncm: ROOT + "/ncm",
     cbs: ROOT + "/cbsibs",
     salvar: ROOT + "/revenda/atualizar",
-    salvarLote: ROOT + "/revenda/atualizar-lote"
+    salvarLote: ROOT + "/revenda/atualizar-lote",
+    sincronizarNcm: ROOT + "/revenda/sincronizar-ncm-ultima-entrada"
   };
   const TOKEN_KEY = "columbia_analista_token";
   const USER_KEY = "columbia_analista_usuario";
@@ -18,7 +19,8 @@
     sort: "nome", direction: 1, material: null,
     selectedNcm: null, selectedCbs: null, inFlight: false, toastTimer: null,
     selected: new Set(), columnFilters: {}, openFilter: null, filterDraft: null, searchTimer: null,
-    bulkNcm: null, bulkCbs: null, bulkInFlight: false
+    bulkNcm: null, bulkCbs: null, bulkInFlight: false,
+    syncPending: null, syncInFlight: false
   };
 
 
@@ -72,7 +74,7 @@
   // e eventuais zeros à esquerda perdidos ao importar números.
   function normalizeNcmCompare(raw) {
     const str = text(raw);
-    if (!str) return "";
+    if (!str || !/^[\d.\s-]+$/.test(str)) return "";
     const digits = str.replace(/\D/g, "");
     return digits && digits.length <= 8 ? digits.padStart(8, "0") : digits;
   }
@@ -398,6 +400,13 @@
     $("selectedCount").textContent=formatNumber(state.selected.size)+" materiais selecionados";
     $("openBulk").disabled=!state.selected.size||!state.referenceReady||state.selected.size>BULK_MAX;
     $("openBulk").title=state.selected.size>BULK_MAX?"Máximo de "+BULK_MAX+" materiais por lote":"";
+    const divergentes = rows.filter(hasNcmDivergence);
+    $("syncNcmCount").textContent = formatNumber(divergentes.length)+" divergente(s) entre "+
+      formatNumber(rows.length)+" material(is) filtrado(s)";
+    $("syncLastNcm").disabled = divergentes.length===0 || divergentes.length>BULK_MAX ||
+      state.loading || state.syncInFlight;
+    $("syncLastNcm").title = divergentes.length>BULK_MAX
+      ? "Refine os filtros para até "+BULK_MAX+" itens divergentes por operação." : "";
     document.querySelectorAll("[data-filter-open]").forEach((button)=>{
       const selected=state.columnFilters[button.dataset.filterOpen];
       const active=selected instanceof Set;
@@ -625,6 +634,131 @@
     state.material = null;
     document.body.style.overflow = "";
   }
+  // A seleção para esta operação vem SOMENTE do resultado filtrado,
+  // independente dos checkboxes da alteração em massa.
+  function syncCandidates() {
+    return filtered().filter(hasNcmDivergence);
+  }
+  function closeSyncModal() {
+    if(state.syncInFlight)return;
+    $("syncOverlay").hidden=true;
+    $("syncPhraseInput").value="";
+    $("syncConfirm").disabled=true;
+    state.syncPending=null;
+    document.body.style.overflow="";
+  }
+  function openSyncLastNcm() {
+    if(state.syncInFlight || state.loading)return;
+    const visible=filtered();
+    const candidates=visible.filter(hasNcmDivergence);
+    if(!candidates.length)
+      return showToast("Não há NCM divergente entre os materiais filtrados.",true);
+    if(candidates.length>BULK_MAX)
+      return showToast("Refine os filtros para no máximo "+BULK_MAX+" materiais divergentes.",true);
+    const count=candidates.length;
+    if(!window.confirm(
+      "TEM CERTEZA????\n\n"+
+      "Você vai corrigir o NCM de "+formatNumber(count)+" material(is) DIVERGENTE(S),"+
+      " entre "+formatNumber(visible.length)+" material(is) filtrado(s).\n\n"+
+      "O NCM, código fiscal, descrição e IPI serão substituídos pelos dados"+
+      " correspondentes à última NF de entrada.\n"+
+      "Nenhum material fora dos filtros será solicitado para atualização."
+    ))return;
+    // Congela a lista e os valores vistos no momento da primeira confirmação.
+    // O servidor conferirá novamente a última NF e o cadastro de cada item.
+    state.syncPending=candidates.map((row)=>({
+      codigo:Number(row.codigo),
+      ncm_cadastrado:row.classificacao_fiscal,
+      ncm_ultima_entrada:row.ncm_ultima_entrada
+    }));
+    $("syncSummary").textContent =
+      formatNumber(count)+" material(is) divergente(s) de "+
+      formatNumber(visible.length)+" filtrado(s). Não serão alterados CBS/IBS, GTIN,"+
+      " benefício fiscal ou situação da revisão.";
+    $("syncPhraseInput").value="";
+    $("syncConfirm").disabled=true;
+    $("syncError").textContent="";
+    $("syncError").hidden=true;
+    $("syncOverlay").hidden=false;
+    document.body.style.overflow="hidden";
+    $("syncPhraseInput").focus();
+  }
+  async function confirmSyncLastNcm(event) {
+    event.preventDefault();
+    if(state.syncInFlight || !state.syncPending)return;
+    if($("syncPhraseInput").value!=="SIM, TENHO CERTEZA"){
+      alertBox("syncError","Digite exatamente SIM, TENHO CERTEZA, sem copiar e colar.");
+      return;
+    }
+    const items=state.syncPending.slice();
+    if(!items.length || items.length>BULK_MAX)return;
+    state.syncInFlight=true;
+    const controls=["syncConfirm","syncCancel","syncClose"];
+    controls.forEach((id)=>$(id).disabled=true);
+    $("syncPhraseInput").disabled=true;
+    alertBox("syncError","");
+    const button=$("syncConfirm"),old=button.textContent;
+    button.textContent="Corrigindo "+formatNumber(items.length)+" materiais...";
+    try {
+      const response=await apiFetch(API.sincronizarNcm,{
+        method:"POST",
+        body:JSON.stringify({itens:items})
+      });
+      if(!response || response.ok!==true || Number(response.quantidade)!==items.length)
+        throw new Error("A API não confirmou todas as alterações. Confira os dados antes de repetir.");
+      state.syncInFlight=false;
+      closeSyncModal();
+      await loadAll();
+      showToast(formatNumber(items.length)+" NCMs corrigidos conforme a última NF de entrada.");
+    } catch(error) {
+      let msg=error.message;
+      if(error.status===404 || error.status===405)
+        msg="O servidor ainda não possui a rota POST /revenda/sincronizar-ncm-ultima-entrada. "+
+          "É necessário instalar a API Python atualizada.";
+      if(error.status===409)
+        msg+=" A correção foi cancelada. Recarregue o portal e confira novamente.";
+      alertBox("syncError",msg);
+      showToast("A correção do NCM não foi confirmada.",true);
+    } finally {
+      state.syncInFlight=false;
+      $("syncPhraseInput").disabled=false;
+      button.textContent=old;
+      controls.forEach((id)=>$(id).disabled=false);
+      $("syncConfirm").disabled=$("syncPhraseInput").value!=="SIM, TENHO CERTEZA";
+    }
+  }
+  function bindSyncLastNcm() {
+    $("syncLastNcm").addEventListener("click",openSyncLastNcm);
+    $("syncClose").addEventListener("click",closeSyncModal);
+    $("syncCancel").addEventListener("click",closeSyncModal);
+    $("syncOverlay").addEventListener("mousedown",(event)=>{
+      if(event.target===$("syncOverlay"))closeSyncModal();
+    });
+    $("syncForm").addEventListener("submit",confirmSyncLastNcm);
+    const field=$("syncPhraseInput"), phrase=$("syncPhraseText");
+    // Evita colar, arrastar, atalhos e preenchimento automático no campo.
+    ["paste","drop"].forEach((name)=>field.addEventListener(name,(event)=>event.preventDefault()));
+    field.addEventListener("beforeinput",(event)=>{
+      if(["insertFromPaste","insertFromDrop","insertReplacementText","insertFromYank"].includes(event.inputType))
+        event.preventDefault();
+    });
+    field.addEventListener("keydown",(event)=>{
+      if((event.ctrlKey||event.metaKey)&&["v","c","x"].includes(event.key.toLowerCase()))
+        event.preventDefault();
+    });
+    field.addEventListener("input",()=>{
+      $("syncConfirm").disabled=field.value!=="SIM, TENHO CERTEZA";
+      alertBox("syncError","");
+    });
+    // O texto da confirmação não pode ser selecionado ou copiado na janela.
+    ["copy","cut","dragstart","contextmenu"].forEach((name)=>
+      phrase.addEventListener(name,(event)=>event.preventDefault()));
+    $("syncOverlay").addEventListener("copy",(event)=>event.preventDefault());
+    document.addEventListener("keydown",(event)=>{
+      if(event.key==="Escape"&&!$("syncOverlay").hidden)closeSyncModal();
+    });
+  }
+
   function selectedMaterials() {
     return state.materials.filter((row)=>state.selected.has(String(row.codigo)));
   }
@@ -939,6 +1073,7 @@
   async function init() {
     initHeaders();
     bind();
+    bindSyncLastNcm();
     if (!(await verifyAccess())) return;
     await loadAll();
   }
