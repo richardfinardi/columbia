@@ -120,11 +120,13 @@
       // Campos informativos da última NF de entrada. Não participam das gravações.
       ncm_ultima_entrada: text(value(row, "ncm_ultima_entrada")),
       ultima_nf_entrada: text(value(row, "ultima_nf_entrada")),
+      fornecedor_ultima_entrada: text(value(row, "fornecedor_ultima_entrada", "ultimo_fornecedor", "fornecedor_ultima_nf", "fornecedor")),
       dt_emissao_ultima_nf: text(value(row, "dt_emissao_ultima_nf")),
       dt_recebimento_ultima_nf: text(value(row, "dt_recebimento_ultima_nf")),
       // Agrupa NF e datas para a filtragem individual da coluna.
       ultima_nf_detalhe: [
         text(value(row, "ultima_nf_entrada")),
+        text(value(row, "fornecedor_ultima_entrada", "ultimo_fornecedor", "fornecedor_ultima_nf", "fornecedor")),
         formatEntryDate(value(row, "dt_emissao_ultima_nf")),
         formatEntryDate(value(row, "dt_recebimento_ultima_nf"))
       ].filter(Boolean).join(" · ")
@@ -289,7 +291,7 @@
     return normalized([
       row.codigo, row.codigo_interno, row.nome, row.grupo, row.subgrupo1,
       row.subgrupo2, row.classificacao_fiscal, row.descricao_classi_fiscal,
-      row.ncm_ultima_entrada, row.ultima_nf_entrada,
+      row.ncm_ultima_entrada, row.ultima_nf_entrada, row.fornecedor_ultima_entrada,
       row.dt_emissao_ultima_nf, row.dt_recebimento_ultima_nf, row.ultima_nf_detalhe,
       row.cean_i03, row.cbenef_i05f, row.cclass_trib_ibscbs,
       row.desc_cclass_trib_ibscbs
@@ -331,13 +333,15 @@
         escapeHtml(title)+'">'+cell(row.ncm_ultima_entrada)+'</div>';
     }
     if (key==="ultima_nf_detalhe") {
-      if (!row.ultima_nf_entrada && !row.dt_recebimento_ultima_nf && !row.dt_emissao_ultima_nf)
+      if (!row.ultima_nf_entrada && !row.dt_recebimento_ultima_nf && !row.dt_emissao_ultima_nf && !row.fornecedor_ultima_entrada)
         return '<span class="nf-sem-dados">Sem entrada</span>';
       const nr = row.ultima_nf_entrada ? 'NF '+escapeHtml(row.ultima_nf_entrada) : 'NF não informada';
       const emissao = row.dt_emissao_ultima_nf ? 'Emissão: '+escapeHtml(formatEntryDate(row.dt_emissao_ultima_nf)) : '';
       const recebimento = row.dt_recebimento_ultima_nf ? 'Entrada: '+escapeHtml(formatEntryDate(row.dt_recebimento_ultima_nf)) : '';
+      const fornecedor = row.fornecedor_ultima_entrada ? escapeHtml(row.fornecedor_ultima_entrada) : "";
       return '<div class="nf-ultima-cell" title="Dados da última nota fiscal de entrada · somente consulta">'+
         '<strong>'+nr+'</strong>'+
+        (fornecedor?'<span class="nf-fornecedor" title="'+fornecedor+'">Fornecedor: '+fornecedor+'</span>':'')+
         (emissao?'<small>'+emissao+'</small>':'')+
         (recebimento?'<small>'+recebimento+'</small>':'')+
         '</div>';
@@ -513,6 +517,7 @@
     $("lastEntryNcm").value = material.ncm_ultima_entrada || "Não informado";
     const dadosUltimaEntrada = [];
     if (material.ultima_nf_entrada) dadosUltimaEntrada.push("NF " + material.ultima_nf_entrada);
+    if (material.fornecedor_ultima_entrada) dadosUltimaEntrada.push("Fornecedor: " + material.fornecedor_ultima_entrada);
     const dataUltimaEntrada = material.dt_recebimento_ultima_nf || material.dt_emissao_ultima_nf;
     if (dataUltimaEntrada) dadosUltimaEntrada.push("Data " + formatEntryDate(dataUltimaEntrada));
     $("lastEntryInfo").textContent = [
